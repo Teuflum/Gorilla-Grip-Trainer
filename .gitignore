@@ -1,0 +1,15 @@
+# Supplied local-only audio and generated recordings.
+local_audio/
+LocalSounds/
+SP2_*.wav
+Sample_*.wav
+WSR_*.mp3
+history.json
+history.json.bak
+*.Replay.Gbx
+*.Ghost.gbx
+*.Map.Gbx
+*.exe
+*.csv
+__pycache__/
+.pytest_cache/

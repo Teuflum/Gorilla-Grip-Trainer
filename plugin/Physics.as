@@ -12,6 +12,7 @@ class PhysicsSnapshot {
     uint contactMask = 0;
     float meanIcing = 0.0f;
     float speedKmh = 0.0f;
+    float yaw = 0.0f;
 
     string ContactBits() const {
         string bits = "";
@@ -58,6 +59,7 @@ PhysicsSnapshot@ ReadPhysics(CSceneVehicleVisState@ vis, int raceTime) {
     snap.meanIcing = (vis.FLIcing01 + vis.FRIcing01 +
         vis.RLIcing01 + vis.RRIcing01) * 0.25f;
     snap.speedKmh = vis.WorldVel.Length() * 3.6f;
+    snap.yaw = Math::Atan2(vis.Dir.x, vis.Dir.z);
     if (!g_supportedBuild) return snap;
 
     auto app = GetApp();

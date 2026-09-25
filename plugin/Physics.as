@@ -1,0 +1,101 @@
+// Read-only snapshots of the active physics car on the validated game build.
+class PhysicsSnapshot {
+    bool exact = false;
+    int raceTime = -1;
+    int gameTime = -1;
+    float rawSteer = 0.0f;
+    float smoothedSteer = 0.0f;
+    int mode = 0;
+    uint modeAt = 0;
+    float force = 1.0f;
+    int recoveryDelayMs = 400;
+    uint contactMask = 0;
+    float meanIcing = 0.0f;
+    float speedKmh = 0.0f;
+
+    string ContactBits() const {
+        string bits = "";
+        for (uint i = 0; i < 4; i++)
+            bits += (contactMask & (1 << i)) != 0 ? "1" : "0";
+        return bits;
+    }
+}
+
+bool IsSupportedBuild() {
+    uint64 base = Dev::BaseAddress();
+    uint peOffset = Dev::SafeReadUint32(base + 0x3c);
+    return peOffset > 0x40 && peOffset < 0x1000 &&
+        Dev::SafeReadUint32(base + peOffset + 8) == 0x6980d607 &&
+        Dev::SafeReadUint32(base + peOffset + 24 + 56) == 0x2cba000;
+}
+
+int ReadRaceTime(CSceneVehicleVisState@ vis) {
+    auto app = GetApp();
+    int t = -1;
+    int start = int(vis.RaceStartTime);
+    if (app !is null && app.CurrentPlayground !is null &&
+        app.CurrentPlayground.GameTerminals.Length > 0) {
+        CSmPlayer@ player = cast<CSmPlayer>(app.CurrentPlayground.GameTerminals[0].GUIPlayer);
+        if (player !is null) {
+            CSmScriptPlayer@ script = cast<CSmScriptPlayer>(player.ScriptAPI);
+            if (script !is null) {
+                t = script.CurrentRaceTime;
+                start = script.StartTime;
+            }
+        }
+    }
+    if (t <= 0 && app !is null && app.Network !is null &&
+        app.Network.PlaygroundClientScriptAPI !is null) {
+        auto api = cast<CGamePlaygroundClientScriptAPI>(app.Network.PlaygroundClientScriptAPI);
+        if (api !is null) t = api.GameTime - start;
+    }
+    return t;
+}
+
+PhysicsSnapshot@ ReadPhysics(CSceneVehicleVisState@ vis, int raceTime) {
+    PhysicsSnapshot@ snap = PhysicsSnapshot();
+    snap.raceTime = raceTime;
+    snap.meanIcing = (vis.FLIcing01 + vis.FRIcing01 +
+        vis.RLIcing01 + vis.RRIcing01) * 0.25f;
+    snap.speedKmh = vis.WorldVel.Length() * 3.6f;
+    if (!g_supportedBuild) return snap;
+
+    auto app = GetApp();
+    if (app is null || app.CurrentPlayground is null ||
+        app.CurrentPlayground.GameTerminals.Length == 0) return snap;
+    if (app.Network !is null && app.Network.PlaygroundClientScriptAPI !is null) {
+        auto api = cast<CGamePlaygroundClientScriptAPI>(app.Network.PlaygroundClientScriptAPI);
+        if (api !is null) snap.gameTime = api.GameTime;
+    }
+    CSmPlayer@ player = cast<CSmPlayer>(app.CurrentPlayground.GameTerminals[0].GUIPlayer);
+    if (player is null) return snap;
+    uint64 vehicle = Dev::GetOffsetUint64(player, 0x1118);
+    if (vehicle < 0x10000 || Dev::SafeReadUint32(vehicle + 0x380) != 4) return snap;
+    uint64 model = Dev::SafeReadUint64(vehicle + 0x88);
+    if (model < 0x10000) return snap;
+    vec3 pos = Dev::SafeReadVec3(vehicle + 0x538);
+    if ((pos - vis.Position).Length() > 4.0f) return snap;
+
+    float raw = Dev::SafeReadFloat(vehicle + 0xa0);
+    float smooth = Dev::SafeReadFloat(vehicle + 0x1430);
+    float force = Dev::SafeReadFloat(vehicle + 0x14dc);
+    uint8 mode = Dev::SafeReadUint8(vehicle + 0x14e5);
+    uint delay = Dev::SafeReadUint32(model + 0x1194);
+    if (Math::Abs(raw - vis.InputSteer) > 0.25f ||
+        smooth < -1.001f || smooth > 1.001f ||
+        force < 0.95f || force > 2.1f || mode > 2 ||
+        delay < 100 || delay > 1000) return snap;
+
+    snap.rawSteer = raw;
+    snap.smoothedSteer = smooth;
+    snap.mode = int(mode);
+    snap.modeAt = Dev::SafeReadUint32(vehicle + 0x14d8);
+    snap.force = force;
+    snap.recoveryDelayMs = int(delay);
+    for (uint i = 0; i < 4; i++) {
+        if (Dev::SafeReadUint32(vehicle + 0x17b4 + 0xb8 * i) != 0)
+            snap.contactMask |= (1 << i);
+    }
+    snap.exact = true;
+    return snap;
+}

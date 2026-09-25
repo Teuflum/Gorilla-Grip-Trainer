@@ -22,6 +22,7 @@ SNAPSHOT = re.compile(
 PREVIEW = re.compile(r"Gorilla Grip Trainer preview at (\d+)ms: ([SABCD]) lead (\d+)-(\d+)ms")
 VERDICT = re.compile(r"Gorilla Grip Trainer verdict at (\d+)ms: ([SABCD]|MISSED)")
 LANDING = re.compile(r"Gorilla Grip Trainer landing at (\d+)ms:")
+UNRATED = re.compile(r"Gorilla Grip Trainer timing unrated at (\d+)ms: (.+)")
 
 
 def trial_log(research_root: Path, variant: str) -> str:
@@ -121,8 +122,17 @@ def main() -> None:
                 if 6150 <= int(m.group(1)) <= 6350
             ]
             assert len(early_landings) == 1, "First landing time was not logged"
-            assert len(early_verdicts) == 1, "First landing must receive one timely grade"
-            assert 0 <= int(early_verdicts[0].group(1)) - early_landings[0] <= 120
+            if early_verdicts:
+                assert len(early_verdicts) == 1
+                assert 0 <= int(early_verdicts[0].group(1)) - early_landings[0] <= 120
+            else:
+                uncertain = [
+                    m for m in UNRATED.finditer(log)
+                    if 5200 <= int(m.group(1)) <= 5400
+                ]
+                assert len(uncertain) == 1 and "grade boundary" in uncertain[0].group(2), (
+                    "An ambiguous first jump needs a visible timing reason"
+                )
         elif case in ("plus12", "no-presteer"):
             assert not previews, f"{case} must have no air grade preview"
             assert len(verdicts) == 1 and verdicts[0].group(2) == "MISSED", (

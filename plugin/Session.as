@@ -50,3 +50,20 @@ class SessionState {
         score += verdict.points;
     }
 }
+
+class LastRunSummary {
+    bool hasRun = false;
+    int score = 0;
+    int hits = 0;
+    int misses = 0;
+    int bestCombo = 0;
+
+    void Capture(SessionState@ session) {
+        if (session is null || session.hits + session.misses == 0) return;
+        hasRun = true;
+        score = session.score;
+        hits = session.hits;
+        misses = session.misses;
+        bestCombo = session.bestCombo;
+    }
+}

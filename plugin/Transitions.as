@@ -40,6 +40,8 @@ class TransitionTracker {
     bool verdictEvent = false;
     bool takeoffCueEvent = false;
     bool landingEvent = false;
+    bool unratedEvent = false;
+    string unratedReason = "";
 
     int switchAt = -1;
     int switchOldMode = 0;
@@ -72,6 +74,8 @@ class TransitionTracker {
         verdictEvent = false;
         takeoffCueEvent = false;
         landingEvent = false;
+        unratedEvent = false;
+        unratedReason = "";
         switchAt = -1;
         switchOldMode = 0;
         switchNewMode = 0;
@@ -125,6 +129,7 @@ class TransitionTracker {
         previewPublished = false;
         cuePublished = false;
         @preview = null;
+        unratedReason = "";
         takeoffRace = snap.raceTime;
         takeoffClock = snap.gameTime;
         takeoffMode = snap.mode;
@@ -135,7 +140,13 @@ class TransitionTracker {
             previous.speedKmh >= float(S_MinSpeed);
         if (!flightEligible || previous.gameTime < 0 ||
             snap.gameTime - previous.gameTime > 25) {
-            if (snap.gameTime - previous.gameTime > 25) flightUncertain = true;
+            if (snap.gameTime - previous.gameTime > 25) {
+                flightUncertain = true;
+                if (flightEligible && switchAt >= 0) {
+                    unratedReason = "contact sample gap exceeded 25 ms";
+                    unratedEvent = true;
+                }
+            }
             return;
         }
         if (switchAt < 0 || switchNewMode != takeoffMode ||
@@ -144,7 +155,11 @@ class TransitionTracker {
         int lo = Math::Max(0, previous.gameTime - switchAt);
         int hi = snap.gameTime - switchAt;
         string grade = GradeLead(lo, hi);
-        if (grade.Length == 0) return;
+        if (grade.Length == 0) {
+            unratedReason = "possible switch lead crosses a grade boundary";
+            unratedEvent = true;
+            return;
+        }
         @preview = JumpPreview();
         preview.label = grade;
         preview.leadMinMs = lo;
@@ -201,6 +216,7 @@ class TransitionTracker {
         verdictEvent = false;
         takeoffCueEvent = false;
         landingEvent = false;
+        unratedEvent = false;
         if (snap is null || !snap.exact || snap.gameTime < 0) {
             if (inFlight || pendingLanding) flightUncertain = true;
             @previous = null;

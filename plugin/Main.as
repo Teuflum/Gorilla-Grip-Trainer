@@ -4,29 +4,37 @@ int g_previousContactMask = -1;
 int g_previousRaceTime = -1;
 TransitionTracker@ g_tracker;
 SessionState@ g_session;
+LastRunSummary@ g_lastRun;
 
 void Main() {
     g_supportedBuild = IsSupportedBuild();
     @g_tracker = TransitionTracker();
     @g_session = SessionState();
+    @g_lastRun = LastRunSummary();
+    InitLayout();
+    InitWidgets();
     print("Gorilla Grip Trainer build supported: " + g_supportedBuild);
 }
 
 void Update(float dt) {
     auto vis = VehicleState::ViewingPlayerState();
     if (vis is null) {
+        g_lastRun.Capture(g_session);
         @g_snapshot = null;
         g_previousContactMask = -1;
         g_previousRaceTime = -1;
         g_tracker.Reset();
         g_session.Reset();
+        ClearResult();
         return;
     }
     int t = ReadRaceTime(vis);
     if (t < 0) return;
     if (g_previousRaceTime >= 0 && t < g_previousRaceTime - 50) {
+        g_lastRun.Capture(g_session);
         g_tracker.Reset();
         g_session.Reset();
+        ClearResult();
     }
     g_previousRaceTime = t;
     PhysicsSnapshot@ next = ReadPhysics(vis, t);
@@ -37,6 +45,9 @@ void Update(float dt) {
             "ms: takeoff mode " + g_tracker.takeoffMode +
             ", landing steer " + g_tracker.landingDirection);
     }
+    if (g_tracker.unratedEvent)
+        print("Gorilla Grip Trainer timing unrated at " + t + "ms: " +
+            g_tracker.unratedReason);
     if (g_tracker.previewEvent) {
         JumpPreview@ p = g_tracker.preview;
         print("Gorilla Grip Trainer preview at " + t + "ms: " + p.label +
@@ -47,6 +58,7 @@ void Update(float dt) {
     if (g_tracker.verdictEvent) {
         JumpVerdict@ v = g_tracker.verdict;
         g_session.Apply(v);
+        ShowResult(v, t);
         print("Gorilla Grip Trainer verdict at " + t + "ms: " + v.label +
             " | " + v.reason + " | force " + next.force +
             " | spins " + v.spinCount + " | combo " + g_session.combo +
@@ -63,22 +75,17 @@ void Update(float dt) {
 }
 
 void RenderMenu() {
-    if (UI::MenuItem("Gorilla Grip Trainer diagnostics", "", S_ShowDiagnostics))
-        S_ShowDiagnostics = !S_ShowDiagnostics;
+    if (UI::MenuItem("Gorilla Grip Trainer physics panel", "", S_DiagVisible)) {
+        S_DiagVisible = !S_DiagVisible;
+        WidgetLayout@ widget = GetLayout("diagnostics");
+        if (widget !is null) widget.visible = S_DiagVisible;
+    }
 }
 
 void RenderInterface() {
-    if (!S_ShowDiagnostics) return;
-    if (UI::Begin("Gorilla Grip Trainer")) {
-        if (g_snapshot is null) UI::Text("NO CAR");
-        else if (!g_snapshot.exact) UI::Text("ESTIMATE");
-        else {
-            UI::Text("EXACT PHYSICS");
-            UI::Text("Internal steer: " + Text::Format("%+.1f%%", g_snapshot.smoothedSteer * 100));
-            UI::Text("Mode: " + g_snapshot.mode + "  Contact: " + g_snapshot.ContactBits());
-            UI::Text("Icing: " + Text::Format("%.0f%%", g_snapshot.meanIcing * 100));
-            UI::Text("Force: " + Text::Format("%.2fx", g_snapshot.force));
-        }
-    }
-    UI::End();
+    RenderLayoutEditor();
+}
+
+void Render() {
+    RenderWidgets();
 }

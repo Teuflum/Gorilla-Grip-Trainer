@@ -1,5 +1,5 @@
-[Setting category="Display" name="Show diagnostics"]
-bool S_ShowDiagnostics = true;
+[Setting category="Display" name="Hide widgets with game UI"]
+bool S_HideWithUI = true;
 
 [Setting category="Rating" name="Minimum average tire icing" min=0 max=1]
 float S_MinIcing = 0.65f;

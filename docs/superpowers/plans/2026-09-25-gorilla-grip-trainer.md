@@ -18,7 +18,7 @@
 - Default timing grades: S `0–15 ms`, A `>15–35 ms`, B `>35–65 ms`, C `>65–110 ms`, D `>110 ms`; ambiguity or sample gap `>25 ms` is `UNRATED`.
 - Final confirmation occurs about `80 ms` after visible contact; a successful mode must be at least `2 × model recovery delay` old at touchdown and the contacted multiplier must exceed `1.001x`.
 - Supplied game WAV/MP3 files and run-history JSON stay local and are never staged or pushed. Only the new original impact sound may be committed.
-- Keep the installed Rater available until Trainer passes in-game checks; then remove its tracked source from the research repository and disable its local installation.
+- The Rater source and design documents have been removed from the research repository. Keep its installed local copy available until Trainer passes in-game checks; then disable its local installation.
 
 ## Review Focus
 
@@ -48,7 +48,7 @@ All plugin `.as` files live beside `Main.as`, matching Openplanet's multi-file s
 
 ## Task 1: Standalone plugin and exact physics snapshots
 
-**Files:** Create `plugin/info.toml`, `plugin/Main.as`, `plugin/Physics.as`, `plugin/Settings.as`, `README.md`, `.gitignore`; use `outputs/GorillaGripRater/Main.as` in the research checkout as the read-only starting reference.
+**Files:** Create `plugin/info.toml`, `plugin/Main.as`, `plugin/Physics.as`, `plugin/Settings.as`, `README.md`, `.gitignore`; inspect the retained local Rater installation or `git show 2299079:outputs/GorillaGripRater/Main.as` in the research checkout as the read-only starting reference.
 
 **Interfaces:** `PhysicsSnapshot@ ReadPhysics(CSceneVehicleVisState@ vis, int gameTime)` produces `exact`, `gameTime`, `smoothedSteer`, `mode`, `modeAt`, `force`, `recoveryDelayMs`, four contact flags, mean icing, and speed. Later tasks consume only this snapshot, not raw pointers.
 
@@ -187,15 +187,15 @@ All plugin `.as` files live beside `Main.as`, matching Openplanet's multi-file s
 - [ ] **Step 4: Verify in game.** Check the finish panel does not obstruct the game's essential finish controls at the default position; move/resize it in Layout and reload. Listen for one music start on a true finish and silence on reset. Confirm opening Run History does not replay music.
 - [ ] **Step 5: Commit.** Commit `Show finish results and play local results cue` after the finish/reset regression passes.
 
-## Task 7: Release the Trainer and separate the research repository
+## Task 7: Release the Trainer and verify the repository split
 
-**Files:** Modify new repo `README.md` and `.gitignore`; remove research repo `outputs/GorillaGripRater/`, `docs/superpowers/specs/2026-09-24-gorilla-grip-rater.md`, and `docs/superpowers/plans/2026-09-24-gorilla-grip-rater.md`; update research `README.md` references. Preserve the physics report and research/TICK tools.
+**Files:** Modify new repo `README.md` and `.gitignore`; preserve the already cleaned research repository's physics report and TICK tools.
 
 - [ ] **Step 1: Complete the acceptance run.** Run `py -3 tests/test_audio_manifest.py`, `py -3 tests/test_history_schema.py`, and `py -3 tests/test_trainer_in_game.py --research-root <research-checkout>`. Reload Openplanet and inspect script errors; verify +13 S, +12 MISSED, an ambiguous sample UNRATED, true finish versus reset, audio priorities, history persistence, and widget positions at two display sizes.
 - [ ] **Step 2: Install the verified Trainer.** Copy `plugin/` to `OpenplanetNext/Plugins/GorillaGripTrainer` and copy supplied audio only into the Trainer's local Openplanet storage folder. Disable/remove the old installed `GorillaGripRater` after the new HUD runs cleanly, so duplicate widgets and audio cannot occur.
 - [ ] **Step 3: Audit the new repository.** `git status --short`, `git ls-files`, and `git diff --cached --stat` must show source, docs, tests, and only the original generated impact WAV. Check for `SP2_`, `Sample_`, `WSR_`, `.exe`, `.Gbx`, raw dumps, telemetry CSVs, and local history before pushing. Commit `Release Gorilla Grip Trainer`.
-- [ ] **Step 4: Clean the research repository.** Remove only the tracked Rater folder and its obsolete spec/plan. Update research `README.md` to link to `https://github.com/Teuflum/Gorilla-Grip-Trainer`, while retaining the mechanism report's historical observations. Run `node --test graphs/model.test.js`, inspect `git diff --stat`, and commit `Move Gorilla Grip plugin into standalone Trainer repository`.
-- [ ] **Step 5: Publish without overwriting remote work.** Inspect each remote branch first. If the Trainer remote contains commits, integrate them before pushing. Push the Trainer main branch to `https://github.com/Teuflum/Gorilla-Grip-Trainer.git` and the research cleanup to `https://github.com/Teuflum/tm-gorilla-grip-reverse-engineering.git`; verify both remote heads and the absence of supplied audio in GitHub's file lists.
+- [ ] **Step 4: Check the repository split again.** Confirm the research repository still contains the mechanism report and TICK tools, and its README points to `https://github.com/Teuflum/Gorilla-Grip-Trainer`. Confirm this repository contains the Trainer code and planning documents with no supplied media or copied game binary. Run `node --test graphs/model.test.js` in the research checkout if the report or graph model changed during implementation.
+- [ ] **Step 5: Publish without overwriting remote work.** Inspect the Trainer remote branch first. Integrate any intervening commits before pushing. Push the verified Trainer main branch to `https://github.com/Teuflum/Gorilla-Grip-Trainer.git`; verify its remote head and the absence of supplied audio in GitHub's file list.
 
 ## Execution handoff
 

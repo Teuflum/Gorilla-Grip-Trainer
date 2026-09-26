@@ -26,7 +26,8 @@ string CurrentMapName() {
 
 void StartActiveRun() {
     if (g_finish !is null && g_finish.summary !is null) {
-        g_audio.OnReset();
+        // A race-time rewind already reset the session earlier in Update().
+        if (g_previousRaceTime < 0) ResetAttemptState();
         g_finish.NewAttempt();
     }
     @g_activeRun = RunRecord();

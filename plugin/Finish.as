@@ -34,29 +34,35 @@ void RenderFinishSummary(const vec4 &in r, RunRecord@ run) {
     float s = Math::Min(r.z / 650.0f, r.w / 365.0f);
     float cx = r.x + r.z*0.5f;
     float left = r.x + 25*s;
-    float right = r.x + r.z - 25*s;
+    float inner = r.z - 50*s;
+    int center = nvg::Align::Center | nvg::Align::Middle;
     int alignLeft = nvg::Align::Left | nvg::Align::Middle;
     int alignRight = nvg::Align::Right | nvg::Align::Middle;
-    int center = nvg::Align::Center | nvg::Align::Middle;
     HudCardBase(r, HudColor(1.0f, 0.80f, 0.28f));
-    HudText(cx, r.y + 38*s, "RUN COMPLETE", 26*s,
+    HudText(cx, r.y + 36*s, "RUN COMPLETE", 27*s,
         HudColor(1.0f, 0.86f, 0.37f), center);
-    HudText(cx, r.y + 75*s, run.mapName, 18*s,
+    HudText(cx, r.y + 69*s, run.mapName, 17*s,
         HudColor(0.81f, 0.91f, 1.0f), center);
-    HudText(left, r.y + 119*s, "FINISH", 13*s,
-        HudColor(0.60f, 0.73f, 0.84f), alignLeft);
-    HudText(right, r.y + 119*s, Time::Format(uint64(run.finishMs)), 25*s,
-        HudColor(1, 1, 1), alignRight);
-    HudText(left, r.y + 157*s, "SCORE", 13*s,
-        HudColor(0.60f, 0.73f, 0.84f), alignLeft);
-    HudText(right, r.y + 157*s, "" + run.score, 25*s,
-        HudColor(1.0f, 0.85f, 0.36f), alignRight);
-    HudText(left, r.y + 191*s, "BEST COMBO", 13*s,
-        HudColor(0.60f, 0.73f, 0.84f), alignLeft);
-    HudText(right, r.y + 191*s, "x" + run.bestCombo, 22*s,
-        HudColor(0.60f, 0.89f, 1.0f), alignRight);
-    HudBox(left, r.y + 213*s, r.z - 50*s, 1*s, 0,
-        HudColor(0.27f, 0.37f, 0.49f));
+    float titleRuleWidth = Math::Min(inner - 20*s, 300*s);
+    HudBox(cx - titleRuleWidth*0.5f, r.y + 79*s,
+        titleRuleWidth, 2*s, 1*s,
+        HudColor(1.0f, 0.78f, 0.26f, 0.65f));
+    array<string> statLabels = {"FINISH", "SCORE", "BEST COMBO"};
+    array<string> statValues = {Time::Format(uint64(run.finishMs)),
+        "" + run.score, "x" + run.bestCombo};
+    float gap = 9*s;
+    float statWidth = (inner - 2*gap) / 3.0f;
+    for (uint i = 0; i < statLabels.Length; i++) {
+        float x = left + float(i)*(statWidth + gap);
+        HudBox(x, r.y + 91*s, statWidth, 68*s, 10*s,
+            HudColor(0.035f, 0.065f, 0.13f, 0.88f));
+        HudText(x + statWidth*0.5f, r.y + 111*s, statLabels[i], 11*s,
+            HudColor(0.60f, 0.73f, 0.84f), center);
+        vec4 valueColor = i == 1 ? HudColor(1.0f, 0.85f, 0.36f) :
+            (i == 2 ? HudColor(0.60f, 0.89f, 1.0f) : HudColor(1, 1, 1));
+        HudText(x + statWidth*0.5f, r.y + 138*s, statValues[i], 24*s,
+            valueColor, center);
+    }
     array<int> counts(7);
     array<int> leads;
     int bestLo = -1;
@@ -77,26 +83,48 @@ void RenderFinishSummary(const vec4 &in r, RunRecord@ run) {
         }
     }
     array<string> grades = {"S", "A", "B", "C", "D"};
-    float gradeWidth = (r.z - 50*s) / 5.0f;
+    float gradeGap = 8*s;
+    float gradeWidth = (inner - 4*gradeGap) / 5.0f;
     for (uint i = 0; i < grades.Length; i++) {
-        float gradeX = left + (float(i) + 0.5f)*gradeWidth;
-        HudText(gradeX, r.y + 245*s, grades[i] + " " + counts[i], 19*s,
-            GradeColor(grades[i]), center);
+        float tileX = left + float(i)*(gradeWidth + gradeGap);
+        float gradeX = tileX + gradeWidth*0.5f;
+        vec4 color = GradeColor(grades[i]);
+        HudBox(tileX, r.y + 181*s, gradeWidth, 88*s, 10*s,
+            HudColor(0.035f, 0.065f, 0.13f, 0.92f));
+        HudBox(tileX + 9*s, r.y + 182*s, gradeWidth - 18*s, 2*s, 1*s,
+            HudColor(color.x, color.y, color.z, 0.75f));
+        HudText(gradeX, r.y + 223*s, grades[i], 40*s,
+            color, center);
+        HudText(gradeX, r.y + 257*s, "" + counts[i], 21*s,
+            HudColor(0.90f, 0.95f, 1.0f), center);
     }
-    HudText(cx, r.y + 273*s,
-        "MISSED " + counts[5] + "   UNRATED " + counts[6], 15*s,
-        HudColor(1.0f, 0.45f, 0.56f), center);
-    string timing = "BEST LEAD --    MEDIAN --";
+    string bestLead = "--";
+    string medianLead = "--";
     if (leads.Length > 0) {
         leads.SortAsc();
         int median = leads[leads.Length / 2];
         if (leads.Length % 2 == 0)
             median = (leads[leads.Length / 2 - 1] + median) / 2;
-        timing = "BEST LEAD " + bestLo + "-" + bestHi + "ms    MEDIAN ~" +
-            median + "ms";
+        bestLead = bestLo + "-" + bestHi + "ms";
+        medianLead = "~" + median + "ms";
     }
-    HudText(cx, r.y + 313*s, timing, 14*s,
-        HudColor(0.67f, 0.82f, 0.93f), center);
-    HudText(cx, r.y + 342*s, "Open the plugin menu to hide this summary", 11*s,
-        HudColor(0.49f, 0.64f, 0.76f), center);
+    array<string> detailLabels = {"MISSED", "UNRATED", "BEST LEAD", "MEDIAN"};
+    array<string> detailValues = {"" + counts[5], "" + counts[6],
+        bestLead, medianLead};
+    float detailGap = 9*s;
+    float detailWidth = (inner - detailGap) / 2.0f;
+    for (uint i = 0; i < detailLabels.Length; i++) {
+        float x = left + float(i % 2)*(detailWidth + detailGap);
+        float y = r.y + (i < 2 ? 280*s : 322*s);
+        vec4 accent = i == 0 ? HudColor(1.0f, 0.48f, 0.58f) :
+            (i == 1 ? HudColor(0.62f, 0.76f, 0.88f) :
+            HudColor(0.60f, 0.89f, 1.0f));
+        HudBox(x, y, detailWidth, 34*s, 8*s,
+            HudColor(0.035f, 0.065f, 0.13f, 0.88f));
+        HudBox(x, y + 5*s, 2*s, 24*s, 1*s, accent);
+        HudText(x + 13*s, y + 17*s, detailLabels[i], 11*s,
+            HudColor(0.67f, 0.82f, 0.93f), alignLeft);
+        HudText(x + detailWidth - 13*s, y + 17*s, detailValues[i], 16*s,
+            accent, alignRight);
+    }
 }

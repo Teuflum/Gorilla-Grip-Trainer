@@ -1,14 +1,49 @@
-[Setting category="Display" name="Hide widgets with game UI"]
+[Setting hidden] // Legacy preference, copied to each widget once.
 bool S_HideWithUI = true;
+[Setting category="Display" name="Enable widgets"]
+bool S_EnableWidgets = true;
+[Setting category="Display" name="Show widgets when game HUD is off"]
+bool S_ShowWhenGameHudOff = false;
+[Setting hidden] bool S_GlobalHudVisibilityMigrated = false;
 [Setting category="Display" name="Show finish summary automatically"]
 bool S_AutoFinishSummary = true;
 
-[Setting category="Rating" name="Minimum average tire icing" min=0 max=1]
+[Setting hidden]
 float S_MinIcing = 0.65f;
-[Setting category="Rating" name="Minimum speed (km/h)" min=0 max=300]
+[Setting hidden]
 int S_MinSpeed = 50;
-[Setting category="Rating" name="Minimum flight (ms)" min=50 max=1000]
+[Setting hidden]
 int S_MinFlight = 100;
+[Setting hidden] int S_SMaxLeadMs = 15;
+[Setting hidden] int S_AMaxLeadMs = 35;
+[Setting hidden] int S_BMaxLeadMs = 65;
+[Setting hidden] int S_CMaxLeadMs = 110;
+[Setting hidden] int S_DMaxLeadMs = 250;
+
+void NormalizeGradeThresholds() {
+    S_SMaxLeadMs = Math::Clamp(S_SMaxLeadMs, 0, 2000);
+    S_AMaxLeadMs = Math::Clamp(S_AMaxLeadMs, S_SMaxLeadMs, 2000);
+    S_BMaxLeadMs = Math::Clamp(S_BMaxLeadMs, S_AMaxLeadMs, 2000);
+    S_CMaxLeadMs = Math::Clamp(S_CMaxLeadMs, S_BMaxLeadMs, 2000);
+    S_DMaxLeadMs = Math::Clamp(S_DMaxLeadMs, S_CMaxLeadMs, 2000);
+}
+
+[SettingsTab name="Rating"]
+void RenderSettingsRating() {
+    UI::TextWrapped("How early the physics steering direction may switch before the last wheel leaves. Each value is the latest grade's upper limit in milliseconds.");
+    S_SMaxLeadMs = UI::InputInt("S maximum lead (ms)", S_SMaxLeadMs);
+    S_AMaxLeadMs = UI::InputInt("A maximum lead (ms)", S_AMaxLeadMs);
+    S_BMaxLeadMs = UI::InputInt("B maximum lead (ms)", S_BMaxLeadMs);
+    S_CMaxLeadMs = UI::InputInt("C maximum lead (ms)", S_CMaxLeadMs);
+    S_DMaxLeadMs = UI::InputInt("D maximum lead (ms)", S_DMaxLeadMs);
+    NormalizeGradeThresholds();
+    UI::SeparatorText("Eligible transitions");
+    S_MinIcing = UI::SliderFloat("Minimum average tire icing", S_MinIcing, 0.0f, 1.0f, "%.2f");
+    S_MinSpeed = UI::InputInt("Minimum speed (km/h)", S_MinSpeed);
+    S_MinFlight = UI::InputInt("Minimum flight (ms)", S_MinFlight);
+    S_MinSpeed = Math::Clamp(S_MinSpeed, 0, 300);
+    S_MinFlight = Math::Clamp(S_MinFlight, 50, 1000);
+}
 
 [Setting hidden]
 bool S_EnableAudio = true;
@@ -28,6 +63,10 @@ bool S_EnableAudio = true;
 [Setting hidden] string S_GradeBList = "";
 [Setting hidden] string S_GradeCList = "";
 [Setting hidden] string S_GradeDList = "";
+[Setting hidden] bool S_FixedPoolsMigrated = false;
+[Setting hidden] string S_JumpList = "";
+[Setting hidden] string S_FailureList = "";
+[Setting hidden] string S_ResultsList = "";
 [Setting hidden] string S_JumpFile = "SP2_SND_GROUP_00000006.wav";
 [Setting hidden] float S_JumpVolume = 0.65f;
 [Setting hidden] string S_FailureFile = "SP2_SND_GROUP_00000002.wav";
@@ -49,9 +88,9 @@ bool S_EnableAudio = true;
 [Setting hidden] float S_ResultsVolume = 0.60f;
 
 class SoundSlotChoice {
-    bool enabled;
     string file;
     float volume;
+    bool add = false;
     bool remove = false;
 }
 
@@ -79,19 +118,20 @@ void RefreshSoundFiles() {
 
 // Openplanet's AngelScript rejects &inout for string and value types, so this
 // helper takes copies and returns the (possibly edited) values instead.
-SoundSlotChoice RenderSoundSlot(const string &in label,
-    const string &in file, float volume, bool removable = false) {
-    UI::PushID(label);
+SoundSlotChoice RenderSoundSlot(const string &in file, float volume) {
     SoundSlotChoice choice;
-    UI::Text(label);
-    UI::SameLine();
     float available = UI::GetContentRegionAvail().x;
-    UI::SetNextItemWidth(Math::Max(100.0f, available - 253.0f));
+    // Give the picker and gain control space instead of repeating the name.
+    float row = Math::Max(310.0f, available - 130.0f);
+    float field = row * 0.23f;
+    float picker = row * 0.42f;
+    float gain = row * 0.35f;
+    UI::SetNextItemWidth(field);
     choice.file = UI::InputText("##file", file);
     UI::SameLine();
-    UI::SetNextItemWidth(56.0f);
-    if (UI::BeginCombo("##pick", "Pick")) {
-        if (g_availableSoundFiles.Length == 0) UI::Text("No local clips found");
+    UI::SetNextItemWidth(picker);
+    if (UI::BeginCombo("##pick", "Browse files")) {
+        if (g_availableSoundFiles.Length == 0) UI::Text("No local sounds found");
         for (uint i = 0; i < g_availableSoundFiles.Length; i++) {
             string name = g_availableSoundFiles[i];
             if (UI::Selectable(name, name == choice.file)) choice.file = name;
@@ -99,26 +139,15 @@ SoundSlotChoice RenderSoundSlot(const string &in label,
         UI::EndCombo();
     }
     UI::SameLine();
-    UI::SetNextItemWidth(85.0f);
+    UI::SetNextItemWidth(gain);
     choice.volume = UI::SliderFloat("##volume", volume, 0.0f, 1.0f, "%.2f");
     UI::SameLine();
     if (UI::Button("Play") && g_audio !is null)
         g_audio.PreviewFile(choice.file, choice.volume);
-    if (removable) {
-        UI::SameLine();
-        choice.remove = UI::Button("X");
-    }
-    UI::PopID();
-    return choice;
-}
-
-SoundSlotChoice RenderCue(const string &in label, bool enabled,
-    const string &in file, float volume) {
-    UI::PushID(label);
-    bool nextEnabled = UI::Checkbox("Enabled", enabled);
-    SoundSlotChoice choice = RenderSoundSlot("Clip", file, volume);
-    choice.enabled = nextEnabled;
-    UI::PopID();
+    UI::SameLine();
+    choice.add = UI::Button("+");
+    UI::SameLine();
+    choice.remove = UI::Button("x");
     return choice;
 }
 
@@ -127,7 +156,9 @@ void RenderSettingsSounds() {
     InitVoicePools();
     if (!g_soundFilesScanned) RefreshSoundFiles();
     S_EnableAudio = UI::Checkbox("Enable all sounds", S_EnableAudio);
-    S_MasterVolume = UI::SliderFloat("Master volume", S_MasterVolume,
+    UI::Text("Master volume");
+    UI::SetNextItemWidth(-1.0f);
+    S_MasterVolume = UI::SliderFloat("##master", S_MasterVolume,
         0.0f, 1.0f, "%.2f");
     if (UI::Button("Open LocalSounds folder")) {
         string folder = IO::FromStorageFolder("LocalSounds");
@@ -144,55 +175,64 @@ void RenderSettingsSounds() {
         g_audio.StopPreview();
     if (g_audio !is null && g_audio.previewStatus.Length > 0)
         UI::Text(g_audio.previewStatus);
-    SoundSlotChoice slot;
-    if (UI::CollapsingHeader("Jump chime")) {
-        slot = RenderCue("jump", S_SoundTakeoff, S_JumpFile, S_JumpVolume);
-        S_SoundTakeoff = slot.enabled; S_JumpFile = slot.file;
-        S_JumpVolume = slot.volume;
+    if (UI::CollapsingHeader("Takeoff")) {
+        UI::Indent(12.0f);
+        S_SoundTakeoff = RenderVoicePool(VoicePoolFor("jump"),
+            S_SoundTakeoff, false);
+        UI::Unindent(12.0f);
     }
-    if (UI::CollapsingHeader("Failed landing")) {
-        slot = RenderCue("failure", S_SoundFailure, S_FailureFile,
-            S_FailureVolume);
-        S_SoundFailure = slot.enabled; S_FailureFile = slot.file;
-        S_FailureVolume = slot.volume;
+    if (UI::CollapsingHeader("Grades")) {
+        UI::Indent(12.0f);
+        S_SoundVoices = UI::Checkbox("Enable S-D sounds", S_SoundVoices);
+        S_GradeSEnabled = RenderVoicePool(VoicePoolFor("S"), S_GradeSEnabled);
+        S_GradeAEnabled = RenderVoicePool(VoicePoolFor("A"), S_GradeAEnabled);
+        S_GradeBEnabled = RenderVoicePool(VoicePoolFor("B"), S_GradeBEnabled);
+        S_GradeCEnabled = RenderVoicePool(VoicePoolFor("C"), S_GradeCEnabled);
+        S_GradeDEnabled = RenderVoicePool(VoicePoolFor("D"), S_GradeDEnabled);
+        S_SoundFailure = RenderVoicePool(VoicePoolFor("failure"),
+            S_SoundFailure);
+        UI::Unindent(12.0f);
     }
-    S_SoundVoices = UI::Checkbox("Enable grade voices", S_SoundVoices);
-    S_GradeSEnabled = RenderVoicePool(VoicePoolFor("S"), S_GradeSEnabled);
-    S_GradeAEnabled = RenderVoicePool(VoicePoolFor("A"), S_GradeAEnabled);
-    S_GradeBEnabled = RenderVoicePool(VoicePoolFor("B"), S_GradeBEnabled);
-    S_GradeCEnabled = RenderVoicePool(VoicePoolFor("C"), S_GradeCEnabled);
-    S_GradeDEnabled = RenderVoicePool(VoicePoolFor("D"), S_GradeDEnabled);
+    if (UI::CollapsingHeader("Finish")) {
+        UI::Indent(12.0f);
+        S_SoundResults = RenderVoicePool(VoicePoolFor("results"),
+            S_SoundResults, false);
+        UI::Unindent(12.0f);
+    }
     SaveVoicePools();
-    if (UI::CollapsingHeader("Finish music")) {
-        slot = RenderCue("finish", S_SoundResults, S_ResultsFile,
-            S_ResultsVolume);
-        S_SoundResults = slot.enabled; S_ResultsFile = slot.file;
-        S_ResultsVolume = slot.volume;
-    }
 }
 
-bool RenderVoicePool(VoicePool@ pool, bool enabled) {
+bool RenderVoicePool(VoicePool@ pool, bool enabled, bool collapsible = true) {
     if (pool is null) return enabled;
     UI::PushID(pool.grade);
-    if (!UI::CollapsingHeader(pool.grade + " rank voices")) {
+    string title = pool.grade == "failure" ? "Missed" : pool.grade;
+    if (collapsible && !UI::CollapsingHeader(title)) {
         UI::PopID();
         return enabled;
     }
-    enabled = UI::Checkbox("Enable voices", enabled);
+    enabled = UI::Checkbox("Enable", enabled);
+    if (pool.entries.Length == 0) pool.entries.InsertLast(VoiceEntry("", 0.82f));
     for (uint i = 0; i < pool.entries.Length;) {
-        UI::PushID("clip " + i);
-        SoundSlotChoice choice = RenderSoundSlot("Clip " + (i + 1),
-            pool.entries[i].file, pool.entries[i].volume, true);
-        if (choice.file != pool.entries[i].file)
-            @pool.entries[i].sample = null;
+        UI::PushID(int(i));
+        SoundSlotChoice choice = RenderSoundSlot(
+            pool.entries[i].file, pool.entries[i].volume);
+        if (choice.file != pool.entries[i].file) {
+            if (g_audio !is null)
+                @pool.entries[i].sample = g_audio.LoadLocal(choice.file);
+            else @pool.entries[i].sample = null;
+        }
         pool.entries[i].file = choice.file;
         pool.entries[i].volume = choice.volume;
         UI::PopID();
-        if (choice.remove) pool.entries.RemoveAt(i);
+        if (choice.add) pool.entries.InsertAt(i + 1, VoiceEntry("", 0.82f));
+        if (choice.remove && pool.entries.Length > 1) pool.entries.RemoveAt(i);
+        else if (choice.remove) {
+            pool.entries[i].file = "";
+            @pool.entries[i].sample = null;
+            i++;
+        }
         else i++;
     }
-    if (UI::Button("Add clip"))
-        pool.entries.InsertLast(VoiceEntry("", 0.82f));
     UI::PopID();
     return enabled;
 }

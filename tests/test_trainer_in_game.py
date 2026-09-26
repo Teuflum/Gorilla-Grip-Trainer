@@ -190,7 +190,10 @@ def assert_full_finish(research_root: Path, finish_revision_id: str) -> None:
             handle.seek(log_offset)
             log = handle.read().decode("utf-8", "replace")
         assert log.count("Gorilla Grip Trainer finish summary:") == 1
-        assert log.count("Gorilla Grip Trainer audio: results voice started") == 1
+        assert len(re.findall(
+            r"Gorilla Grip Trainer audio: results sound .+ started, length ",
+            log,
+        )) == 1
         deadline = time.monotonic() + 35
         while time.monotonic() < deadline:
             with LOG.open("rb") as handle:

@@ -1,6 +1,4 @@
 class AudioDirector {
-    Audio::Sample@ jumpChime;
-    Audio::Sample@ failureChime;
     Audio::Sample@ resultsMusic;
     Audio::Sample@ previewSample;
     Audio::Voice@ cueVoice;
@@ -13,6 +11,7 @@ class AudioDirector {
     int64 rewindRequestedAt = -1;
     float cueBaseGain = 0.0f;
     float resultBaseGain = 0.0f;
+    float finishBaseGain = 0.0f;
     float previewBaseGain = 0.0f;
     string previewStatus = "";
 
@@ -39,11 +38,8 @@ class AudioDirector {
         InitVoicePools();
         StopTransient();
         StopPreview();
-        @jumpChime = LoadLocal(S_JumpFile);
-        @failureChime = LoadLocal(S_FailureFile);
-        // Buffered, not streamed: a streamed sample supports only one voice,
-        // so looping (a second Play or a rewind) fails once its voice ends.
-        @resultsMusic = LoadLocal(S_ResultsFile);
+        // Buffer every configured sound. A streamed sample permits only one
+        // voice, preventing a fresh voice when the finish sound loops.
         for (uint i = 0; i < g_voicePools.Length; i++) {
             VoicePool@ pool = g_voicePools[i];
             pool.lastPick = -1;
@@ -115,15 +111,17 @@ class AudioDirector {
             resultVoice.SetGain(resultBaseGain * S_MasterVolume);
         if (!S_SoundResults) StopResults();
         if (finishVoice is null) return;
-        finishVoice.SetGain(S_ResultsVolume * S_MasterVolume);
+        finishVoice.SetGain(finishBaseGain * S_MasterVolume);
         if (!loopResults || finishStartedAt < 0) return;
         double length = finishVoice.GetLength();
         if (length <= 0.1 ||
             Time::MilliStamp - finishStartedAt < int64(length * 1000.0 - 20.0))
             return;
-        // Preferred: start a fresh voice (buffered samples allow many voices).
-        Audio::Voice@ next = resultsMusic is null ? null :
-            Audio::Play(resultsMusic, S_ResultsVolume * S_MasterVolume);
+        // Pick a new sound each loop, avoiding an immediate repeat when there
+        // is more than one usable choice.
+        VoiceEntry@ entry = PickVoice(VoicePoolFor("results"));
+        Audio::Voice@ next = entry is null ? null :
+            Audio::Play(entry.sample, entry.volume * S_MasterVolume);
         if (next is null && rewindRequestedAt < 0) {
             // Fallback: rewind the existing voice once before giving up.
             finishVoice.SetPosition(0.0);
@@ -139,18 +137,22 @@ class AudioDirector {
         }
         Mute(finishVoice);
         @finishVoice = next;
+        @resultsMusic = entry.sample;
+        finishBaseGain = entry.volume;
         rewindRequestedAt = -1;
         finishStartedAt = Time::MilliStamp;
         print("Gorilla Grip Trainer audio: results loop started");
     }
 
     void OnTakeoffCue() {
-        if (!S_EnableAudio || !S_SoundTakeoff || jumpChime is null) return;
+        if (!S_EnableAudio || !S_SoundTakeoff) return;
+        VoiceEntry@ entry = PickVoice(VoicePoolFor("jump"));
+        if (entry is null) return;
         Mute(cueVoice);
-        cueBaseGain = S_JumpVolume;
-        @cueVoice = Audio::Play(jumpChime,
+        cueBaseGain = entry.volume;
+        @cueVoice = Audio::Play(entry.sample,
             cueBaseGain * S_MasterVolume);
-        print("Gorilla Grip Trainer audio: jump cue");
+        print("Gorilla Grip Trainer audio: takeoff -> " + entry.file);
     }
 
     bool GradeVoiceEnabled(const string &in grade) {
@@ -184,10 +186,13 @@ class AudioDirector {
         @resultVoice = null;
         if (!S_EnableAudio) return;
         if (verdict.label == "MISSED") {
-            if (S_SoundFailure && failureChime !is null) {
-                resultBaseGain = S_FailureVolume;
-                @resultVoice = Audio::Play(failureChime,
-                    resultBaseGain * S_MasterVolume);
+            if (S_SoundFailure) {
+                VoiceEntry@ entry = PickVoice(VoicePoolFor("failure"));
+                if (entry !is null) {
+                    resultBaseGain = entry.volume;
+                    @resultVoice = Audio::Play(entry.sample,
+                        resultBaseGain * S_MasterVolume);
+                }
             }
             print("Gorilla Grip Trainer audio: failed landing");
             return;
@@ -211,19 +216,23 @@ class AudioDirector {
             print("Gorilla Grip Trainer audio: results disabled");
             return;
         }
-        if (resultsMusic is null) {
-            print("Gorilla Grip Trainer audio: results file unavailable");
+        VoiceEntry@ entry = PickVoice(VoicePoolFor("results"));
+        if (entry is null) {
+            print("Gorilla Grip Trainer audio: results sound unavailable");
             return;
         }
+        @resultsMusic = entry.sample;
+        finishBaseGain = entry.volume;
         @finishVoice = Audio::Play(resultsMusic,
-            S_ResultsVolume * S_MasterVolume);
+            finishBaseGain * S_MasterVolume);
         if (finishVoice is null) {
             print("Gorilla Grip Trainer audio: results voice could not start");
             return;
         }
         loopResults = loop;
         finishStartedAt = Time::MilliStamp;
-        print("Gorilla Grip Trainer audio: results voice started, length " +
+        print("Gorilla Grip Trainer audio: results sound " + entry.file +
+            " started, length " +
             Text::Format("%.2f", finishVoice.GetLength()) + "s, gain " +
             Text::Format("%.2f", finishVoice.GetGain()));
     }

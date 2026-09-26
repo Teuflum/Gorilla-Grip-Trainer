@@ -19,6 +19,10 @@ for grade in "SABCD":
     assert f'S_Grade{grade}Enabled' in settings
     assert f'S_Grade{grade}List' in settings
 
+for cue in ("Jump", "Failure", "Results"):
+    assert f'S_{cue}List' in settings
+    assert f'VoicePoolFor("{cue.lower()}")' in audio
+
 for category in ("Takeoff", "Failure", "Voices", "Results"):
     assert f'S_Sound{category}' in settings
     assert f'S_Sound{category}' in audio
@@ -27,6 +31,13 @@ assert 'Math::Rand(' in audio
 assert 'lastPick' in audio
 assert 'RenderVoicePool' in settings
 assert 'UI::CollapsingHeader(' in settings
+assert 'UI::CollapsingHeader("Grades")' in settings
+assert 'UI::Button("+")' in settings
+assert 'UI::Button("x")' in settings
+assert 'UI::Button("Add clip")' not in settings
+assert '@pool.entries[i].sample = g_audio.LoadLocal(choice.file)' in settings
+assert 'if (S_SoundFailure)' in audio
+assert 'if (S_SoundVoices && S_SoundFailure)' not in audio
 assert 'OpenExplorerPath(' in settings
 assert 'PreviewFile(' in settings + audio
 

@@ -16,12 +16,13 @@ int RawDirection(float steer) {
 }
 
 string GradeLead(int lo, int hi) {
-    if (lo < 0 || hi < lo || hi > 250) return "";
-    if (hi <= 15) return "S";
-    if (lo > 15 && hi <= 35) return "A";
-    if (lo > 35 && hi <= 65) return "B";
-    if (lo > 65 && hi <= 110) return "C";
-    if (lo > 110 && hi <= 250) return "D";
+    NormalizeGradeThresholds();
+    if (lo < 0 || hi < lo || hi > S_DMaxLeadMs) return "";
+    if (hi <= S_SMaxLeadMs) return "S";
+    if (lo > S_SMaxLeadMs && hi <= S_AMaxLeadMs) return "A";
+    if (lo > S_AMaxLeadMs && hi <= S_BMaxLeadMs) return "B";
+    if (lo > S_BMaxLeadMs && hi <= S_CMaxLeadMs) return "C";
+    if (lo > S_CMaxLeadMs && hi <= S_DMaxLeadMs) return "D";
     return "";
 }
 
@@ -150,7 +151,7 @@ class TransitionTracker {
                 flightUncertain = true;
                 if (flightEligible && switchAt >= 0 &&
                     switchNewMode == takeoffMode &&
-                    snap.gameTime - switchAt <= 250) {
+                    snap.gameTime - switchAt <= S_DMaxLeadMs) {
                     unratedReason = "contact sample gap exceeded 50 ms";
                     unratedEvent = true;
                 }
@@ -159,7 +160,7 @@ class TransitionTracker {
         }
         if (switchAt < 0 || switchNewMode != takeoffMode ||
             switchOldMode == 0 || switchOldMode == takeoffMode ||
-            switchAt > snap.gameTime || snap.gameTime - switchAt > 250) return;
+            switchAt > snap.gameTime || snap.gameTime - switchAt > S_DMaxLeadMs) return;
         int lo = Math::Max(0, previous.gameTime - switchAt);
         int hi = snap.gameTime - switchAt;
         string grade = GradeLead(lo, hi);

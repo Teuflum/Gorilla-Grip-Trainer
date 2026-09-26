@@ -19,9 +19,8 @@ assert 'GetLayout("result")' not in widgets
 assert 'nvg::LoadTexture("assets/gorilla-emoji.png")' in widgets
 assert (ROOT / "assets" / "gorilla-emoji.png").is_file()
 
-# Layout stays flat; Sounds uses compact collapsible sections.
-assert 'UI::TreeNode(' not in layout
-assert 'UI::SeparatorText(' in layout
+# Layout and Sounds use compact collapsible sections.
+assert 'UI::CollapsingHeader(widget.title)' in layout
 assert 'UI::CollapsingHeader(' in settings
 assert '&inout' not in '\n'.join(line.split('//')[0] for line in settings.splitlines())
 

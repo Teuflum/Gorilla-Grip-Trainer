@@ -18,6 +18,12 @@ widgets = {
 assert set(widgets) == {
     "diagnostics", "grade", "combo", "score", "best", "last", "finish"
 }
+assert 'S_ShowWhenGameHudOff' in (Path(__file__).resolve().parents[1] / "plugin" / "Settings.as").read_text()
+widgets_source = (Path(__file__).resolve().parents[1] / "plugin" / "Widgets.as").read_text()
+assert 'S_EnableWidgets' in widgets_source
+assert 'S_ShowWhenGameHudOff' in widgets_source
+assert 'UI::CollapsingHeader(widget.title)' in SOURCE
+assert 'UI::SameLine();\n        if (UI::Button("Reset widget"))' in SOURCE
 for width, height in ((2048, 1151), (1280, 720)):
     for widget_id, (x, y, w, h) in widgets.items():
         assert 0 <= x <= 1 and 0 <= y <= 1, (widget_id, x, y)

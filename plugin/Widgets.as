@@ -309,19 +309,24 @@ void RenderLast(const vec4 &in r, LastRunSummary@ last) {
         HudColor(0.87f, 0.95f, 1), left);
 }
 
+bool ShouldRenderWidget(WidgetLayout@ layout) {
+    return layout !is null && layout.visible &&
+        (UI::IsGameUIVisible() || S_ShowWhenGameHudOff || g_layoutEditing);
+}
+
 void RenderWidgets() {
-    if (S_HideWithUI && !UI::IsGameUIVisible()) return;
+    if (!S_EnableWidgets) return;
     if (g_hudFont >= 0) nvg::FontFace(g_hudFont);
     WidgetLayout@ layout = GetLayout("finish");
     if (g_finish !is null && g_finish.visible &&
-        g_finish.summary !is null && layout !is null && layout.visible)
+        g_finish.summary !is null && ShouldRenderWidget(layout))
         RenderFinishSummary(layout.Pixels(), g_finish.summary);
     if (g_snapshot is null || g_snapshot.raceTime < 0) return;
     @layout = GetLayout("diagnostics");
-    if (layout !is null && layout.visible)
+    if (ShouldRenderWidget(layout))
         RenderDiagnostics(layout.Pixels(), g_snapshot);
     @layout = GetLayout("grade");
-    if (layout !is null && layout.visible) {
+    if (ShouldRenderWidget(layout)) {
         JumpPreview@ p = (g_tracker.inFlight || g_tracker.pendingLanding) &&
             g_tracker.previewPublished ? g_tracker.preview : null;
         int age = g_snapshot.raceTime - g_resultShownAt;
@@ -333,18 +338,18 @@ void RenderWidgets() {
                 active ? g_resultLabel : "S");
     }
     @layout = GetLayout("combo");
-    if (layout !is null && layout.visible)
+    if (ShouldRenderWidget(layout))
         RenderStat(layout.Pixels(), "COMBO", "x" + g_session.combo,
             HudColor(1, 0.82f, 0.35f));
     @layout = GetLayout("score");
-    if (layout !is null && layout.visible)
+    if (ShouldRenderWidget(layout))
         RenderStat(layout.Pixels(), "SCORE", "" + g_session.score,
             HudColor(0.90f, 0.98f, 1));
     @layout = GetLayout("best");
-    if (layout !is null && layout.visible)
+    if (ShouldRenderWidget(layout))
         RenderStat(layout.Pixels(), "BEST COMBO", "x" + g_session.bestCombo,
             HudColor(0.46f, 0.79f, 1));
     @layout = GetLayout("last");
-    if (layout !is null && layout.visible)
+    if (ShouldRenderWidget(layout))
         RenderLast(layout.Pixels(), g_lastRun);
 }

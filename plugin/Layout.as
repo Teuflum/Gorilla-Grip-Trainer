@@ -3,6 +3,7 @@
 [Setting hidden] float S_DiagW = 0.24f;
 [Setting hidden] float S_DiagH = 0.21f;
 [Setting hidden] bool S_DiagVisible = true;
+[Setting hidden] bool S_DiagWhenHudOff = false;
 
 // Retain these saved setting keys so existing landing-grade placement carries
 // over to the combined grade widget.
@@ -11,36 +12,43 @@
 [Setting hidden] float S_ResultW = 0.24f;
 [Setting hidden] float S_ResultH = 0.11f;
 [Setting hidden] bool S_ResultVisible = true;
+[Setting hidden] bool S_ResultWhenHudOff = false;
 
 [Setting hidden] float S_ComboX = 0.81f;
 [Setting hidden] float S_ComboY = 0.62f;
 [Setting hidden] float S_ComboW = 0.16f;
 [Setting hidden] float S_ComboH = 0.075f;
 [Setting hidden] bool S_ComboVisible = true;
+[Setting hidden] bool S_ComboWhenHudOff = false;
 
 [Setting hidden] float S_ScoreX = 0.81f;
 [Setting hidden] float S_ScoreY = 0.71f;
 [Setting hidden] float S_ScoreW = 0.16f;
 [Setting hidden] float S_ScoreH = 0.075f;
 [Setting hidden] bool S_ScoreVisible = true;
+[Setting hidden] bool S_ScoreWhenHudOff = false;
 
 [Setting hidden] float S_BestX = 0.81f;
 [Setting hidden] float S_BestY = 0.80f;
 [Setting hidden] float S_BestW = 0.16f;
 [Setting hidden] float S_BestH = 0.075f;
 [Setting hidden] bool S_BestVisible = true;
+[Setting hidden] bool S_BestWhenHudOff = false;
 
 [Setting hidden] float S_LastX = 0.03f;
 [Setting hidden] float S_LastY = 0.84f;
 [Setting hidden] float S_LastW = 0.21f;
 [Setting hidden] float S_LastH = 0.095f;
 [Setting hidden] bool S_LastVisible = true;
+[Setting hidden] bool S_LastWhenHudOff = false;
 
 [Setting hidden] float S_FinishX = 0.65f;
 [Setting hidden] float S_FinishY = 0.14f;
 [Setting hidden] float S_FinishW = 0.31f;
 [Setting hidden] float S_FinishH = 0.34f;
 [Setting hidden] bool S_FinishVisible = true;
+[Setting hidden] bool S_FinishWhenHudOff = false;
+[Setting hidden] bool S_HudVisibilityMigrated = false;
 
 class WidgetLayout {
     string id;
@@ -85,6 +93,20 @@ bool g_layoutEditing = false;
 bool g_forceLayoutPosition = false;
 
 void InitLayout() {
+    if (!S_HudVisibilityMigrated) {
+        bool show = !S_HideWithUI;
+        S_DiagWhenHudOff = show; S_ResultWhenHudOff = show;
+        S_ComboWhenHudOff = show; S_ScoreWhenHudOff = show;
+        S_BestWhenHudOff = show; S_LastWhenHudOff = show;
+        S_FinishWhenHudOff = show;
+        S_HudVisibilityMigrated = true;
+    }
+    if (!S_GlobalHudVisibilityMigrated) {
+        S_ShowWhenGameHudOff = S_DiagWhenHudOff || S_ResultWhenHudOff ||
+            S_ComboWhenHudOff || S_ScoreWhenHudOff || S_BestWhenHudOff ||
+            S_LastWhenHudOff || S_FinishWhenHudOff;
+        S_GlobalHudVisibilityMigrated = true;
+    }
     g_layouts.RemoveRange(0, g_layouts.Length);
     g_layouts.InsertLast(WidgetLayout("diagnostics", "Physics", vec4(0.38f, 0.67f, 0.24f, 0.21f), true));
     g_layouts.InsertLast(WidgetLayout("grade", "Grade", vec4(0.38f, 0.48f, 0.24f, 0.11f), true));
@@ -150,14 +172,22 @@ void SaveLayoutSettings() {
 [SettingsTab name="Layout"]
 void RenderSettingsLayout() {
     g_layoutEditing = true;
-    UI::TextWrapped("Drag and resize the labeled boxes on the game screen. Their positions and sizes save automatically.");
+    UI::TextWrapped("Drag the boxes on screen or enter exact positions below.");
+    if (UI::Button("Reset all widgets")) {
+        for (uint i = 0; i < g_layouts.Length; i++) g_layouts[i].Reset();
+        g_forceLayoutPosition = true;
+    }
     for (uint i = 0; i < g_layouts.Length; i++) {
         auto widget = g_layouts[i];
         UI::PushID(widget.id);
-        UI::SeparatorText(widget.title);
+        if (!UI::CollapsingHeader(widget.title)) {
+            UI::PopID();
+            continue;
+        }
+        UI::Indent(12.0f);
         widget.visible = UI::Checkbox("Show", widget.visible);
         UI::SameLine();
-        if (UI::Button("Reset")) {
+        if (UI::Button("Reset widget")) {
             widget.Reset();
             g_forceLayoutPosition = true;
         }
@@ -174,14 +204,8 @@ void RenderSettingsLayout() {
             widget.Clamp();
             g_forceLayoutPosition = true;
         }
-        vec4 pixels = widget.Pixels();
-        UI::Text("Pixels: " + int(pixels.x) + ", " + int(pixels.y) +
-            "  /  " + int(pixels.z) + " x " + int(pixels.w));
+        UI::Unindent(12.0f);
         UI::PopID();
-    }
-    if (UI::Button("Reset all positions and sizes")) {
-        for (uint i = 0; i < g_layouts.Length; i++) g_layouts[i].Reset();
-        g_forceLayoutPosition = true;
     }
     SaveLayoutSettings();
 }

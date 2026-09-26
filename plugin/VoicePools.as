@@ -63,9 +63,15 @@ void InitVoicePools() {
         S_GradeDList = S_LandDFile + "|" + Text::Format("%.2f", S_LandDVolume);
         S_GradePoolsMigrated = true;
     }
-    array<string> grades = {"S", "A", "B", "C", "D"};
-    array<string> encoded = {S_GradeSList, S_GradeAList, S_GradeBList,
-        S_GradeCList, S_GradeDList};
+    if (!S_FixedPoolsMigrated) {
+        S_JumpList = S_JumpFile + "|" + Text::Format("%.2f", S_JumpVolume);
+        S_FailureList = S_FailureFile + "|" + Text::Format("%.2f", S_FailureVolume);
+        S_ResultsList = S_ResultsFile + "|" + Text::Format("%.2f", S_ResultsVolume);
+        S_FixedPoolsMigrated = true;
+    }
+    array<string> grades = {"jump", "S", "A", "B", "C", "D", "failure", "results"};
+    array<string> encoded = {S_JumpList, S_GradeSList, S_GradeAList,
+        S_GradeBList, S_GradeCList, S_GradeDList, S_FailureList, S_ResultsList};
     for (uint i = 0; i < grades.Length; i++) {
         VoicePool@ pool = VoicePool(grades[i]);
         DecodeVoicePool(pool, encoded[i]);
@@ -74,9 +80,12 @@ void InitVoicePools() {
 }
 
 void SaveVoicePools() {
+    S_JumpList = EncodeVoicePool(VoicePoolFor("jump"));
     S_GradeSList = EncodeVoicePool(VoicePoolFor("S"));
     S_GradeAList = EncodeVoicePool(VoicePoolFor("A"));
     S_GradeBList = EncodeVoicePool(VoicePoolFor("B"));
     S_GradeCList = EncodeVoicePool(VoicePoolFor("C"));
     S_GradeDList = EncodeVoicePool(VoicePoolFor("D"));
+    S_FailureList = EncodeVoicePool(VoicePoolFor("failure"));
+    S_ResultsList = EncodeVoicePool(VoicePoolFor("results"));
 }

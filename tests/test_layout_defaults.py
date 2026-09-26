@@ -16,7 +16,7 @@ widgets = {
     for match in RECT.finditer(SOURCE)
 }
 assert set(widgets) == {
-    "diagnostics", "timing", "result", "combo", "score", "best", "last"
+    "diagnostics", "grade", "combo", "score", "best", "last", "finish"
 }
 for width, height in ((2048, 1151), (1280, 720)):
     for widget_id, (x, y, w, h) in widgets.items():

@@ -5,36 +5,122 @@ int g_previousRaceTime = -1;
 TransitionTracker@ g_tracker;
 SessionState@ g_session;
 LastRunSummary@ g_lastRun;
+AudioDirector@ g_audio;
+HistoryStore@ g_history;
+RunRecord@ g_activeRun;
+FinishController@ g_finish;
+uint g_runSequence = 0;
+
+string CurrentMapUid() {
+    auto app = cast<CTrackMania>(GetApp());
+    if (app is null || app.RootMap is null || app.RootMap.MapInfo is null)
+        return "";
+    return app.RootMap.MapInfo.MapUid;
+}
+
+string CurrentMapName() {
+    auto app = cast<CTrackMania>(GetApp());
+    if (app is null || app.RootMap is null) return "Unknown map";
+    return Text::StripFormatCodes(string(app.RootMap.MapName));
+}
+
+void StartActiveRun() {
+    if (g_finish !is null && g_finish.summary !is null) {
+        g_audio.OnReset();
+        g_finish.NewAttempt();
+    }
+    @g_activeRun = RunRecord();
+    g_activeRun.mapUid = CurrentMapUid();
+    g_activeRun.mapName = CurrentMapName();
+    g_activeRun.startedAt = Time::MilliStamp;
+    g_runSequence++;
+    g_activeRun.id = g_activeRun.mapUid + ":" +
+        Text::Format("%lld", g_activeRun.startedAt) + ":" +
+        Text::Format("%u", g_runSequence);
+}
+
+void EndActiveRun(const string &in status, int finishMs = -1) {
+    if (g_activeRun is null) return;
+    g_activeRun.status = status;
+    g_activeRun.finishMs = finishMs;
+    g_history.Append(g_activeRun);
+    @g_activeRun = null;
+}
+
+void ResetAttemptState() {
+    g_lastRun.Capture(g_session);
+    EndActiveRun("RESET");
+    g_tracker.Reset();
+    g_session.Reset();
+    ClearResult();
+    g_audio.OnReset();
+}
 
 void Main() {
     g_supportedBuild = IsSupportedBuild();
     @g_tracker = TransitionTracker();
     @g_session = SessionState();
     @g_lastRun = LastRunSummary();
+    @g_history = HistoryStore();
+    g_history.Load();
+    @g_finish = FinishController();
+    InitVoicePools();
+    @g_audio = AudioDirector();
+    g_audio.Load();
     InitLayout();
     InitWidgets();
     print("Gorilla Grip Trainer build supported: " + g_supportedBuild);
 }
 
 void Update(float dt) {
+    g_audio.UpdateSettings();
     auto vis = VehicleState::ViewingPlayerState();
+    bool finishSequence = IsFinishSequence();
+    if (finishSequence) {
+        int finishTime = vis is null ? g_previousRaceTime : ReadRaceTime(vis);
+        if (finishTime < 0) finishTime = g_previousRaceTime;
+        string mapUid = CurrentMapUid();
+        if (finishTime >= 0 && g_activeRun !is null &&
+            (mapUid.Length == 0 || mapUid == g_activeRun.mapUid) &&
+            g_finish.Update(finishTime, true, g_activeRun)) {
+            g_lastRun.Capture(g_session);
+            g_history.Append(g_activeRun);
+            @g_activeRun = null;
+            g_audio.OnFinish();
+            print("Gorilla Grip Trainer finish summary: " + finishTime +
+                "ms, score " + g_session.score);
+        }
+        return;
+    }
     if (vis is null) {
-        g_lastRun.Capture(g_session);
+        if (g_finish.summary !is null &&
+            CurrentMapUid() == g_finish.summary.mapUid) {
+            @g_snapshot = null;
+            g_previousContactMask = -1;
+            g_previousRaceTime = -1;
+            return;
+        }
+        if (g_finish.summary !is null) g_finish.NewAttempt();
+        ResetAttemptState();
         @g_snapshot = null;
         g_previousContactMask = -1;
         g_previousRaceTime = -1;
-        g_tracker.Reset();
-        g_session.Reset();
-        ClearResult();
         return;
     }
     int t = ReadRaceTime(vis);
     if (t < 0) return;
-    if (g_previousRaceTime >= 0 && t < g_previousRaceTime - 50) {
-        g_lastRun.Capture(g_session);
-        g_tracker.Reset();
-        g_session.Reset();
-        ClearResult();
+    if (g_activeRun is null && g_finish.summary !is null &&
+        t > 500 && t >= g_finish.summary.finishMs - 50) return;
+    string mapUid = CurrentMapUid();
+    if (g_activeRun !is null && mapUid.Length > 0 &&
+        g_activeRun.mapUid.Length > 0 && mapUid != g_activeRun.mapUid)
+        ResetAttemptState();
+    if (g_previousRaceTime >= 0 && t < g_previousRaceTime - 50)
+        ResetAttemptState();
+    if (g_activeRun is null) StartActiveRun();
+    else if (g_activeRun.mapUid.Length == 0 && mapUid.Length > 0) {
+        g_activeRun.mapUid = mapUid;
+        g_activeRun.mapName = CurrentMapName();
     }
     g_previousRaceTime = t;
     PhysicsSnapshot@ next = ReadPhysics(vis, t);
@@ -51,16 +137,23 @@ void Update(float dt) {
     if (g_tracker.previewEvent) {
         JumpPreview@ p = g_tracker.preview;
         print("Gorilla Grip Trainer preview at " + t + "ms: " + p.label +
-            " lead " + p.leadMinMs + "-" + p.leadMaxMs + "ms");
+            " lead " + p.leadMinMs + "-" + p.leadMaxMs + "ms" +
+            (p.ambiguous ? " conservative" : ""));
     }
+    if (g_tracker.takeoffCueEvent)
+        g_audio.OnTakeoffCue();
     if (g_tracker.takeoffCueEvent)
         print("Gorilla Grip Trainer takeoff cue at " + t + "ms");
     if (g_tracker.verdictEvent) {
         JumpVerdict@ v = g_tracker.verdict;
         g_session.Apply(v);
+        g_activeRun.Record(v, g_session, g_tracker.preview);
         ShowResult(v, t);
+        g_audio.OnVerdict(v);
         print("Gorilla Grip Trainer verdict at " + t + "ms: " + v.label +
             " | " + v.reason + " | force " + next.force +
+            " | force gate " + next.forceGateState +
+            " | eligible at " + g_tracker.forceEligibleClock +
             " | spins " + v.spinCount + " | combo " + g_session.combo +
             " | score " + g_session.score);
     }
@@ -69,12 +162,19 @@ void Update(float dt) {
         print("Gorilla Grip Trainer snapshot at " + t + "ms: exact true, mode " +
             next.mode + ", steer " + Text::Format("%.6f", next.smoothedSteer) +
             ", contacts " + next.ContactBits() + ", modeAt " + next.modeAt +
-            ", clock " + next.gameTime + ", delay " + next.recoveryDelayMs);
+            ", clock " + next.gameTime + ", delay " + next.recoveryDelayMs +
+            ", force " + Text::Format("%.3f", next.force) +
+            ", gate " + next.forceGateState);
     }
     g_previousContactMask = int(next.contactMask);
 }
 
 void RenderMenu() {
+    if (g_finish !is null && g_finish.summary !is null &&
+        UI::MenuItem("Gorilla Grip Trainer finish summary", "", g_finish.visible))
+        g_finish.visible = !g_finish.visible;
+    if (UI::MenuItem("Gorilla Grip Trainer run history", "", g_showHistory))
+        g_showHistory = !g_showHistory;
     if (UI::MenuItem("Gorilla Grip Trainer physics panel", "", S_DiagVisible)) {
         S_DiagVisible = !S_DiagVisible;
         WidgetLayout@ widget = GetLayout("diagnostics");
@@ -84,6 +184,7 @@ void RenderMenu() {
 
 void RenderInterface() {
     RenderLayoutEditor();
+    RenderHistoryWindow();
 }
 
 void Render() {

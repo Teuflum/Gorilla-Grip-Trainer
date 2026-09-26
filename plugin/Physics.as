@@ -8,6 +8,8 @@ class PhysicsSnapshot {
     int mode = 0;
     uint modeAt = 0;
     float force = 1.0f;
+    // Nonzero selects the game's baseline-force branch (observed during bounces).
+    int forceGateState = 0;
     int recoveryDelayMs = 400;
     uint contactMask = 0;
     float meanIcing = 0.0f;
@@ -93,6 +95,7 @@ PhysicsSnapshot@ ReadPhysics(CSceneVehicleVisState@ vis, int raceTime) {
     snap.mode = int(mode);
     snap.modeAt = Dev::SafeReadUint32(vehicle + 0x14d8);
     snap.force = force;
+    snap.forceGateState = int(Dev::SafeReadUint32(vehicle + 0x1600));
     snap.recoveryDelayMs = int(delay);
     for (uint i = 0; i < 4; i++) {
         if (Dev::SafeReadUint32(vehicle + 0x17b4 + 0xb8 * i) != 0)

@@ -1,10 +1,14 @@
 int g_hudFont = -1;
+nvg::Texture@ g_gorillaTexture;
 string g_resultLabel = "";
 string g_resultReason = "";
 int g_resultShownAt = -1;
 
 void InitWidgets() {
     g_hudFont = nvg::LoadFont("DroidSans-Bold.ttf");
+    @g_gorillaTexture = nvg::LoadTexture("assets/gorilla-emoji.png");
+    if (g_gorillaTexture is null)
+        print("Gorilla Grip Trainer: gorilla emoji texture could not load");
 }
 
 void ShowResult(JumpVerdict@ verdict, int raceTime) {
@@ -30,6 +34,8 @@ vec4 GradeColor(const string &in label, float alpha = 1.0f) {
     if (label == "B") return HudColor(0.38f, 0.78f, 1.0f, alpha);
     if (label == "C") return HudColor(0.63f, 0.66f, 1.0f, alpha);
     if (label == "D") return HudColor(1.0f, 0.55f, 0.22f, alpha);
+    if (label == "UNRATED" || label.Contains("/"))
+        return HudColor(0.67f, 0.78f, 0.90f, alpha);
     return HudColor(1.0f, 0.34f, 0.53f, alpha);
 }
 
@@ -133,30 +139,103 @@ void RenderDiagnostics(const vec4 &in r, PhysicsSnapshot@ snap) {
         HudColor(1, 0.58f, 0.36f) : HudColor(0.55f, 0.67f, 0.77f), center);
 }
 
-void RenderTiming(const vec4 &in r, JumpPreview@ preview, bool sample) {
+void RenderGradePreview(const vec4 &in r, JumpPreview@ preview, bool sample) {
     if (preview is null && !sample) return;
     string label = preview is null ? "S" : preview.label;
     vec4 accent = GradeColor(label);
-    HudCardBase(r, accent);
-    float s = Math::Min(r.z / 390.0f, r.w / 75.0f);
-    int left = nvg::Align::Left | nvg::Align::Middle;
-    int right = nvg::Align::Right | nvg::Align::Middle;
-    HudText(r.x + 16*s, r.y + r.w*0.50f, label, 38*s, accent, left);
-    HudText(r.x + 71*s, r.y + r.w*0.36f, "TAKEOFF TIMING", 13*s,
-        HudColor(0.88f, 0.97f, 1), left);
+    float s = Math::Min(r.z / 500.0f, r.w / 125.0f);
+    float cx = r.x + r.z*0.5f;
+    float cy = r.y + r.w*0.5f;
+    float w = 225*s;
+    float h = 91*s;
+    HudBox(cx - w*0.5f + 3*s, cy - h*0.5f + 4*s, w, h, 13*s,
+        HudColor(0, 0, 0, 0.25f));
+    HudBox(cx - w*0.5f, cy - h*0.5f, w, h, 13*s,
+        HudColor(0.025f, 0.039f, 0.09f, 0.87f));
+    HudBox(cx - w*0.5f, cy - h*0.5f, w, 2*s, 1*s,
+        HudColor(accent.x, accent.y, accent.z, 0.72f));
+    int center = nvg::Align::Center | nvg::Align::Middle;
+    HudText(cx, cy - 31*s,
+        preview !is null && preview.ambiguous ?
+        "CONSERVATIVE PREVIEW" : "TAKEOFF PREVIEW", 10*s,
+        HudColor(0.68f, 0.78f, 0.88f), center);
+    HudText(cx, cy - 1*s, label, 48.0f*s, accent, center);
     string lead = preview is null ? "0-15 ms" :
         preview.leadMinMs + "-" + preview.leadMaxMs + " ms";
-    HudText(r.x + r.z - 17*s, r.y + r.w*0.66f, lead, 13*s,
-        HudColor(0.67f, 0.78f, 0.88f), right);
+    HudText(cx, cy + 31*s, lead + " BEFORE TAKEOFF", 10*s,
+        HudColor(0.77f, 0.86f, 0.94f), center);
 }
 
 string ResultCaption(const string &in label) {
+    if (label != "MISSED" && g_resultReason.Contains("conservative"))
+        return "CONSERVATIVE TIMING";
     if (label == "S") return "GORILLA GRIP";
     if (label == "A") return "CLEAN TIMING";
     if (label == "B") return "SOLID TIMING";
     if (label == "C") return "GOOD SETUP";
     if (label == "D") return "EARLY SETUP";
+    if (label == "UNRATED") {
+        if (g_resultReason.Contains("physics read"))
+            return "PHYSICS READ LOST";
+        if (g_resultReason.Contains("contact timing"))
+            return "CONTACT TIMING LOST";
+        if (g_resultReason.Contains("force contact"))
+            return "FORCE CHECK UNAVAILABLE";
+        return "TIMING UNVERIFIED";
+    }
     return "GRIP MISSED";
+}
+
+void GorillaDot(float x, float y, float radius, const vec4 &in color) {
+    nvg::BeginPath();
+    nvg::Circle(vec2(x, y), radius);
+    nvg::FillColor(color);
+    nvg::Fill();
+}
+
+void DrawGorillaEmoji(float x, float y, float size, float alpha) {
+    if (g_gorillaTexture is null) return;
+    float left = x - size*0.5f;
+    float top = y - size*0.5f;
+    nvg::BeginPath();
+    nvg::Rect(left, top, size, size);
+    nvg::FillPaint(nvg::TexturePattern(vec2(left, top),
+        vec2(size, size), 0.0f, g_gorillaTexture, alpha));
+    nvg::Fill();
+}
+
+void DrawFallbackFlame(float x, float baseY, float height, float alpha) {
+    nvg::BeginPath();
+    nvg::MoveTo(vec2(x-height*0.24f, baseY));
+    nvg::BezierTo(vec2(x-height*0.30f, baseY-height*0.35f),
+        vec2(x-height*0.10f, baseY-height*0.72f),
+        vec2(x, baseY-height));
+    nvg::BezierTo(vec2(x+height*0.12f, baseY-height*0.64f),
+        vec2(x+height*0.30f, baseY-height*0.32f),
+        vec2(x+height*0.24f, baseY));
+    nvg::ClosePath();
+    nvg::FillColor(HudColor(1.0f, 0.70f, 0.16f, alpha));
+    nvg::Fill();
+}
+
+void RenderSGorillas(float cx, float cy, float s, int age, float fade) {
+    float appear = Math::Clamp(float(age) / 160.0f, 0.0f, 1.0f);
+    if (g_gorillaTexture is null) {
+        for (int i = 0; i < 5; i++)
+            DrawFallbackFlame(cx + (float(i)-2.0f)*29.0f*s,
+                cy + 25.0f*s, 43.0f*s, fade*appear);
+        return;
+    }
+    float phase = float(age)*0.020f;
+    for (int i = 0; i < 2; i++) {
+        float side = i == 0 ? -1.0f : 1.0f;
+        float x = cx + side*(150.0f + 18.0f*(1.0f-appear))*s;
+        float y = cy - Math::Abs(Math::Sin(phase + float(i)*1.8f))*9.0f*s;
+        float size = 72.0f*s*appear;
+        GorillaDot(x, y, size*0.46f,
+            HudColor(1.0f, 0.77f, 0.22f, 0.15f*fade*appear));
+        if (size > 1.0f) DrawGorillaEmoji(x, y, size, fade*appear);
+    }
 }
 
 void RenderResult(const vec4 &in r, int age, const string &in label) {
@@ -179,6 +258,7 @@ void RenderResult(const vec4 &in r, int age, const string &in label) {
         HudColor(accent.x, accent.y, accent.z, 0.75f*fade));
     HudBox(cx - panelW*0.5f, cy + 49*s, panelW, 2*s, 1*s,
         HudColor(accent.x, accent.y, accent.z, 0.28f*fade));
+    if (label == "S") RenderSGorillas(cx, cy, s, age, fade);
     HudBox(cx - 74*s, cy - 30*s, 148*s, 58*s, 24*s,
         HudColor(accent.x, accent.y, accent.z, 0.13f*impact*fade));
     for (int i = 0; i < 5; i++) {
@@ -230,24 +310,27 @@ void RenderLast(const vec4 &in r, LastRunSummary@ last) {
 }
 
 void RenderWidgets() {
-    if (g_snapshot is null || g_snapshot.raceTime < 0) return;
     if (S_HideWithUI && !UI::IsGameUIVisible()) return;
     if (g_hudFont >= 0) nvg::FontFace(g_hudFont);
-    WidgetLayout@ layout = GetLayout("diagnostics");
+    WidgetLayout@ layout = GetLayout("finish");
+    if (g_finish !is null && g_finish.visible &&
+        g_finish.summary !is null && layout !is null && layout.visible)
+        RenderFinishSummary(layout.Pixels(), g_finish.summary);
+    if (g_snapshot is null || g_snapshot.raceTime < 0) return;
+    @layout = GetLayout("diagnostics");
     if (layout !is null && layout.visible)
         RenderDiagnostics(layout.Pixels(), g_snapshot);
-    @layout = GetLayout("timing");
+    @layout = GetLayout("grade");
     if (layout !is null && layout.visible) {
-        JumpPreview@ p = g_tracker.inFlight && g_tracker.previewPublished ?
-            g_tracker.preview : null;
-        RenderTiming(layout.Pixels(), p, g_layoutEditing);
-    }
-    @layout = GetLayout("result");
-    if (layout !is null && layout.visible) {
+        JumpPreview@ p = (g_tracker.inFlight || g_tracker.pendingLanding) &&
+            g_tracker.previewPublished ? g_tracker.preview : null;
         int age = g_snapshot.raceTime - g_resultShownAt;
         bool active = g_resultShownAt >= 0 && age >= 0 && age < 1000;
-        RenderResult(layout.Pixels(), active ? age : 240,
-            active ? g_resultLabel : (g_layoutEditing ? "S" : ""));
+        if (p !is null && !g_layoutEditing)
+            RenderGradePreview(layout.Pixels(), p, false);
+        else if (active || g_layoutEditing)
+            RenderResult(layout.Pixels(), active ? age : 240,
+                active ? g_resultLabel : "S");
     }
     @layout = GetLayout("combo");
     if (layout !is null && layout.visible)

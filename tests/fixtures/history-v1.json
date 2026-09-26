@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "runs": [
+    {
+      "id": "example-map:1000:1",
+      "mapUid": "example-map",
+      "mapName": "Example map",
+      "startedAt": 1000,
+      "status": "RESET",
+      "finishMs": null,
+      "score": 150,
+      "bestCombo": 1,
+      "hits": 1,
+      "misses": 0,
+      "jumps": [
+        {
+          "preview": "S",
+          "label": "S",
+          "reason": "Pre-takeoff mode held through landing",
+          "takeoffMs": 11260,
+          "landingMs": 12580,
+          "leadMinMs": 4,
+          "leadMaxMs": 14,
+          "spins": 0,
+          "combo": 1,
+          "points": 150
+        }
+      ]
+    },
+    {
+      "id": "example-map:2000:2",
+      "mapUid": "example-map",
+      "mapName": "Example map",
+      "startedAt": 2000,
+      "status": "FINISHED",
+      "finishMs": 40910,
+      "score": 0,
+      "bestCombo": 0,
+      "hits": 0,
+      "misses": 1,
+      "jumps": [
+        {
+          "preview": "",
+          "label": "MISSED",
+          "reason": "Opposite landing direction with delayed tire force",
+          "takeoffMs": 11260,
+          "landingMs": 12580,
+          "leadMinMs": -1,
+          "leadMaxMs": -1,
+          "spins": 0,
+          "combo": 0,
+          "points": 0
+        }
+      ]
+    }
+  ]
+}

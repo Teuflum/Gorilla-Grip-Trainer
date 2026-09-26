@@ -4,12 +4,8 @@
 [Setting hidden] float S_DiagH = 0.21f;
 [Setting hidden] bool S_DiagVisible = true;
 
-[Setting hidden] float S_TimingX = 0.40f;
-[Setting hidden] float S_TimingY = 0.60f;
-[Setting hidden] float S_TimingW = 0.20f;
-[Setting hidden] float S_TimingH = 0.065f;
-[Setting hidden] bool S_TimingVisible = true;
-
+// Retain these saved setting keys so existing landing-grade placement carries
+// over to the combined grade widget.
 [Setting hidden] float S_ResultX = 0.38f;
 [Setting hidden] float S_ResultY = 0.48f;
 [Setting hidden] float S_ResultW = 0.24f;
@@ -39,6 +35,12 @@
 [Setting hidden] float S_LastW = 0.21f;
 [Setting hidden] float S_LastH = 0.095f;
 [Setting hidden] bool S_LastVisible = true;
+
+[Setting hidden] float S_FinishX = 0.65f;
+[Setting hidden] float S_FinishY = 0.14f;
+[Setting hidden] float S_FinishW = 0.31f;
+[Setting hidden] float S_FinishH = 0.34f;
+[Setting hidden] bool S_FinishVisible = true;
 
 class WidgetLayout {
     string id;
@@ -85,12 +87,12 @@ bool g_forceLayoutPosition = false;
 void InitLayout() {
     g_layouts.RemoveRange(0, g_layouts.Length);
     g_layouts.InsertLast(WidgetLayout("diagnostics", "Physics", vec4(0.38f, 0.67f, 0.24f, 0.21f), true));
-    g_layouts.InsertLast(WidgetLayout("timing", "Timing preview", vec4(0.40f, 0.60f, 0.20f, 0.065f), true));
-    g_layouts.InsertLast(WidgetLayout("result", "Landing grade", vec4(0.38f, 0.48f, 0.24f, 0.11f), true));
+    g_layouts.InsertLast(WidgetLayout("grade", "Grade", vec4(0.38f, 0.48f, 0.24f, 0.11f), true));
     g_layouts.InsertLast(WidgetLayout("combo", "Combo", vec4(0.81f, 0.62f, 0.16f, 0.075f), true));
     g_layouts.InsertLast(WidgetLayout("score", "Score", vec4(0.81f, 0.71f, 0.16f, 0.075f), true));
     g_layouts.InsertLast(WidgetLayout("best", "Best combo", vec4(0.81f, 0.80f, 0.16f, 0.075f), true));
     g_layouts.InsertLast(WidgetLayout("last", "Last run", vec4(0.03f, 0.84f, 0.21f, 0.095f), true));
+    g_layouts.InsertLast(WidgetLayout("finish", "Finish summary", vec4(0.65f, 0.14f, 0.31f, 0.34f), true));
     LoadLayoutSettings();
 }
 
@@ -103,15 +105,16 @@ WidgetLayout@ GetLayout(const string &in id) {
 void LoadLayoutSettings() {
     array<vec4> saved = {
         vec4(S_DiagX, S_DiagY, S_DiagW, S_DiagH),
-        vec4(S_TimingX, S_TimingY, S_TimingW, S_TimingH),
         vec4(S_ResultX, S_ResultY, S_ResultW, S_ResultH),
         vec4(S_ComboX, S_ComboY, S_ComboW, S_ComboH),
         vec4(S_ScoreX, S_ScoreY, S_ScoreW, S_ScoreH),
         vec4(S_BestX, S_BestY, S_BestW, S_BestH),
-        vec4(S_LastX, S_LastY, S_LastW, S_LastH)
+        vec4(S_LastX, S_LastY, S_LastW, S_LastH),
+        vec4(S_FinishX, S_FinishY, S_FinishW, S_FinishH)
     };
-    array<bool> shown = {S_DiagVisible, S_TimingVisible, S_ResultVisible,
-        S_ComboVisible, S_ScoreVisible, S_BestVisible, S_LastVisible};
+    array<bool> shown = {S_DiagVisible, S_ResultVisible,
+        S_ComboVisible, S_ScoreVisible, S_BestVisible, S_LastVisible,
+        S_FinishVisible};
     for (uint i = 0; i < g_layouts.Length; i++) {
         g_layouts[i].rect = saved[i];
         g_layouts[i].visible = shown[i];
@@ -125,23 +128,23 @@ void SaveLayoutSettings() {
     S_DiagX = a.x; S_DiagY = a.y; S_DiagW = a.z; S_DiagH = a.w;
     S_DiagVisible = g_layouts[0].visible;
     a = g_layouts[1].rect;
-    S_TimingX = a.x; S_TimingY = a.y; S_TimingW = a.z; S_TimingH = a.w;
-    S_TimingVisible = g_layouts[1].visible;
-    a = g_layouts[2].rect;
     S_ResultX = a.x; S_ResultY = a.y; S_ResultW = a.z; S_ResultH = a.w;
-    S_ResultVisible = g_layouts[2].visible;
-    a = g_layouts[3].rect;
+    S_ResultVisible = g_layouts[1].visible;
+    a = g_layouts[2].rect;
     S_ComboX = a.x; S_ComboY = a.y; S_ComboW = a.z; S_ComboH = a.w;
-    S_ComboVisible = g_layouts[3].visible;
-    a = g_layouts[4].rect;
+    S_ComboVisible = g_layouts[2].visible;
+    a = g_layouts[3].rect;
     S_ScoreX = a.x; S_ScoreY = a.y; S_ScoreW = a.z; S_ScoreH = a.w;
-    S_ScoreVisible = g_layouts[4].visible;
-    a = g_layouts[5].rect;
+    S_ScoreVisible = g_layouts[3].visible;
+    a = g_layouts[4].rect;
     S_BestX = a.x; S_BestY = a.y; S_BestW = a.z; S_BestH = a.w;
-    S_BestVisible = g_layouts[5].visible;
-    a = g_layouts[6].rect;
+    S_BestVisible = g_layouts[4].visible;
+    a = g_layouts[5].rect;
     S_LastX = a.x; S_LastY = a.y; S_LastW = a.z; S_LastH = a.w;
-    S_LastVisible = g_layouts[6].visible;
+    S_LastVisible = g_layouts[5].visible;
+    a = g_layouts[6].rect;
+    S_FinishX = a.x; S_FinishY = a.y; S_FinishW = a.z; S_FinishH = a.w;
+    S_FinishVisible = g_layouts[6].visible;
 }
 
 [SettingsTab name="Layout"]
@@ -151,32 +154,29 @@ void RenderSettingsLayout() {
     for (uint i = 0; i < g_layouts.Length; i++) {
         auto widget = g_layouts[i];
         UI::PushID(widget.id);
-        widget.visible = UI::Checkbox(widget.title, widget.visible);
+        UI::SeparatorText(widget.title);
+        widget.visible = UI::Checkbox("Show", widget.visible);
         UI::SameLine();
         if (UI::Button("Reset")) {
             widget.Reset();
             g_forceLayoutPosition = true;
         }
-        if (UI::TreeNode("Position and size")) {
-            UI::Text("Percent of screen; top-left origin");
-            vec2 pos = UI::InputFloat2("Position X/Y (%)",
-                vec2(widget.rect.x * 100.0f, widget.rect.y * 100.0f), "%.1f");
-            vec2 size = UI::InputFloat2("Width/height (%)",
-                vec2(widget.rect.z * 100.0f, widget.rect.w * 100.0f), "%.1f");
-            if (Math::Abs(pos.x - widget.rect.x*100.0f) > 0.001f ||
-                Math::Abs(pos.y - widget.rect.y*100.0f) > 0.001f ||
-                Math::Abs(size.x - widget.rect.z*100.0f) > 0.001f ||
-                Math::Abs(size.y - widget.rect.w*100.0f) > 0.001f) {
-                widget.rect = vec4(pos.x/100.0f, pos.y/100.0f,
-                    size.x/100.0f, size.y/100.0f);
-                widget.Clamp();
-                g_forceLayoutPosition = true;
-            }
-            vec4 pixels = widget.Pixels();
-            UI::Text("Pixels: " + int(pixels.x) + ", " + int(pixels.y) +
-                "  /  " + int(pixels.z) + " x " + int(pixels.w));
-            UI::TreePop();
+        vec2 pos = UI::InputFloat2("Position X/Y (%)",
+            vec2(widget.rect.x * 100.0f, widget.rect.y * 100.0f), "%.1f");
+        vec2 size = UI::InputFloat2("Width/height (%)",
+            vec2(widget.rect.z * 100.0f, widget.rect.w * 100.0f), "%.1f");
+        if (Math::Abs(pos.x - widget.rect.x*100.0f) > 0.001f ||
+            Math::Abs(pos.y - widget.rect.y*100.0f) > 0.001f ||
+            Math::Abs(size.x - widget.rect.z*100.0f) > 0.001f ||
+            Math::Abs(size.y - widget.rect.w*100.0f) > 0.001f) {
+            widget.rect = vec4(pos.x/100.0f, pos.y/100.0f,
+                size.x/100.0f, size.y/100.0f);
+            widget.Clamp();
+            g_forceLayoutPosition = true;
         }
+        vec4 pixels = widget.Pixels();
+        UI::Text("Pixels: " + int(pixels.x) + ", " + int(pixels.y) +
+            "  /  " + int(pixels.z) + " x " + int(pixels.w));
         UI::PopID();
     }
     if (UI::Button("Reset all positions and sizes")) {

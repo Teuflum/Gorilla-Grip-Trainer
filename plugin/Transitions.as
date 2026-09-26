@@ -1,4 +1,7 @@
 const float STEER_GATE = 0.1f;
+const int MAX_TIMING_SAMPLE_GAP = 50;
+const int FORCE_SETTLE_MS = 30;
+const int FORCE_GATE_TIMEOUT_MS = 500;
 
 int SteeringDirection(float steer) {
     if (steer > STEER_GATE) return 2;
@@ -24,6 +27,7 @@ string GradeLead(int lo, int hi) {
 
 class JumpPreview {
     string label;
+    bool ambiguous = false;
     int leadMinMs = -1;
     int leadMaxMs = -1;
     int takeoffTime = -1;
@@ -61,6 +65,7 @@ class TransitionTracker {
     int landingRace = -1;
     int landingClock = -1;
     int landingDirection = 0;
+    int forceEligibleClock = -1;
     int recoveryDelayMs = 400;
     float airSpinRadians = 0.0f;
     int flightSpinCount = 0;
@@ -93,6 +98,7 @@ class TransitionTracker {
         landingRace = -1;
         landingClock = -1;
         landingDirection = 0;
+        forceEligibleClock = -1;
         airSpinRadians = 0.0f;
         flightSpinCount = 0;
         spinReliable = true;
@@ -139,11 +145,13 @@ class TransitionTracker {
             previous.meanIcing >= S_MinIcing &&
             previous.speedKmh >= float(S_MinSpeed);
         if (!flightEligible || previous.gameTime < 0 ||
-            snap.gameTime - previous.gameTime > 25) {
-            if (snap.gameTime - previous.gameTime > 25) {
+            snap.gameTime - previous.gameTime > MAX_TIMING_SAMPLE_GAP) {
+            if (snap.gameTime - previous.gameTime > MAX_TIMING_SAMPLE_GAP) {
                 flightUncertain = true;
-                if (flightEligible && switchAt >= 0) {
-                    unratedReason = "contact sample gap exceeded 25 ms";
+                if (flightEligible && switchAt >= 0 &&
+                    switchNewMode == takeoffMode &&
+                    snap.gameTime - switchAt <= 250) {
+                    unratedReason = "contact sample gap exceeded 50 ms";
                     unratedEvent = true;
                 }
             }
@@ -155,13 +163,15 @@ class TransitionTracker {
         int lo = Math::Max(0, previous.gameTime - switchAt);
         int hi = snap.gameTime - switchAt;
         string grade = GradeLead(lo, hi);
-        if (grade.Length == 0) {
-            unratedReason = "possible switch lead crosses a grade boundary";
-            unratedEvent = true;
-            return;
-        }
         @preview = JumpPreview();
-        preview.label = grade;
+        if (grade.Length == 0) {
+            preview.label = GradeLead(hi, hi);
+            preview.ambiguous = true;
+            if (preview.label.Length == 0) {
+                @preview = null;
+                return;
+            }
+        } else preview.label = grade;
         preview.leadMinMs = lo;
         preview.leadMaxMs = hi;
         preview.takeoffTime = snap.raceTime;
@@ -177,28 +187,58 @@ class TransitionTracker {
         landingRace = snap.raceTime;
         landingClock = snap.gameTime;
         landingDirection = SteeringDirection(snap.smoothedSteer);
+        forceEligibleClock = -1;
         pendingLanding = flightEligible && !flightUncertain &&
             landingRace - takeoffRace >= S_MinFlight;
+        if (flightUncertain && (previewPublished || unratedReason.Length > 0))
+            PublishUnrated(unratedReason.Length > 0 ? unratedReason :
+                "Exact contact timing was lost during flight", landingRace);
+    }
+
+    void PublishUnrated(const string &in reason, int raceTime) {
+        bool attempted = (previewPublished && preview !is null) ||
+            unratedReason.Length > 0;
+        unratedReason = reason;
+        unratedEvent = true;
+        inFlight = false;
+        pendingLanding = false;
+        if (!attempted) return;
+        @verdict = JumpVerdict();
+        verdict.label = "UNRATED";
+        verdict.reason = reason;
+        verdict.takeoffTime = takeoffRace;
+        verdict.landingTime = Math::Max(takeoffRace, raceTime);
+        verdict.leadMinMs = preview is null ? -1 : preview.leadMinMs;
+        verdict.leadMaxMs = preview is null ? -1 : preview.leadMaxMs;
+        verdict.spinCount = 0;
+        verdict.exact = false;
+        verdictEvent = true;
     }
 
     void ResolveLanding(PhysicsSnapshot@ snap) {
         pendingLanding = false;
-        if (snap.contactMask == 0 || snap.meanIcing < S_MinIcing) return;
+        if (snap.contactMask == 0) return;
         bool hasPreview = preview !is null && previewPublished;
+        bool enoughIcing = snap.meanIcing >= S_MinIcing;
         bool matchingLanding = landingDirection != 0 &&
             landingDirection == takeoffMode;
-        bool recovered = matchingLanding && snap.mode == takeoffMode &&
+        bool recovered = enoughIcing && matchingLanding && snap.mode == takeoffMode &&
             int(snap.modeAt) == takeoffModeAt &&
-            landingClock - takeoffModeAt >= 2 * recoveryDelayMs &&
+            forceEligibleClock - takeoffModeAt >= 2 * recoveryDelayMs &&
             snap.force > 1.001f;
         if (hasPreview) {
             @verdict = JumpVerdict();
             verdict.label = recovered ? preview.label : "MISSED";
-            verdict.reason = recovered ? "Pre-takeoff mode held through landing" :
-                "Direction or tire force did not recover on contact";
+            verdict.reason = recovered ? (preview.ambiguous ?
+                "Grip recovered; conservative grade from timing range" :
+                "Pre-takeoff mode held through force-eligible contact") :
+                (enoughIcing ?
+                "Direction or tire force did not recover on force-eligible contact" :
+                "Landing icing fell below the rating threshold");
             verdict.leadMinMs = preview.leadMinMs;
             verdict.leadMaxMs = preview.leadMaxMs;
-        } else if (landingDirection != 0 && takeoffMode != 0 &&
+            verdict.timingEstimated = preview.ambiguous;
+        } else if (enoughIcing && landingDirection != 0 && takeoffMode != 0 &&
             landingDirection != takeoffMode && snap.force <= 1.1f) {
             @verdict = JumpVerdict();
             verdict.label = "MISSED";
@@ -218,11 +258,14 @@ class TransitionTracker {
         landingEvent = false;
         unratedEvent = false;
         if (snap is null || !snap.exact || snap.gameTime < 0) {
-            if (inFlight || pendingLanding) flightUncertain = true;
+            if (pendingLanding)
+                PublishUnrated("Exact physics read was lost after landing", landingRace);
+            else if (inFlight) flightUncertain = true;
             @previous = null;
             return;
         }
         if (previous is null) {
+            if (inFlight && snap.contactMask != 0) Land(snap);
             @previous = snap;
             return;
         }
@@ -234,11 +277,16 @@ class TransitionTracker {
         }
 
         int sampleGap = snap.gameTime - previous.gameTime;
-        if (sampleGap > 25) {
-            switchAt = -1;
+        bool crossingTakeoff = previous.contactMask != 0 &&
+            snap.contactMask == 0 && !pendingLanding;
+        if (sampleGap > MAX_TIMING_SAMPLE_GAP) {
+            // Keep a recent grounded switch until StartFlight can report the
+            // uncertain takeoff. It cannot receive a timing grade from this gap.
+            if (!crossingTakeoff) switchAt = -1;
             rawReversalAt = -1;
             if (previous.contactMask != snap.contactMask)
                 flightUncertain = true;
+            if (pendingLanding) flightUncertain = true;
             if (inFlight) spinReliable = false;
         }
 
@@ -249,17 +297,20 @@ class TransitionTracker {
             airSpinRadians += Math::Abs(turn);
         }
 
-        if (sampleGap <= 25) ObserveSteeringAndMode(snap);
-        if (previous.contactMask != 0 && snap.contactMask == 0)
+        if (sampleGap <= MAX_TIMING_SAMPLE_GAP) ObserveSteeringAndMode(snap);
+        if (crossingTakeoff) {
             StartFlight(snap);
+            if (sampleGap > MAX_TIMING_SAMPLE_GAP) switchAt = -1;
+        }
         else if (previous.contactMask == 0 && snap.contactMask != 0 && inFlight)
             Land(snap);
 
         if (inFlight && snap.contactMask == 0 && flightEligible &&
             !flightUncertain && snap.raceTime - takeoffRace >= S_MinFlight) {
-            if (!cuePublished && rawReversalAt >= 0 &&
+            if (!cuePublished && (preview !is null ||
+                (rawReversalAt >= 0 &&
                 0 <= takeoffClock - rawReversalAt &&
-                takeoffClock - rawReversalAt <= 250) {
+                takeoffClock - rawReversalAt <= 250))) {
                 cuePublished = true;
                 takeoffCueEvent = true;
             }
@@ -273,10 +324,17 @@ class TransitionTracker {
                 snap.gameTime - landingClock <= 30 &&
                 SteeringDirection(snap.smoothedSteer) != 0)
                 landingDirection = SteeringDirection(snap.smoothedSteer);
-            if (snap.gameTime - landingClock >= 80) {
-                if (!flightUncertain) ResolveLanding(snap);
-                else pendingLanding = false;
-            }
+            if (snap.contactMask != 0 && snap.forceGateState == 0) {
+                if (forceEligibleClock < 0) forceEligibleClock = snap.gameTime;
+            } else forceEligibleClock = -1;
+            if (flightUncertain)
+                PublishUnrated("Landing contact timing became uncertain", snap.raceTime);
+            else if (snap.gameTime - landingClock > FORCE_GATE_TIMEOUT_MS)
+                PublishUnrated("Tire-force contact never became eligible", snap.raceTime);
+            else if (snap.gameTime - landingClock >= 80 &&
+                forceEligibleClock >= 0 &&
+                snap.gameTime - forceEligibleClock >= FORCE_SETTLE_MS)
+                ResolveLanding(snap);
         }
         @previous = snap;
     }

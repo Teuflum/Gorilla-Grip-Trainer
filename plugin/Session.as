@@ -7,6 +7,7 @@ class JumpVerdict {
     int landingTime = -1;
     int spinCount = 0;
     int points = 0;
+    bool timingEstimated = false;
     bool exact = false;
 }
 

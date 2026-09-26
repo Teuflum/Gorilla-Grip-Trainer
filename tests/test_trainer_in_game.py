@@ -7,13 +7,18 @@ It reads only fresh Openplanet log lines produced by its own TICK replay.
 from __future__ import annotations
 
 import argparse
+import atexit
+import json
 import re
 import subprocess
 import sys
+import time
+import uuid
 from pathlib import Path
 
 
 LOG = Path.home() / "OpenplanetNext" / "Openplanet.log"
+HISTORY = Path.home() / "OpenplanetNext" / "PluginStorage" / "GorillaGripTrainer" / "history.json"
 SNAPSHOT = re.compile(
     r"Gorilla Grip Trainer snapshot at (\d+)ms: exact true, "
     r"mode ([012]), steer ([+-]?[0-9.]+), contacts ([01]{4}), "
@@ -81,22 +86,163 @@ def target_events(log: str) -> tuple[list[re.Match[str]], list[re.Match[str]]]:
     return previews, verdicts
 
 
+def history_runs() -> list[dict]:
+    if not HISTORY.is_file():
+        return []
+    return json.loads(HISTORY.read_text(encoding="utf-8"))["runs"]
+
+
+def preserve_loaded_input(research_root: Path) -> None:
+    """Restore the user's loaded TICK input after any rating case, including failures."""
+    sys.path.insert(0, str(research_root / "work"))
+    from tick_client import TickClient, encoded
+
+    client = TickClient()
+    collection_id = client.get("settings")["activeInputCollectionId"]
+    revision_id = client.get("runtime/status")["loadedInputRevisionId"]
+
+    def restore() -> None:
+        if not collection_id or not revision_id:
+            return
+        settings = client.get("settings")
+        if settings["activeInputCollectionId"] != collection_id:
+            client.patch("settings", {
+                "expectedRevision": settings["revision"],
+                "activeInputCollectionId": collection_id,
+            })
+        if client.get("runtime/status")["loadedInputRevisionId"] != revision_id:
+            collection = client.get(f"input-collections/{encoded(collection_id)}")
+            client.post(
+                f"input-revisions/{encoded(revision_id)}/load?"
+                f"expectedCollectionRevision={collection['node']['revision']}"
+            )
+
+    atexit.register(restore)
+
+
+def assert_full_finish(research_root: Path, finish_revision_id: str) -> None:
+    sys.path.insert(0, str(research_root / "work"))
+    from tick_client import TickClient, encoded
+
+    client = TickClient()
+    original_settings = client.get("settings")
+    original_collection = original_settings["activeInputCollectionId"]
+    original_loaded = client.get("runtime/status")["loadedInputRevisionId"]
+    assert client.get("runtime/status")["currentMapUid"] == "xsBIINZa10KzKOtrSt_oxEAnHX5"
+    finish_revision = client.get(f"input-revisions/{encoded(finish_revision_id)}")
+    finish_collection = finish_revision["collectionId"]
+
+    before = {run["id"] for run in history_runs()}
+    log_offset = LOG.stat().st_size
+    finished: list[dict] = []
+    try:
+        if original_collection != finish_collection or original_settings["disableFinishEnabled"]:
+            settings = client.get("settings")
+            client.patch("settings", {
+                "expectedRevision": settings["revision"],
+                "activeInputCollectionId": finish_collection,
+                "disableFinishEnabled": False,
+            })
+        collection = client.get(f"input-collections/{encoded(finish_collection)}")
+        client.post(
+            f"input-revisions/{encoded(finish_revision_id)}/load?"
+            f"expectedCollectionRevision={collection['node']['revision']}"
+        )
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            if client.get("runtime/status")["loadedInputRevisionId"] == finish_revision_id:
+                break
+            time.sleep(0.2)
+        else:
+            raise AssertionError("Selected finishing replay did not load")
+
+        storage = Path.home() / "OpenplanetNext" / "PluginStorage" / "GorillaGripLogger"
+        command_id = uuid.uuid4().hex[:12]
+        command = storage / "automation_command.txt"
+        temporary = command.with_suffix(".tmp")
+        temporary.write_text(command_id, encoding="utf-8")
+        temporary.replace(command)
+        deadline = time.monotonic() + 70
+        while time.monotonic() < deadline:
+            status = (storage / "automation_status.txt").read_text(encoding="utf-8")
+            if status.startswith(command_id + " "):
+                if " error:" in status:
+                    raise AssertionError(status)
+                if " complete " in status:
+                    break
+            time.sleep(0.2)
+        else:
+            raise AssertionError("Full replay never started through the logger")
+
+        # The logger stops at 13.5 seconds, but TICK continues the replay to the finish.
+        deadline = time.monotonic() + 55
+        while time.monotonic() < deadline:
+            finished = [
+                run for run in history_runs()
+                if run["id"] not in before and run["status"] == "FINISHED"
+            ]
+            if finished:
+                break
+            time.sleep(0.5)
+        assert len(finished) == 1, "Selected replay did not record one FINISHED attempt"
+        assert finished[0]["finishMs"] >= 40000
+        with LOG.open("rb") as handle:
+            handle.seek(log_offset)
+            log = handle.read().decode("utf-8", "replace")
+        assert log.count("Gorilla Grip Trainer finish summary:") == 1
+        assert log.count("Gorilla Grip Trainer audio: results voice started") == 1
+        deadline = time.monotonic() + 35
+        while time.monotonic() < deadline:
+            with LOG.open("rb") as handle:
+                handle.seek(log_offset)
+                log = handle.read().decode("utf-8", "replace")
+            if "Gorilla Grip Trainer audio: results loop started" in log or \
+                    "Gorilla Grip Trainer audio: results loop restarted via rewind" in log:
+                break
+            time.sleep(0.25)
+        assert (log.count("Gorilla Grip Trainer audio: results loop started") +
+                log.count("Gorilla Grip Trainer audio: results loop restarted via rewind")) == 1
+    finally:
+        settings = client.get("settings")
+        if (settings["activeInputCollectionId"] != original_collection or
+                settings["disableFinishEnabled"] != original_settings["disableFinishEnabled"]):
+            client.patch("settings", {
+                "expectedRevision": settings["revision"],
+                "activeInputCollectionId": original_collection,
+                "disableFinishEnabled": original_settings["disableFinishEnabled"],
+            })
+        if original_loaded is not None:
+            collection = client.get(f"input-collections/{encoded(original_collection)}")
+            client.post(
+                f"input-revisions/{encoded(original_loaded)}/load?"
+                f"expectedCollectionRevision={collection['node']['revision']}"
+            )
+    print("Trainer true finish, summary, results music, and first loop: PASS")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--research-root", required=True, type=Path)
     parser.add_argument("--physics-only", action="store_true")
     parser.add_argument(
-        "--case", choices=["plus13", "plus12", "same", "no-presteer", "all"],
+        "--case", choices=["plus13", "plus12", "same", "no-presteer", "all", "finish"],
         default="plus13",
     )
+    parser.add_argument("--finish-revision-id", help="TICK revision known to finish the map")
     args = parser.parse_args()
     assert (args.research_root / "work" / "auto_trials.py").is_file()
+    if args.case == "finish":
+        if not args.finish_revision_id:
+            parser.error("--case finish requires --finish-revision-id for a run that reaches the finish")
+        assert_full_finish(args.research_root, args.finish_revision_id)
+        return
     variants = {
         "plus13": "right_13_from_1126_through_1131",
         "plus12": "right_12_from_1126_through_1131",
         "same": "no_presteer_same_landing",
         "no-presteer": "no_presteer_opposite_landing",
     }
+    preserve_loaded_input(args.research_root)
     cases = list(variants) if args.case == "all" else [args.case]
     for case in cases:
         log = trial_log(args.research_root, variants[case])
@@ -130,8 +276,8 @@ def main() -> None:
                     m for m in UNRATED.finditer(log)
                     if 5200 <= int(m.group(1)) <= 5400
                 ]
-                assert len(uncertain) == 1 and "grade boundary" in uncertain[0].group(2), (
-                    "An ambiguous first jump needs a visible timing reason"
+                assert len(uncertain) == 1 and "contact sample gap" in uncertain[0].group(2), (
+                    "A first jump without a grade needs a genuine contact-sampling failure"
                 )
         elif case in ("plus12", "no-presteer"):
             assert not previews, f"{case} must have no air grade preview"

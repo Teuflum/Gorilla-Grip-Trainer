@@ -173,16 +173,18 @@ void RenderDiagnostics(const vec4 &in r, PhysicsSnapshot@ snap) {
             Text::Format("%.1f s", float(modeAge) / 1000.0f));
     if (snap.exact && g_tracker.inFlight &&
         g_tracker.unratedReason.Length > 0) detail = "TIMING UNVERIFIED";
-    HudText(r.x + r.z*0.5f, r.y + 190*s, detail, 11*s,
-        g_tracker.inFlight && g_tracker.unratedReason.Length > 0 ?
-        HudColor(1, 0.58f, 0.36f) : HudColor(0.55f, 0.67f, 0.77f), center);
     string explanation = !snap.exact ? "" : modeAge < 0 ?
         "MODE STARTS ON ELIGIBLE WHEEL CONTACT" : g_tracker.inFlight ?
         snap.recoveryDelayMs + " ms delay | " +
             (2 * snap.recoveryDelayMs) + " ms max | check on landing" :
-        "TIRE-FORCE MULTIPLIER, NOT SPEED";
-    HudText(r.x + r.z*0.5f, r.y + 207*s, explanation, 10*s,
-        HudColor(0.45f, 0.59f, 0.70f), center);
+        "";
+    HudText(r.x + r.z*0.5f,
+        r.y + (explanation.Length == 0 ? 195.0f : 190.0f)*s,
+        detail, 11*s, g_tracker.inFlight && g_tracker.unratedReason.Length > 0 ?
+        HudColor(1, 0.58f, 0.36f) : HudColor(0.55f, 0.67f, 0.77f), center);
+    if (explanation.Length > 0)
+        HudText(r.x + r.z*0.5f, r.y + 207*s, explanation, 10*s,
+            HudColor(0.45f, 0.59f, 0.70f), center);
 }
 
 void RenderGradePreview(const vec4 &in r, JumpPreview@ preview, bool sample) {

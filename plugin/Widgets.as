@@ -2,6 +2,7 @@ int g_hudFont = -1;
 nvg::Texture@ g_gorillaTexture;
 string g_resultLabel = "";
 string g_resultReason = "";
+bool g_resultTimingEstimated = false;
 int g_resultShownAt = -1;
 
 void InitWidgets() {
@@ -15,12 +16,14 @@ void ShowResult(JumpVerdict@ verdict, int raceTime) {
     if (verdict is null) return;
     g_resultLabel = verdict.label;
     g_resultReason = verdict.reason;
+    g_resultTimingEstimated = verdict.timingEstimated;
     g_resultShownAt = raceTime;
 }
 
 void ClearResult() {
     g_resultLabel = "";
     g_resultReason = "";
+    g_resultTimingEstimated = false;
     g_resultShownAt = -1;
 }
 
@@ -142,6 +145,7 @@ void RenderDiagnostics(const vec4 &in r, PhysicsSnapshot@ snap) {
 void RenderGradePreview(const vec4 &in r, JumpPreview@ preview, bool sample) {
     if (preview is null && !sample) return;
     string label = preview is null ? "S" : preview.label;
+    string shownLabel = preview !is null && preview.ambiguous ? label + "+" : label;
     vec4 accent = GradeColor(label);
     float s = Math::Min(r.z / 500.0f, r.w / 125.0f);
     float cx = r.x + r.z*0.5f;
@@ -155,11 +159,9 @@ void RenderGradePreview(const vec4 &in r, JumpPreview@ preview, bool sample) {
     HudBox(cx - w*0.5f, cy - h*0.5f, w, 2*s, 1*s,
         HudColor(accent.x, accent.y, accent.z, 0.72f));
     int center = nvg::Align::Center | nvg::Align::Middle;
-    HudText(cx, cy - 31*s,
-        preview !is null && preview.ambiguous ?
-        "CONSERVATIVE PREVIEW" : "TAKEOFF PREVIEW", 10*s,
+    HudText(cx, cy - 31*s, "TAKEOFF PREVIEW", 10*s,
         HudColor(0.68f, 0.78f, 0.88f), center);
-    HudText(cx, cy - 1*s, label, 48.0f*s, accent, center);
+    HudText(cx, cy - 1*s, shownLabel, 48.0f*s, accent, center);
     string lead = preview is null ? "0-15 ms" :
         preview.leadMinMs + "-" + preview.leadMaxMs + " ms";
     HudText(cx, cy + 31*s, lead + " BEFORE TAKEOFF", 10*s,
@@ -167,8 +169,6 @@ void RenderGradePreview(const vec4 &in r, JumpPreview@ preview, bool sample) {
 }
 
 string ResultCaption(const string &in label) {
-    if (label != "MISSED" && g_resultReason.Contains("conservative"))
-        return "CONSERVATIVE TIMING";
     if (label == "S") return "GORILLA GRIP";
     if (label == "A") return "CLEAN TIMING";
     if (label == "B") return "SOLID TIMING";
@@ -238,8 +238,11 @@ void RenderSGorillas(float cx, float cy, float s, int age, float fade) {
     }
 }
 
-void RenderResult(const vec4 &in r, int age, const string &in label) {
+void RenderResult(const vec4 &in r, int age, const string &in label,
+    bool estimated) {
     if (label.Length == 0) return;
+    bool showPlus = estimated && GradeBasePoints(label) > 0;
+    string shownLabel = showPlus ? label + "+" : label;
     float s = Math::Min(r.z / 500.0f, r.w / 125.0f);
     float fade = 1.0f - Math::Clamp(float(age - 700) / 300.0f, 0.0f, 1.0f);
     float p = Math::Clamp(float(age) / 190.0f, 0.0f, 1.0f);
@@ -273,7 +276,7 @@ void RenderResult(const vec4 &in r, int age, const string &in label) {
     int centered = nvg::Align::Center | nvg::Align::Middle;
     float gradeSize = (label == "MISSED" ? 43.0f : 54.0f) +
         28.0f*remaining*remaining;
-    HudText(cx, cy - 8*s + 13*s*remaining, label, gradeSize*s,
+    HudText(cx, cy - 8*s + 13*s*remaining, shownLabel, gradeSize*s,
         accent, centered);
     HudText(cx, cy + 28*s, ResultCaption(label), 13*s,
         HudColor(0.88f, 0.96f, 1, fade *
@@ -335,7 +338,8 @@ void RenderWidgets() {
             RenderGradePreview(layout.Pixels(), p, false);
         else if (active || g_layoutEditing)
             RenderResult(layout.Pixels(), active ? age : 240,
-                active ? g_resultLabel : "S");
+                active ? g_resultLabel : "S",
+                active && g_resultTimingEstimated);
     }
     @layout = GetLayout("combo");
     if (ShouldRenderWidget(layout))

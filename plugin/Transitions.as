@@ -211,6 +211,7 @@ class TransitionTracker {
         verdict.landingTime = Math::Max(takeoffRace, raceTime);
         verdict.leadMinMs = preview is null ? -1 : preview.leadMinMs;
         verdict.leadMaxMs = preview is null ? -1 : preview.leadMaxMs;
+        verdict.timingEstimated = preview !is null && preview.ambiguous;
         verdict.spinCount = 0;
         verdict.exact = false;
         verdictEvent = true;
@@ -231,7 +232,7 @@ class TransitionTracker {
             @verdict = JumpVerdict();
             verdict.label = recovered ? preview.label : "MISSED";
             verdict.reason = recovered ? (preview.ambiguous ?
-                "Grip recovered; conservative grade from timing range" :
+                "Grip recovered; takeoff fell within samples that crossed a grade limit" :
                 "Pre-takeoff mode held through force-eligible contact") :
                 (enoughIcing ?
                 "Direction or tire force did not recover on force-eligible contact" :

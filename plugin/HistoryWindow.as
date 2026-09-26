@@ -61,13 +61,15 @@ void RenderHistoryWindow() {
         UI::SeparatorText("Jumps");
         for (uint j = 0; j < selected.jumps.Length; j++) {
             HistoryJump@ jump = selected.jumps[j];
+            bool uncertainGrade = jump.timingEstimated && GradeBasePoints(jump.label) > 0;
             string lead = jump.leadMinMs < 0 ? "no preview" :
                 jump.leadMinMs + "-" + jump.leadMaxMs + " ms before takeoff";
             UI::Text("#" + (j + 1) + "  " + jump.label +
-                (jump.timingEstimated ? " (conservative)" : "") + "  " +
+                (uncertainGrade ? "+" : "") + "  " +
                 Time::Format(uint64(jump.landingMs)) + "  " + lead);
             if (jump.preview.Length > 0)
-                UI::Text("Takeoff preview: " + jump.preview);
+                UI::Text("Takeoff preview: " + jump.preview +
+                    (jump.timingEstimated ? "+" : ""));
             UI::Text("Combo x" + jump.combo + "  +" + jump.points +
                 " pts  Spins " + jump.spins);
             if (jump.scoreAfter >= 0)

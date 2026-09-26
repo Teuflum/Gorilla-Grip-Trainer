@@ -35,6 +35,8 @@ assert 'UI::CollapsingHeader("Grades")' in settings
 assert 'UI::Button("+")' in settings
 assert 'UI::Button("-")' in settings
 assert 'available - 155.0f' in settings
+assert 'float field = row * 0.325f;' in settings
+assert 'float picker = row * 0.325f;' in settings
 assert 'UI::Button("Add clip")' not in settings
 assert '@pool.entries[i].sample = g_audio.LoadLocal(choice.file)' in settings
 assert 'if (S_SoundFailure)' in audio

@@ -36,6 +36,7 @@ void RenderSettingsRating() {
         S_MinIcing = 0.65f; S_MinSpeed = 50; S_MinFlight = 100;
     }
     UI::TextWrapped("How early the physics steering direction may switch before the last wheel leaves. Each value is the latest grade's upper limit in milliseconds.");
+    UI::TextWrapped("The + marker means takeoff happened between sampled frames that cross a grade limit. A+ still scores A; the true timing may qualify for a higher rank.");
     S_SMaxLeadMs = UI::InputInt("S maximum lead (ms)", S_SMaxLeadMs);
     S_AMaxLeadMs = UI::InputInt("A maximum lead (ms)", S_AMaxLeadMs);
     S_BMaxLeadMs = UI::InputInt("B maximum lead (ms)", S_BMaxLeadMs);
@@ -128,8 +129,8 @@ SoundSlotChoice RenderSoundSlot(const string &in file, float volume) {
     float available = UI::GetContentRegionAvail().x;
     // Give the picker and gain control space instead of repeating the name.
     float row = Math::Max(240.0f, available - 155.0f);
-    float field = row * 0.23f;
-    float picker = row * 0.42f;
+    float field = row * 0.325f;
+    float picker = row * 0.325f;
     float gain = row * 0.35f;
     UI::SetNextItemWidth(field);
     choice.file = UI::InputText("##file", file);

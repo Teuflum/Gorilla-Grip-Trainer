@@ -118,12 +118,15 @@ void RenderDiagnostics(const vec4 &in r, PhysicsSnapshot@ snap) {
             HudColor(0.7f, 0.8f, 0.9f), center);
         return;
     }
-    HudText(r.x + 20*s, r.y + 66*s,
-        Text::Format("%+.1f%%", snap.smoothedSteer * 100.0f), 37*s,
-        HudColor(1, 1, 1), left);
-    HudText(r.x + 205*s, r.y + 65*s, "INTERNAL STEER", 11*s,
+    HudText(r.x + 20*s, r.y + 42*s, "SMOOTHED STEER", 10*s,
         HudColor(0.56f, 0.68f, 0.78f), left);
-    HudText(r.x + r.z - 18*s, r.y + 65*s, ModeName(snap.mode), 19*s,
+    HudText(r.x + 20*s, r.y + 69*s,
+        snap.exact ? Text::Format("%+.1f%%", snap.smoothedSteer * 100.0f) : "--",
+        37*s, HudColor(1, 1, 1), left);
+    HudText(r.x + r.z - 18*s, r.y + 42*s, "STORED SLIDE MODE", 10*s,
+        HudColor(0.56f, 0.68f, 0.78f), right);
+    HudText(r.x + r.z - 18*s, r.y + 69*s,
+        snap.exact ? ModeName(snap.mode) : "--", 19*s,
         snap.mode == 2 ? HudColor(0.04f, 0.95f, 0.87f) :
         (snap.mode == 1 ? HudColor(1, 0.39f, 0.76f) :
         HudColor(0.6f, 0.7f, 0.8f)), right);
@@ -135,8 +138,9 @@ void RenderDiagnostics(const vec4 &in r, PhysicsSnapshot@ snap) {
         HudColor(1, 0.39f, 0.76f));
     HudBox(bx + bw*0.55f, by-3*s, 2*s, 21*s, 0,
         HudColor(0.04f, 0.95f, 0.87f));
-    HudBox(bx + bw*Math::Clamp((snap.smoothedSteer + 1)*0.5f, 0.0f, 1.0f)-3*s,
-        by-5*s, 6*s, 25*s, 3*s, HudColor(1, 1, 1));
+    if (snap.exact)
+        HudBox(bx + bw*Math::Clamp((snap.smoothedSteer + 1)*0.5f, 0.0f, 1.0f)-3*s,
+            by-5*s, 6*s, 25*s, 3*s, HudColor(1, 1, 1));
     HudText(bx, by + 29*s, "LEFT GATE", 10*s,
         HudColor(1, 0.39f, 0.76f), left);
     HudText(bx + bw, by + 29*s, "RIGHT GATE", 10*s,
@@ -149,28 +153,36 @@ void RenderDiagnostics(const vec4 &in r, PhysicsSnapshot@ snap) {
     HudText(r.x + r.z*0.5f, r.y + 157*s,
         "ICE " + Text::Format("%.0f%%", snap.meanIcing*100.0f), 13*s,
         HudColor(0.47f, 0.82f, 1), center);
+    int modeAge = snap.ModeAgeMs();
     string forceText;
     if (!snap.exact) forceText = "FORCE --";
     else if (!g_tracker.inFlight)
         forceText = "FORCE " + Text::Format("%.2fx", snap.force);
-    else {
-        int age = snap.gameTime - int(snap.modeAt);
-        forceText = age < snap.recoveryDelayMs ? "WAITING" :
-            (age < 2 * snap.recoveryDelayMs ? "RECOVERING" : "READY ON CONTACT");
-    }
+    else if (modeAge < 0) forceText = "NO MODE TIMER";
+    else if (modeAge < snap.recoveryDelayMs) forceText = "FORCE DELAY";
+    else if (modeAge < 2 * snap.recoveryDelayMs)
+        forceText = "RECOVERY WINDOW";
+    else forceText = "WINDOW ELAPSED";
     HudText(r.x + r.z - 18*s, r.y + 157*s, forceText, 12*s,
         HudColor(1, 0.85f, 0.43f), right);
     HudBox(r.x + 18*s, r.y + 176*s, r.z - 36*s, 1*s, 0,
         HudColor(0.22f, 0.34f, 0.46f));
-    string detail = snap.exact ? "STORED DIRECTION: " + ModeName(snap.mode) :
-        "Exact physics unavailable on this build";
-    if (snap.exact && g_tracker.inFlight) {
-        detail = g_tracker.unratedReason.Length > 0 ? "TIMING UNVERIFIED" :
-            "MODE AGE " + Math::Max(0, snap.gameTime - int(snap.modeAt)) + " ms";
-    }
-    HudText(r.x + r.z*0.5f, r.y + 195*s, detail, 11*s,
+    string detail = !snap.exact ? "PHYSICS SAMPLE UNAVAILABLE" :
+        modeAge < 0 ? "NO STORED SLIDE MODE" :
+        "MODE AGE " + (modeAge < 10000 ? modeAge + " ms" :
+            Text::Format("%.1f s", float(modeAge) / 1000.0f));
+    if (snap.exact && g_tracker.inFlight &&
+        g_tracker.unratedReason.Length > 0) detail = "TIMING UNVERIFIED";
+    HudText(r.x + r.z*0.5f, r.y + 190*s, detail, 11*s,
         g_tracker.inFlight && g_tracker.unratedReason.Length > 0 ?
         HudColor(1, 0.58f, 0.36f) : HudColor(0.55f, 0.67f, 0.77f), center);
+    string explanation = !snap.exact ? "" : modeAge < 0 ?
+        "MODE STARTS ON ELIGIBLE WHEEL CONTACT" : g_tracker.inFlight ?
+        snap.recoveryDelayMs + " ms delay | " +
+            (2 * snap.recoveryDelayMs) + " ms max | check on landing" :
+        "TIRE-FORCE MULTIPLIER, NOT SPEED";
+    HudText(r.x + r.z*0.5f, r.y + 207*s, explanation, 10*s,
+        HudColor(0.45f, 0.59f, 0.70f), center);
 }
 
 void RenderGradePreview(const vec4 &in r, JumpPreview@ preview, bool sample) {

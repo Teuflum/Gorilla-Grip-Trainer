@@ -16,6 +16,13 @@ class PhysicsSnapshot {
     float speedKmh = 0.0f;
     float yaw = 0.0f;
 
+    int ModeAgeMs() const {
+        int changedAt = int(modeAt);
+        if (!exact || mode == 0 || gameTime < 0 || changedAt < 0 ||
+            changedAt > gameTime) return -1;
+        return gameTime - changedAt;
+    }
+
     string ContactBits() const {
         string bits = "";
         for (uint i = 0; i < 4; i++)

@@ -43,7 +43,7 @@ Capture the landing steering direction at first visible contact, allowing at mos
 
 Only confirmed S–D results earn points or extend the combo. A confirmed `MISSED` after a delayed opposite-direction landing gives zero points and breaks the combo, whether or not a takeoff preview appeared. An ordinary same-direction jump changes no score or combo. Award `base points × min(combo, 8)` plus `50` points per complete airborne spin, while keeping spin points separate from the timing grade. The preview never changes score. Preserve the existing per-run best combo and previous-run summary semantics.
 
-During airtime, diagnostics show elapsed time since the committed mode change and a readiness cue: the first 400 ms is waiting; 400–800 ms is recovery; after 800 ms it is `READY ON CONTACT`. These are timer states, not a claim that a force already exists in the air. On contact, show the actual multiplier. The 400 ms value is read from the validated vehicle model when possible, with the tested build's value used only for this build.
+During airtime, diagnostics show elapsed time since a valid committed mode change. Neutral mode and the game's `0xFFFFFFFF` unset timestamp show no mode timer, rather than a large age. The first 400 ms is the force delay; 400–800 ms is the possible recovery window; after 800 ms that maximum window has elapsed. The measured landing in the research report reached its full `2.0x` multiplier around 600 ms, so 800 ms is a conservative limit, not the observed ramp duration. Airborne labels do not claim a live force value: actual force is checked on wheel contact. The 400 ms model delay is read from the validated vehicle model.
 
 ## Modular display and editing
 

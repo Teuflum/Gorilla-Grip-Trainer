@@ -156,7 +156,7 @@ class AudioDirector {
     }
 
     bool GradeVoiceEnabled(const string &in grade) {
-        if (grade == "S") return S_GradeSEnabled;
+        if (grade == "S+" || grade == "S") return S_GradeSEnabled;
         if (grade == "A") return S_GradeAEnabled;
         if (grade == "B") return S_GradeBEnabled;
         if (grade == "C") return S_GradeCEnabled;
@@ -199,7 +199,8 @@ class AudioDirector {
         }
         if (verdict.label == "UNRATED") return;
         if (S_SoundVoices && GradeVoiceEnabled(verdict.label)) {
-            VoiceEntry@ entry = PickVoice(VoicePoolFor(verdict.label));
+            string voiceGrade = verdict.label == "S+" ? "S" : verdict.label;
+            VoiceEntry@ entry = PickVoice(VoicePoolFor(voiceGrade));
             if (entry !is null) {
                 resultBaseGain = entry.volume;
                 @resultVoice = Audio::Play(entry.sample,

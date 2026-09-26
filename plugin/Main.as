@@ -60,6 +60,15 @@ void ResetAttemptState() {
 
 void Main() {
     g_supportedBuild = IsSupportedBuild();
+    if (!g_supportedBuild) {
+        UI::ShowNotification("Gorilla Grip Trainer",
+            "Unsupported Trackmania build. Physics offsets must be manually checked and updated before the trainer can work.",
+            vec4(0.72f, 0.36f, 0.07f, 1.0f),
+            12000);
+        print("Gorilla Grip Trainer: unsupported executable signature; unloading");
+        Meta::UnloadPlugin(Meta::ExecutingPlugin());
+        return;
+    }
     @g_tracker = TransitionTracker();
     @g_session = SessionState();
     @g_lastRun = LastRunSummary();
@@ -75,6 +84,7 @@ void Main() {
 }
 
 void Update(float dt) {
+    if (!g_supportedBuild) return;
     g_audio.UpdateSettings();
     auto vis = VehicleState::ViewingPlayerState();
     bool finishSequence = IsFinishSequence();
@@ -176,23 +186,25 @@ void Update(float dt) {
 }
 
 void RenderMenu() {
+    if (!g_supportedBuild || !UI::BeginMenu(Icons::Bolt + " Gorilla Grip Trainer"))
+        return;
     if (g_finish !is null && g_finish.summary !is null &&
-        UI::MenuItem("Gorilla Grip Trainer finish summary", "", g_finish.visible))
+        UI::MenuItem(Icons::Flag + " Finish summary", "", g_finish.visible))
         g_finish.visible = !g_finish.visible;
-    if (UI::MenuItem("Gorilla Grip Trainer run history", "", g_showHistory))
+    if (UI::MenuItem(Icons::History + " Run history", "", g_showHistory))
         g_showHistory = !g_showHistory;
-    if (UI::MenuItem("Gorilla Grip Trainer physics panel", "", S_DiagVisible)) {
-        S_DiagVisible = !S_DiagVisible;
-        WidgetLayout@ widget = GetLayout("diagnostics");
-        if (widget !is null) widget.visible = S_DiagVisible;
-    }
+    if (UI::MenuItem(Icons::Eye + " Enable widgets", "", S_EnableWidgets))
+        S_EnableWidgets = !S_EnableWidgets;
+    UI::EndMenu();
 }
 
 void RenderInterface() {
+    if (!g_supportedBuild) return;
     RenderLayoutEditor();
     RenderHistoryWindow();
 }
 
 void Render() {
+    if (!g_supportedBuild) return;
     RenderWidgets();
 }

@@ -99,17 +99,18 @@ void RenderFinishSummary(const vec4 &in r, RunRecord@ run) {
         HudText(x + statWidth*0.5f, r.y + 138*s, statValues[i], 24*s,
             valueColor, center);
     }
-    array<int> counts(7);
+    array<int> counts(8);
     array<int> leads;
     int bestLo = -1;
     int bestHi = -1;
     for (uint i = 0; i < run.jumps.Length; i++) {
         HistoryJump@ jump = run.jumps[i];
-        int index = jump.label == "S" ? 0 : jump.label == "A" ? 1 :
-            jump.label == "B" ? 2 : jump.label == "C" ? 3 :
-            jump.label == "D" ? 4 : jump.label == "MISSED" ? 5 : 6;
+        int index = jump.label == "S+" ? 0 : jump.label == "S" ? 1 :
+            jump.label == "A" ? 2 : jump.label == "B" ? 3 :
+            jump.label == "C" ? 4 : jump.label == "D" ? 5 :
+            jump.label == "MISSED" ? 6 : 7;
         counts[index]++;
-        if (index < 5 && jump.leadMinMs >= 0) {
+        if (index < 6 && jump.leadMinMs >= 0) {
             int lead = (jump.leadMinMs + jump.leadMaxMs) / 2;
             leads.InsertLast(lead);
             if (bestLo < 0 || lead < (bestLo + bestHi) / 2) {
@@ -118,9 +119,9 @@ void RenderFinishSummary(const vec4 &in r, RunRecord@ run) {
             }
         }
     }
-    array<string> grades = {"S", "A", "B", "C", "D"};
-    float gradeGap = 8*s;
-    float gradeWidth = (inner - 4*gradeGap) / 5.0f;
+    array<string> grades = {"S+", "S", "A", "B", "C", "D"};
+    float gradeGap = 7*s;
+    float gradeWidth = (inner - 5*gradeGap) / 6.0f;
     for (uint i = 0; i < grades.Length; i++) {
         float tileX = left + float(i)*(gradeWidth + gradeGap);
         float gradeX = tileX + gradeWidth*0.5f;
@@ -129,8 +130,7 @@ void RenderFinishSummary(const vec4 &in r, RunRecord@ run) {
             HudColor(0.035f, 0.065f, 0.13f, 0.92f));
         HudBox(tileX + 9*s, r.y + 182*s, gradeWidth - 18*s, 2*s, 1*s,
             HudColor(color.x, color.y, color.z, 0.75f));
-        HudText(gradeX, r.y + 223*s, grades[i], 40*s,
-            color, center);
+        HudText(gradeX, r.y + 223*s, grades[i], 40*s, color, center);
         HudText(gradeX, r.y + 257*s, "" + counts[i], 21*s,
             HudColor(0.90f, 0.95f, 1.0f), center);
     }
@@ -145,7 +145,7 @@ void RenderFinishSummary(const vec4 &in r, RunRecord@ run) {
         medianLead = "~" + median + "ms";
     }
     array<string> detailLabels = {"MISSED", "UNRATED", "BEST LEAD", "MEDIAN"};
-    array<string> detailValues = {"" + counts[5], "" + counts[6],
+    array<string> detailValues = {"" + counts[6], "" + counts[7],
         bestLead, medianLead};
     float detailGap = 9*s;
     float detailWidth = (inner - detailGap) / 2.0f;
@@ -183,6 +183,7 @@ void RenderFinishHistoryButton(const vec4 &in panel, float scale,
         nvg::Align::Center | nvg::Align::Middle);
     if (hovered && !UI::IsOverlayShown() && UI::IsMouseClicked()) {
         g_historySelectedId = run.id;
+        g_historySelectedJump = -1;
         g_historyShowFinished = true;
         g_historyMapFilter = "";
         g_showHistory = true;

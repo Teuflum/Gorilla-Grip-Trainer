@@ -18,6 +18,8 @@ int RawDirection(float steer) {
 string GradeLead(int lo, int hi) {
     NormalizeGradeThresholds();
     if (lo < 0 || hi < lo || hi > S_DMaxLeadMs) return "";
+    // Both contact samples bound the switch to the exact takeoff millisecond.
+    if (lo == 0 && hi == 0) return "S+";
     if (hi <= S_SMaxLeadMs) return "S";
     if (lo > S_SMaxLeadMs && hi <= S_AMaxLeadMs) return "A";
     if (lo > S_AMaxLeadMs && hi <= S_BMaxLeadMs) return "B";

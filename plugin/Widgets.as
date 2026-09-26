@@ -62,6 +62,7 @@ vec4 HudColor(float r, float g, float b, float a = 1.0f) {
 }
 
 vec4 GradeColor(const string &in label, float alpha = 1.0f) {
+    if (label == "S+") return HudColor(1.0f, 0.94f, 0.55f, alpha);
     if (label == "S") return HudColor(1.0f, 0.84f, 0.28f, alpha);
     if (label == "A") return HudColor(0.04f, 0.98f, 0.78f, alpha);
     if (label == "B") return HudColor(0.38f, 0.78f, 1.0f, alpha);
@@ -199,6 +200,7 @@ void RenderGradePreview(const vec4 &in r, JumpPreview@ preview, bool sample) {
 }
 
 string ResultCaption(const string &in label) {
+    if (label == "S+") return "PERFECT GORILLA GRIP";
     if (label == "S") return "GORILLA GRIP";
     if (label == "A") return "CLEAN TIMING";
     if (label == "B") return "SOLID TIMING";
@@ -291,7 +293,7 @@ void RenderResult(const vec4 &in r, int age, const string &in label,
         HudColor(accent.x, accent.y, accent.z, 0.75f*fade));
     HudBox(cx - panelW*0.5f, cy + 49*s, panelW, 2*s, 1*s,
         HudColor(accent.x, accent.y, accent.z, 0.28f*fade));
-    if (label == "S") RenderSGorillas(cx, cy, s, age, fade);
+    if (label == "S+" || label == "S") RenderSGorillas(cx, cy, s, age, fade);
     HudBox(cx - 74*s, cy - 30*s, 148*s, 58*s, 24*s,
         HudColor(accent.x, accent.y, accent.z, 0.13f*impact*fade));
     for (int i = 0; i < 5; i++) {

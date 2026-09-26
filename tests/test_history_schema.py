@@ -16,9 +16,9 @@ DEFAULT_HISTORY = (
     Path.home() / "OpenplanetNext" / "PluginStorage" /
     "GorillaGripTrainer" / "history.json"
 )
-LABELS = {"S", "A", "B", "C", "D", "MISSED", "UNRATED"}
+LABELS = {"S+", "S", "A", "B", "C", "D", "MISSED", "UNRATED"}
 GRADES = "SABCD"
-PREVIEWS = {""} | set(GRADES) | {
+PREVIEWS = {"", "S+"} | set(GRADES) | {
     f"{left}/{right}"
     for i, left in enumerate(GRADES)
     for right in GRADES[i + 1:]
@@ -92,6 +92,15 @@ def main() -> None:
     empty_finish["hits"] = 0
     empty_finish["misses"] = 0
     assert len(validate({"version": 1, "runs": [empty_finish]})) == 1
+    rated = next((run for run in runs if run["jumps"]), None)
+    assert rated is not None
+    perfect = copy.deepcopy(rated)
+    perfect["jumps"][0]["label"] = "S+"
+    perfect["jumps"][0]["preview"] = "S+"
+    perfect["jumps"][0]["leadMinMs"] = 0
+    perfect["jumps"][0]["leadMaxMs"] = 0
+    perfect["jumps"][0]["timingEstimated"] = False
+    assert len(validate({"version": 1, "runs": [perfect]})) == 1
     print(f"History v1 schema: PASS ({len(runs)} attempts)")
 
 

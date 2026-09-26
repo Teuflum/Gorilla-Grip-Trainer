@@ -67,15 +67,15 @@ def main() -> None:
     try:
         fast = run_current(client, 5, 7000)
         first_result = re.findall(
-            r"Gorilla Grip Trainer verdict at (6\d{3})ms: (S|A|B|C|D)",
+            r"Gorilla Grip Trainer verdict at (6\d{3})ms: (S\+|S|A|B|C|D)",
             fast,
         )
         assert first_result, "First jump had no single S-D timing grade"
         if args.expect_16s_s:
             normal = run_current(client, 1, 17300)
             assert re.search(r"Gorilla Grip Trainer preview at 16\d{3}ms: S", normal)
-            result = re.findall(r"Gorilla Grip Trainer verdict at (16\d{3}|17\d{3})ms: (\w+)", normal)
-            assert any(label == "S" for _, label in result), f"16 s bounce did not confirm S: {result}"
+            result = re.findall(r"Gorilla Grip Trainer verdict at (16\d{3}|17\d{3})ms: (S\+|\w+)", normal)
+            assert any(label in {"S", "S+"} for _, label in result), f"16 s bounce did not confirm S/S+: {result}"
         assert client.get("runtime/status")["loadedInputRevisionId"] == revision
         print(f"Current revision {revision}: first jump graded" +
               (", 16 s bounce S" if args.expect_16s_s else ""))

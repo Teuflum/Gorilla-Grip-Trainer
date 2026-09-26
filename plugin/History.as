@@ -175,7 +175,7 @@ bool ValidHistory(Json::Value@ root) {
                 !HistoryField(jump, "combo", Json::Type::Number) ||
                 !HistoryField(jump, "points", Json::Type::Number)) return false;
             string label = string(jump["label"]);
-            if (label != "S" && label != "A" && label != "B" &&
+            if (label != "S+" && label != "S" && label != "A" && label != "B" &&
                 label != "C" && label != "D" && label != "MISSED" &&
                 label != "UNRATED") return false;
             if (jump.HasKey("scoreAfter") &&

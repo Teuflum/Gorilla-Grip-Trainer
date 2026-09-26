@@ -175,13 +175,18 @@ void RenderFinishHistoryButton(const vec4 &in panel, float scale,
     vec2 mouse = UI::GetMousePos() * UI::GetScale();
     bool hovered = mouse.x >= x && mouse.x < x + width &&
         mouse.y >= y && mouse.y < y + height;
-    HudBox(x, y, width, height, 7*scale, hovered ?
+    // With the overlay open, an overlay window above the button takes the mouse.
+    bool overWindow = UI::IsOverlayShown() && UI::WantCaptureMouse();
+    bool active = hovered && !overWindow;
+    HudBox(x, y, width, height, 7*scale, active ?
         HudColor(0.26f, 0.21f, 0.11f, 0.98f) :
         HudColor(0.10f, 0.15f, 0.25f, 0.94f));
-    HudText(x + width*0.5f, y + height*0.5f, "VIEW HISTORY", 11*scale,
-        HudColor(1.0f, 0.85f, 0.36f),
-        nvg::Align::Center | nvg::Align::Middle);
-    if (hovered && !UI::IsOverlayShown() && UI::IsMouseClicked()) {
+    // Capitals have no descenders, so centre them by cap height on the baseline.
+    float fontSize = 11*scale;
+    HudText(x + width*0.5f, y + height*0.5f + 0.36f*fontSize, "VIEW HISTORY",
+        fontSize, HudColor(1.0f, 0.85f, 0.36f),
+        nvg::Align::Center | nvg::Align::Baseline);
+    if (active && UI::IsMouseClicked()) {
         g_historySelectedId = run.id;
         g_historySelectedJump = -1;
         g_historyShowFinished = true;

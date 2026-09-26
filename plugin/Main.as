@@ -54,6 +54,7 @@ void ResetAttemptState() {
     g_tracker.Reset();
     g_session.Reset();
     ClearResult();
+    ClearStatChange();
     g_audio.OnReset();
 }
 
@@ -147,7 +148,11 @@ void Update(float dt) {
         print("Gorilla Grip Trainer takeoff cue at " + t + "ms");
     if (g_tracker.verdictEvent) {
         JumpVerdict@ v = g_tracker.verdict;
+        int scoreBefore = g_session.score;
+        int comboBefore = g_session.combo;
+        int bestBefore = g_session.bestCombo;
         g_session.Apply(v);
+        ShowStatChange(v, t, scoreBefore, comboBefore, bestBefore);
         g_activeRun.Record(v, g_session, g_tracker.preview);
         ShowResult(v, t);
         g_audio.OnVerdict(v);

@@ -4,6 +4,11 @@ string g_resultLabel = "";
 string g_resultReason = "";
 bool g_resultTimingEstimated = false;
 int g_resultShownAt = -1;
+int g_statChangedAt = -1;
+int g_statScoreBefore = 0;
+int g_statComboBefore = 0;
+int g_statBestBefore = 0;
+int g_statEarned = 0;
 
 void InitWidgets() {
     g_hudFont = nvg::LoadFont("DroidSans-Bold.ttf");
@@ -25,6 +30,31 @@ void ClearResult() {
     g_resultReason = "";
     g_resultTimingEstimated = false;
     g_resultShownAt = -1;
+}
+
+void ShowStatChange(JumpVerdict@ verdict, int raceTime,
+    int scoreBefore, int comboBefore, int bestBefore) {
+    if (verdict is null || !verdict.exact) return;
+    g_statChangedAt = raceTime;
+    g_statScoreBefore = scoreBefore;
+    g_statComboBefore = comboBefore;
+    g_statBestBefore = bestBefore;
+    g_statEarned = verdict.points;
+}
+
+void ClearStatChange() {
+    g_statChangedAt = -1;
+    g_statEarned = 0;
+}
+
+float StatPulse(int age) {
+    if (age < 0 || age >= 500) return 0.0f;
+    return Math::Sin(Math::PI * float(age) / 500.0f);
+}
+
+float StatBadgeFade(int age) {
+    if (age < 0 || age >= 900) return 0.0f;
+    return 1.0f - Math::Clamp(float(age - 550) / 350.0f, 0.0f, 1.0f);
 }
 
 vec4 HudColor(float r, float g, float b, float a = 1.0f) {
@@ -284,14 +314,22 @@ void RenderResult(const vec4 &in r, int age, const string &in label,
 }
 
 void RenderStat(const vec4 &in r, const string &in title,
-    const string &in value, const vec4 &in accent) {
+    const string &in value, const vec4 &in accent, float pulse,
+    const string &in badge, float badgeFade) {
     HudCardBase(r, accent);
     float s = Math::Min(r.z / 320.0f, r.w / 85.0f);
     int left = nvg::Align::Left | nvg::Align::Middle;
     int right = nvg::Align::Right | nvg::Align::Middle;
+    if (pulse > 0.0f)
+        HudBox(r.x + 4*s, r.y + 4*s, r.z - 8*s, r.w - 8*s, 9*s,
+            HudColor(accent.x, accent.y, accent.z, 0.13f*pulse));
     HudText(r.x + 18*s, r.y + 23*s, title, 14*s,
         HudColor(0.60f, 0.73f, 0.84f), left);
-    HudText(r.x + r.z - 18*s, r.y + r.w - 29*s, value, 30*s,
+    if (badge.Length > 0 && badgeFade > 0.0f)
+        HudText(r.x + r.z - 18*s, r.y + 23*s, badge, 13*s,
+            HudColor(accent.x, accent.y, accent.z, badgeFade), right);
+    HudText(r.x + r.z - 18*s, r.y + r.w - 29*s, value,
+        30*s*(1.0f + 0.16f*pulse),
         accent, right);
 }
 
@@ -342,17 +380,43 @@ void RenderWidgets() {
                 active && g_resultTimingEstimated);
     }
     @layout = GetLayout("combo");
-    if (ShouldRenderWidget(layout))
+    int statAge = g_statChangedAt < 0 ? -1 :
+        g_snapshot.raceTime - g_statChangedAt;
+    float statPulse = StatPulse(statAge);
+    float badgeFade = StatBadgeFade(statAge);
+    bool comboGained = statAge >= 0 && g_session.combo > g_statComboBefore;
+    bool comboBroken = statAge >= 0 && g_statComboBefore > 0 &&
+        g_session.combo == 0;
+    if (ShouldRenderWidget(layout)) {
+        vec4 comboColor = comboBroken && badgeFade > 0.0f ?
+            HudColor(1.0f, 0.43f, 0.57f) : HudColor(1, 0.82f, 0.35f);
         RenderStat(layout.Pixels(), "COMBO", "x" + g_session.combo,
-            HudColor(1, 0.82f, 0.35f));
+            comboColor, comboGained || comboBroken ? statPulse : 0.0f,
+            comboBroken ? "BROKEN" : (comboGained ? "+1" : ""), badgeFade);
+    }
     @layout = GetLayout("score");
-    if (ShouldRenderWidget(layout))
-        RenderStat(layout.Pixels(), "SCORE", "" + g_session.score,
-            HudColor(0.90f, 0.98f, 1));
+    if (ShouldRenderWidget(layout)) {
+        int shownScore = g_session.score;
+        if (g_statEarned > 0 && statAge >= 0 && statAge < 500) {
+            float remaining = 1.0f - float(statAge) / 500.0f;
+            float eased = 1.0f - remaining*remaining*remaining;
+            shownScore = g_statScoreBefore +
+                int(float(g_statEarned)*eased + 0.5f);
+        }
+        RenderStat(layout.Pixels(), "SCORE", "" + shownScore,
+            HudColor(0.90f, 0.98f, 1),
+            g_statEarned > 0 ? statPulse : 0.0f,
+            g_statEarned > 0 && statAge >= 0 ? "+" + g_statEarned : "",
+            badgeFade);
+    }
     @layout = GetLayout("best");
-    if (ShouldRenderWidget(layout))
+    if (ShouldRenderWidget(layout)) {
+        bool newBest = statAge >= 0 &&
+            g_session.bestCombo > g_statBestBefore;
         RenderStat(layout.Pixels(), "BEST COMBO", "x" + g_session.bestCombo,
-            HudColor(0.46f, 0.79f, 1));
+            HudColor(0.46f, 0.79f, 1), newBest ? statPulse : 0.0f,
+            newBest ? "NEW BEST" : "", badgeFade);
+    }
     @layout = GetLayout("last");
     if (ShouldRenderWidget(layout))
         RenderLast(layout.Pixels(), g_lastRun);

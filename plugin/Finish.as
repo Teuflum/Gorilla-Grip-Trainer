@@ -29,6 +29,39 @@ bool IsFinishSequence() {
         terminal.UISequence_Current == CGamePlaygroundUIConfig::EUISequence::Finish;
 }
 
+string g_fitMapSource = "";
+string g_fitMapShown = "";
+float g_fitMapFontSize = -1.0f;
+float g_fitMapMaxWidth = -1.0f;
+
+string FitFinishMapName(const string &in fullName, float fontSize,
+    float maxWidth) {
+    if (g_fitMapSource == fullName &&
+        Math::Abs(g_fitMapFontSize - fontSize) < 0.01f &&
+        Math::Abs(g_fitMapMaxWidth - maxWidth) < 0.01f)
+        return g_fitMapShown;
+    nvg::FontSize(fontSize);
+    string shortened = fullName;
+    if (nvg::TextBounds(fullName).x > maxWidth) {
+        while (shortened.Length > 0) {
+            uint cut = shortened.Length;
+            do { cut--; }
+            while (cut > 0 && (shortened[cut] & 0xC0) == 0x80);
+            shortened = shortened.SubStr(0, cut);
+            if (nvg::TextBounds(shortened + "…").x <= maxWidth) {
+                shortened += "…";
+                break;
+            }
+        }
+        if (shortened.Length == 0) shortened = "…";
+    }
+    g_fitMapSource = fullName;
+    g_fitMapShown = shortened;
+    g_fitMapFontSize = fontSize;
+    g_fitMapMaxWidth = maxWidth;
+    return shortened;
+}
+
 void RenderFinishSummary(const vec4 &in r, RunRecord@ run) {
     if (run is null) return;
     float s = Math::Min(r.z / 650.0f, r.w / 365.0f);
@@ -41,12 +74,15 @@ void RenderFinishSummary(const vec4 &in r, RunRecord@ run) {
     HudCardBase(r, HudColor(1.0f, 0.80f, 0.28f));
     HudText(cx, r.y + 36*s, "RUN COMPLETE", 27*s,
         HudColor(1.0f, 0.86f, 0.37f), center);
-    HudText(cx, r.y + 69*s, run.mapName, 17*s,
+    float nameSize = 17*s;
+    float nameWidth = inner - 20*s;
+    nvg::FontSize(nameSize);
+    float measuredWidth = nvg::TextBounds(run.mapName).x;
+    if (measuredWidth > nameWidth)
+        nameSize = Math::Max(12*s, nameSize * nameWidth / measuredWidth);
+    string shownName = FitFinishMapName(run.mapName, nameSize, nameWidth);
+    HudText(cx, r.y + 69*s, shownName, nameSize,
         HudColor(0.81f, 0.91f, 1.0f), center);
-    float titleRuleWidth = Math::Min(inner - 20*s, 300*s);
-    HudBox(cx - titleRuleWidth*0.5f, r.y + 79*s,
-        titleRuleWidth, 2*s, 1*s,
-        HudColor(1.0f, 0.78f, 0.26f, 0.65f));
     array<string> statLabels = {"FINISH", "SCORE", "BEST COMBO"};
     array<string> statValues = {Time::Format(uint64(run.finishMs)),
         "" + run.score, "x" + run.bestCombo};

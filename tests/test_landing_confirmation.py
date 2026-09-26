@@ -17,7 +17,11 @@ pending_body = update_body.split("if (pendingLanding) {", 1)[1].split("\n       
 # The 800 ms cutoff is not a pass condition any more.
 assert "2 * recoveryDelayMs" not in transitions
 
-# Force is only expected once the gate is clear and the delay has run out.
+# Force is only expected once the gate is clear, the delay has run out, and a
+# front wheel touches: the game updates the multiplier only for front wheels,
+# so a rear-wheel-only contact leaves it unchanged even past 800 ms.
+assert "const uint FRONT_WHEELS = 0x3;" in transitions
+assert "(snap.contactMask & FRONT_WHEELS) != 0" in pending_body
 assert "snap.forceGateState == 0" in pending_body
 assert "snap.gameTime - takeoffModeAt >= recoveryDelayMs" in pending_body
 

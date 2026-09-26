@@ -1,6 +1,8 @@
 const float STEER_GATE = 0.1f;
 const int MAX_TIMING_SAMPLE_GAP = 50;
 const int FORCE_SETTLE_MS = 30;
+// Contact bits of the front wheels (0 and 1); only they update the tire-force multiplier.
+const uint FRONT_WHEELS = 0x3;
 // Counted from touchdown or the end of the recovery delay, whichever is later;
 // gas-off spins can hold the force gate for a while.
 const int FORCE_GATE_TIMEOUT_MS = 1000;
@@ -342,7 +344,7 @@ class TransitionTracker {
             // The recovery timer started at the pre-takeoff switch, so a landing
             // inside the delay waits on the ground until force can start rising.
             if (snap.contactMask == 0) landingTouchLifted = true;
-            if (snap.contactMask != 0 && snap.forceGateState == 0 &&
+            if ((snap.contactMask & FRONT_WHEELS) != 0 && snap.forceGateState == 0 &&
                 snap.gameTime - takeoffModeAt >= recoveryDelayMs) {
                 if (forceEligibleClock < 0) forceEligibleClock = snap.gameTime;
             } else forceEligibleClock = -1;

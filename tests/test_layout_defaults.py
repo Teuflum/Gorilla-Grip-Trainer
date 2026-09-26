@@ -18,6 +18,23 @@ widgets = {
 assert set(widgets) == {
     "diagnostics", "grade", "combo", "score", "best", "last", "finish"
 }
+# The shipped layout (set from the author's in-game arrangement, 2026-09-27).
+assert widgets == {
+    "diagnostics": (0.030, 0.029, 0.258, 0.181),
+    "grade": (0.379, 0.800, 0.240, 0.109),
+    "combo": (0.030, 0.590, 0.160, 0.075),
+    "score": (0.030, 0.673, 0.160, 0.075),
+    "best": (0.030, 0.756, 0.160, 0.075),
+    "last": (0.030, 0.839, 0.210, 0.094),
+    "finish": (0.670, 0.029, 0.330, 0.329),
+}, widgets
+# The [Setting] defaults match the reset rectangles.
+prefixes = {"diagnostics": "Diag", "grade": "Result", "combo": "Combo", "score": "Score",
+            "best": "Best", "last": "Last", "finish": "Finish"}
+settings = dict(re.findall(r"\[Setting hidden\] float (S_\w+) = ([0-9.]+)f;", SOURCE))
+for widget_id, rect in widgets.items():
+    saved = tuple(float(settings[f"S_{prefixes[widget_id]}{k}"]) for k in "XYWH")
+    assert saved == rect, (widget_id, saved, rect)
 assert 'S_ShowWhenGameHudOff' in (Path(__file__).resolve().parents[1] / "plugin" / "Settings.as").read_text()
 widgets_source = (Path(__file__).resolve().parents[1] / "plugin" / "Widgets.as").read_text()
 assert 'S_EnableWidgets' in widgets_source

@@ -1,51 +1,51 @@
-[Setting hidden] float S_DiagX = 0.38f;
-[Setting hidden] float S_DiagY = 0.67f;
-[Setting hidden] float S_DiagW = 0.24f;
-[Setting hidden] float S_DiagH = 0.21f;
+[Setting hidden] float S_DiagX = 0.030f;
+[Setting hidden] float S_DiagY = 0.029f;
+[Setting hidden] float S_DiagW = 0.258f;
+[Setting hidden] float S_DiagH = 0.181f;
 [Setting hidden] bool S_DiagVisible = true;
 [Setting hidden] bool S_DiagWhenHudOff = false;
 
 // Retain these saved setting keys so existing landing-grade placement carries
 // over to the combined grade widget.
-[Setting hidden] float S_ResultX = 0.38f;
-[Setting hidden] float S_ResultY = 0.48f;
-[Setting hidden] float S_ResultW = 0.24f;
-[Setting hidden] float S_ResultH = 0.11f;
+[Setting hidden] float S_ResultX = 0.379f;
+[Setting hidden] float S_ResultY = 0.800f;
+[Setting hidden] float S_ResultW = 0.240f;
+[Setting hidden] float S_ResultH = 0.109f;
 [Setting hidden] bool S_ResultVisible = true;
 [Setting hidden] bool S_ResultWhenHudOff = false;
 
-[Setting hidden] float S_ComboX = 0.81f;
-[Setting hidden] float S_ComboY = 0.62f;
-[Setting hidden] float S_ComboW = 0.16f;
+[Setting hidden] float S_ComboX = 0.030f;
+[Setting hidden] float S_ComboY = 0.590f;
+[Setting hidden] float S_ComboW = 0.160f;
 [Setting hidden] float S_ComboH = 0.075f;
 [Setting hidden] bool S_ComboVisible = true;
 [Setting hidden] bool S_ComboWhenHudOff = false;
 
-[Setting hidden] float S_ScoreX = 0.81f;
-[Setting hidden] float S_ScoreY = 0.71f;
-[Setting hidden] float S_ScoreW = 0.16f;
+[Setting hidden] float S_ScoreX = 0.030f;
+[Setting hidden] float S_ScoreY = 0.673f;
+[Setting hidden] float S_ScoreW = 0.160f;
 [Setting hidden] float S_ScoreH = 0.075f;
 [Setting hidden] bool S_ScoreVisible = true;
 [Setting hidden] bool S_ScoreWhenHudOff = false;
 
-[Setting hidden] float S_BestX = 0.81f;
-[Setting hidden] float S_BestY = 0.80f;
-[Setting hidden] float S_BestW = 0.16f;
+[Setting hidden] float S_BestX = 0.030f;
+[Setting hidden] float S_BestY = 0.756f;
+[Setting hidden] float S_BestW = 0.160f;
 [Setting hidden] float S_BestH = 0.075f;
 [Setting hidden] bool S_BestVisible = true;
 [Setting hidden] bool S_BestWhenHudOff = false;
 
-[Setting hidden] float S_LastX = 0.03f;
-[Setting hidden] float S_LastY = 0.84f;
-[Setting hidden] float S_LastW = 0.21f;
-[Setting hidden] float S_LastH = 0.095f;
+[Setting hidden] float S_LastX = 0.030f;
+[Setting hidden] float S_LastY = 0.839f;
+[Setting hidden] float S_LastW = 0.210f;
+[Setting hidden] float S_LastH = 0.094f;
 [Setting hidden] bool S_LastVisible = true;
 [Setting hidden] bool S_LastWhenHudOff = false;
 
-[Setting hidden] float S_FinishX = 0.65f;
-[Setting hidden] float S_FinishY = 0.14f;
-[Setting hidden] float S_FinishW = 0.31f;
-[Setting hidden] float S_FinishH = 0.34f;
+[Setting hidden] float S_FinishX = 0.670f;
+[Setting hidden] float S_FinishY = 0.029f;
+[Setting hidden] float S_FinishW = 0.330f;
+[Setting hidden] float S_FinishH = 0.329f;
 [Setting hidden] bool S_FinishVisible = true;
 [Setting hidden] bool S_FinishWhenHudOff = false;
 [Setting hidden] bool S_HudVisibilityMigrated = false;
@@ -108,13 +108,13 @@ void InitLayout() {
         S_GlobalHudVisibilityMigrated = true;
     }
     g_layouts.RemoveRange(0, g_layouts.Length);
-    g_layouts.InsertLast(WidgetLayout("diagnostics", "Physics", vec4(0.38f, 0.67f, 0.24f, 0.21f), true));
-    g_layouts.InsertLast(WidgetLayout("grade", "Grade", vec4(0.38f, 0.48f, 0.24f, 0.11f), true));
-    g_layouts.InsertLast(WidgetLayout("combo", "Combo", vec4(0.81f, 0.62f, 0.16f, 0.075f), true));
-    g_layouts.InsertLast(WidgetLayout("score", "Score", vec4(0.81f, 0.71f, 0.16f, 0.075f), true));
-    g_layouts.InsertLast(WidgetLayout("best", "Best combo", vec4(0.81f, 0.80f, 0.16f, 0.075f), true));
-    g_layouts.InsertLast(WidgetLayout("last", "Last run", vec4(0.03f, 0.84f, 0.21f, 0.095f), true));
-    g_layouts.InsertLast(WidgetLayout("finish", "Finish summary", vec4(0.65f, 0.14f, 0.31f, 0.34f), true));
+    g_layouts.InsertLast(WidgetLayout("diagnostics", "Physics", vec4(0.030f, 0.029f, 0.258f, 0.181f), true));
+    g_layouts.InsertLast(WidgetLayout("grade", "Grade", vec4(0.379f, 0.800f, 0.240f, 0.109f), true));
+    g_layouts.InsertLast(WidgetLayout("combo", "Combo", vec4(0.030f, 0.590f, 0.160f, 0.075f), true));
+    g_layouts.InsertLast(WidgetLayout("score", "Score", vec4(0.030f, 0.673f, 0.160f, 0.075f), true));
+    g_layouts.InsertLast(WidgetLayout("best", "Best combo", vec4(0.030f, 0.756f, 0.160f, 0.075f), true));
+    g_layouts.InsertLast(WidgetLayout("last", "Last run", vec4(0.030f, 0.839f, 0.210f, 0.094f), true));
+    g_layouts.InsertLast(WidgetLayout("finish", "Finish summary", vec4(0.670f, 0.029f, 0.330f, 0.329f), true));
     LoadLayoutSettings();
 }
 

@@ -172,11 +172,11 @@ void SaveLayoutSettings() {
 [SettingsTab name="Layout"]
 void RenderSettingsLayout() {
     g_layoutEditing = true;
-    UI::TextWrapped("Drag the boxes on screen or enter exact positions below.");
     if (UI::Button("Reset all widgets")) {
         for (uint i = 0; i < g_layouts.Length; i++) g_layouts[i].Reset();
         g_forceLayoutPosition = true;
     }
+    UI::TextWrapped("Drag the boxes on screen or enter exact positions below.");
     for (uint i = 0; i < g_layouts.Length; i++) {
         auto widget = g_layouts[i];
         UI::PushID(widget.id);

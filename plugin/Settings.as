@@ -30,6 +30,11 @@ void NormalizeGradeThresholds() {
 
 [SettingsTab name="Rating"]
 void RenderSettingsRating() {
+    if (UI::Button("Reset rating defaults")) {
+        S_SMaxLeadMs = 15; S_AMaxLeadMs = 35; S_BMaxLeadMs = 65;
+        S_CMaxLeadMs = 110; S_DMaxLeadMs = 250;
+        S_MinIcing = 0.65f; S_MinSpeed = 50; S_MinFlight = 100;
+    }
     UI::TextWrapped("How early the physics steering direction may switch before the last wheel leaves. Each value is the latest grade's upper limit in milliseconds.");
     S_SMaxLeadMs = UI::InputInt("S maximum lead (ms)", S_SMaxLeadMs);
     S_AMaxLeadMs = UI::InputInt("A maximum lead (ms)", S_AMaxLeadMs);
@@ -122,7 +127,7 @@ SoundSlotChoice RenderSoundSlot(const string &in file, float volume) {
     SoundSlotChoice choice;
     float available = UI::GetContentRegionAvail().x;
     // Give the picker and gain control space instead of repeating the name.
-    float row = Math::Max(310.0f, available - 130.0f);
+    float row = Math::Max(240.0f, available - 155.0f);
     float field = row * 0.23f;
     float picker = row * 0.42f;
     float gain = row * 0.35f;
@@ -147,7 +152,7 @@ SoundSlotChoice RenderSoundSlot(const string &in file, float volume) {
     UI::SameLine();
     choice.add = UI::Button("+");
     UI::SameLine();
-    choice.remove = UI::Button("x");
+    choice.remove = UI::Button("-");
     return choice;
 }
 
@@ -155,11 +160,6 @@ SoundSlotChoice RenderSoundSlot(const string &in file, float volume) {
 void RenderSettingsSounds() {
     InitVoicePools();
     if (!g_soundFilesScanned) RefreshSoundFiles();
-    S_EnableAudio = UI::Checkbox("Enable all sounds", S_EnableAudio);
-    UI::Text("Master volume");
-    UI::SetNextItemWidth(-1.0f);
-    S_MasterVolume = UI::SliderFloat("##master", S_MasterVolume,
-        0.0f, 1.0f, "%.2f");
     if (UI::Button("Open LocalSounds folder")) {
         string folder = IO::FromStorageFolder("LocalSounds");
         if (!IO::FolderExists(folder)) IO::CreateFolder(folder, true);
@@ -173,6 +173,11 @@ void RenderSettingsSounds() {
     UI::SameLine();
     if (UI::Button("Stop preview") && g_audio !is null)
         g_audio.StopPreview();
+    S_EnableAudio = UI::Checkbox("Enable all sounds", S_EnableAudio);
+    UI::Text("Master volume");
+    UI::SetNextItemWidth(-1.0f);
+    S_MasterVolume = UI::SliderFloat("##master", S_MasterVolume,
+        0.0f, 1.0f, "%.2f");
     if (g_audio !is null && g_audio.previewStatus.Length > 0)
         UI::Text(g_audio.previewStatus);
     if (UI::CollapsingHeader("Takeoff")) {

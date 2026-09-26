@@ -24,6 +24,8 @@ assert 'S_EnableWidgets' in widgets_source
 assert 'S_ShowWhenGameHudOff' in widgets_source
 assert 'UI::CollapsingHeader(widget.title)' in SOURCE
 assert 'UI::SameLine();\n        if (UI::Button("Reset widget"))' in SOURCE
+layout_body = SOURCE.split('void RenderSettingsLayout() {', 1)[1]
+assert layout_body.index('UI::Button("Reset all widgets")') < layout_body.index('UI::TextWrapped(')
 for width, height in ((2048, 1151), (1280, 720)):
     for widget_id, (x, y, w, h) in widgets.items():
         assert 0 <= x <= 1 and 0 <= y <= 1, (widget_id, x, y)

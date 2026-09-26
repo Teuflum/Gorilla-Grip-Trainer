@@ -33,12 +33,15 @@ assert 'RenderVoicePool' in settings
 assert 'UI::CollapsingHeader(' in settings
 assert 'UI::CollapsingHeader("Grades")' in settings
 assert 'UI::Button("+")' in settings
-assert 'UI::Button("x")' in settings
+assert 'UI::Button("-")' in settings
+assert 'available - 155.0f' in settings
 assert 'UI::Button("Add clip")' not in settings
 assert '@pool.entries[i].sample = g_audio.LoadLocal(choice.file)' in settings
 assert 'if (S_SoundFailure)' in audio
 assert 'if (S_SoundVoices && S_SoundFailure)' not in audio
 assert 'OpenExplorerPath(' in settings
 assert 'PreviewFile(' in settings + audio
+sounds_body = settings.split('void RenderSettingsSounds() {', 1)[1]
+assert sounds_body.index('UI::Button("Open LocalSounds folder")') < sounds_body.index('UI::Checkbox("Enable all sounds"')
 
 print("Editable grade pools and landing-only sound contract: PASS")

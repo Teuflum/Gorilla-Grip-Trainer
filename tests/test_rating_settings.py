@@ -13,4 +13,8 @@ for grade, default in (("S", 15), ("A", 35), ("B", 65),
     assert f"S_{grade}MaxLeadMs" in transitions
 assert "NormalizeGradeThresholds" in settings
 assert '[SettingsTab name="Rating"]' in settings
+rating_body = settings.split('void RenderSettingsRating() {', 1)[1].split('\n}', 1)[0]
+assert 'UI::Button("Reset rating defaults")' in rating_body
+for default in ('0.65f', '50', '100', '15', '35', '65', '110', '250'):
+    assert default in rating_body
 print("Editable ordered grade timing bounds: PASS")

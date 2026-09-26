@@ -59,6 +59,8 @@ class TransitionTracker {
 
     bool inFlight = false;
     bool pendingLanding = false;
+    // The first landing contact was followed by more airtime (a brief touch).
+    bool landingTouchLifted = false;
     bool flightEligible = false;
     bool flightUncertain = false;
     bool previewPublished = false;
@@ -92,6 +94,7 @@ class TransitionTracker {
         rawReversalAt = -1;
         inFlight = false;
         pendingLanding = false;
+        landingTouchLifted = false;
         flightEligible = false;
         flightUncertain = false;
         previewPublished = false;
@@ -192,6 +195,7 @@ class TransitionTracker {
         landingRace = snap.raceTime;
         landingClock = snap.gameTime;
         landingDirection = SteeringDirection(snap.smoothedSteer);
+        landingTouchLifted = false;
         forceEligibleClock = -1;
         pendingLanding = flightEligible && !flightUncertain &&
             landingRace - takeoffRace >= S_MinFlight;
@@ -232,14 +236,18 @@ class TransitionTracker {
             int(snap.modeAt) == takeoffModeAt &&
             forceEligibleClock - takeoffModeAt >= recoveryDelayMs &&
             snap.force > 1.001f;
+        // A scrape in flight counts as ground contact and can store the new
+        // direction before the real landing; name it instead of a generic miss.
+        bool touchSwitched = landingTouchLifted && int(snap.modeAt) != takeoffModeAt;
+        const string touchReason = "Direction switched on a brief touch before the landing";
         if (hasPreview) {
             @verdict = JumpVerdict();
             verdict.label = recovered ? preview.label : "MISSED";
             verdict.reason = recovered ? (preview.ambiguous ?
                 "Grip recovered; takeoff fell within samples that crossed a grade limit" :
                 "Pre-takeoff mode held through force-eligible contact") :
-                (enoughIcing ?
-                "Direction or tire force did not recover on force-eligible contact" :
+                (enoughIcing ? (touchSwitched ? touchReason :
+                "Direction or tire force did not recover on force-eligible contact") :
                 "Landing icing fell below the rating threshold");
             verdict.leadMinMs = preview.leadMinMs;
             verdict.leadMaxMs = preview.leadMaxMs;
@@ -248,7 +256,8 @@ class TransitionTracker {
             landingDirection != takeoffMode && snap.force <= 1.1f) {
             @verdict = JumpVerdict();
             verdict.label = "MISSED";
-            verdict.reason = "Opposite landing direction with delayed tire force";
+            verdict.reason = touchSwitched ? touchReason :
+                "Opposite landing direction with delayed tire force";
         } else return;
         verdict.takeoffTime = takeoffRace;
         verdict.landingTime = landingRace;
@@ -332,6 +341,7 @@ class TransitionTracker {
                 landingDirection = SteeringDirection(snap.smoothedSteer);
             // The recovery timer started at the pre-takeoff switch, so a landing
             // inside the delay waits on the ground until force can start rising.
+            if (snap.contactMask == 0) landingTouchLifted = true;
             if (snap.contactMask != 0 && snap.forceGateState == 0 &&
                 snap.gameTime - takeoffModeAt >= recoveryDelayMs) {
                 if (forceEligibleClock < 0) forceEligibleClock = snap.gameTime;

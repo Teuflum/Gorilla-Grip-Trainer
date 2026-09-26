@@ -20,7 +20,8 @@ int GradeBasePoints(const string &in label) {
     return 0;
 }
 
-int DisplayComboMultiplier(int completedStreak) {
+// Multiplier for the next successful landing; the HUD shows the streak itself.
+int ScoringMultiplier(int completedStreak) {
     return Math::Min(completedStreak + 1, 8);
 }
 
@@ -30,10 +31,6 @@ class SessionState {
     int score = 0;
     int hits = 0;
     int misses = 0;
-
-    int CurrentMultiplier() {
-        return DisplayComboMultiplier(combo);
-    }
 
     void Reset() {
         combo = 0;
@@ -52,28 +49,11 @@ class SessionState {
         }
         int basePoints = GradeBasePoints(verdict.label);
         if (basePoints == 0) return;
-        int multiplier = CurrentMultiplier();
+        int multiplier = ScoringMultiplier(combo);
         combo++;
         hits++;
         bestCombo = Math::Max(bestCombo, combo);
         verdict.points = basePoints * multiplier + 50 * verdict.spinCount;
         score += verdict.points;
-    }
-}
-
-class LastRunSummary {
-    bool hasRun = false;
-    int score = 0;
-    int hits = 0;
-    int misses = 0;
-    int bestCombo = 0;
-
-    void Capture(SessionState@ session) {
-        if (session is null || session.hits + session.misses == 0) return;
-        hasRun = true;
-        score = session.score;
-        hits = session.hits;
-        misses = session.misses;
-        bestCombo = session.bestCombo;
     }
 }

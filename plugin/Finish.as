@@ -85,7 +85,7 @@ void RenderFinishSummary(const vec4 &in r, RunRecord@ run) {
         HudColor(0.81f, 0.91f, 1.0f), center);
     array<string> statLabels = {"FINISH", "SCORE", "BEST COMBO"};
     array<string> statValues = {Time::Format(uint64(run.finishMs)),
-        "" + run.score, "x" + DisplayComboMultiplier(run.bestCombo)};
+        "" + run.score, "x" + run.bestCombo};
     float gap = 9*s;
     float statWidth = (inner - 2*gap) / 3.0f;
     for (uint i = 0; i < statLabels.Length; i++) {

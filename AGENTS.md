@@ -16,8 +16,8 @@ rating behavior or the HUD.
   behavior. Preserve the user's active TICK input, revision, map, and settings.
 - The timing preview is provisional until landing confirms tire force.
   `UNRATED` means required physics/contact data was unavailable. The Combo
-  widget starts at x1 and shows the multiplier for the next successful
-  landing; Best Combo shows the highest displayed multiplier reached.
+  widget shows the streak of successful landings, starting at x0; scoring
+  uses min(streak + 1, 8) for the next landing. Best Combo is the longest streak.
 - Exact physics reads are gated by the supported executable signature.
   VehicleState front-wheel steering angles are visual wheel angles, not the
   normalized internal steering value used for the direction threshold.

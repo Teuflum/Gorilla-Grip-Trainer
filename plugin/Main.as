@@ -7,7 +7,6 @@ int g_previousRaceTime = -1;
 bool g_eventLoggingOn = false;
 TransitionTracker@ g_tracker;
 SessionState@ g_session;
-LastRunSummary@ g_lastRun;
 AudioDirector@ g_audio;
 HistoryStore@ g_history;
 RunRecord@ g_activeRun;
@@ -52,7 +51,6 @@ void EndActiveRun(const string &in status, int finishMs = -1) {
 }
 
 void ResetAttemptState() {
-    g_lastRun.Capture(g_session);
     EndActiveRun("RESET");
     g_tracker.Reset();
     g_session.Reset();
@@ -74,7 +72,6 @@ void Main() {
     }
     @g_tracker = TransitionTracker();
     @g_session = SessionState();
-    @g_lastRun = LastRunSummary();
     @g_history = HistoryStore();
     g_history.Load();
     @g_finish = FinishController();
@@ -103,7 +100,6 @@ void Update(float dt) {
         if (finishTime >= 0 && g_activeRun !is null &&
             (mapUid.Length == 0 || mapUid == g_activeRun.mapUid) &&
             g_finish.Update(finishTime, true, g_activeRun)) {
-            g_lastRun.Capture(g_session);
             g_history.Append(g_activeRun);
             @g_activeRun = null;
             g_audio.OnFinish();

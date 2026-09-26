@@ -349,21 +349,50 @@ void RenderStat(const vec4 &in r, const string &in title,
         accent, right);
 }
 
-void RenderLast(const vec4 &in r, LastRunSummary@ last) {
+RunRecord@ g_lastRatedRun = null;
+string g_lastRatedKey = "";
+
+// This map's most recent attempt with at least one rated jump, from the history.
+RunRecord@ LastRatedRun() {
+    if (g_history is null) return null;
+    string mapUid = CurrentMapUid();
+    if (mapUid.Length == 0) return g_lastRatedRun;
+    uint count = g_history.runs.Length;
+    string key = mapUid + "|" + count + "|" +
+        (count == 0 ? "" : g_history.runs[g_history.runs.Length - 1].id);
+    if (key == g_lastRatedKey) return g_lastRatedRun;
+    g_lastRatedKey = key;
+    @g_lastRatedRun = null;
+    for (int i = int(g_history.runs.Length) - 1; i >= 0; i--) {
+        RunRecord@ run = g_history.runs[uint(i)];
+        if (run.mapUid == mapUid && run.hits + run.misses > 0) {
+            @g_lastRatedRun = run;
+            break;
+        }
+    }
+    return g_lastRatedRun;
+}
+
+void RenderLast(const vec4 &in r, RunRecord@ last) {
     HudCardBase(r, HudColor(0.39f, 0.67f, 0.98f));
     float s = Math::Min(r.z / 410.0f, r.w / 105.0f);
     int left = nvg::Align::Left | nvg::Align::Middle;
+    int right = nvg::Align::Right | nvg::Align::Middle;
     int center = nvg::Align::Center | nvg::Align::Middle;
     HudText(r.x + 20*s, r.y + 25*s, "LAST RUN", 15*s,
         HudColor(0.65f, 0.77f, 0.88f), left);
-    if (last is null || !last.hasRun) {
+    if (last !is null)
+        HudText(r.x + r.z - 20*s, r.y + 25*s,
+            Time::FormatString("%Y-%m-%d %H:%M", last.startedAt / 1000), 12*s,
+            HudColor(0.62f, 0.76f, 0.88f), right);
+    if (last is null) {
         HudText(r.x + r.z*0.5f, r.y + 70*s, "NO RATED RUN YET", 18*s,
             HudColor(0.84f, 0.93f, 1), center);
         return;
     }
     array<string> labels = {"SCORE", "HITS", "MISSES", "BEST"};
     array<string> values = {"" + last.score, "" + last.hits,
-        "" + last.misses, "x" + DisplayComboMultiplier(last.bestCombo)};
+        "" + last.misses, "x" + last.bestCombo};
     float gap = 7*s;
     float width = (r.z - 40*s - 3*gap) / 4.0f;
     for (uint i = 0; i < labels.Length; i++) {
@@ -423,7 +452,7 @@ void RenderWidgets() {
     if (ShouldRenderWidget(layout)) {
         vec4 comboColor = comboBroken && badgeFade > 0.0f ?
             HudColor(1.0f, 0.43f, 0.57f) : HudColor(1, 0.82f, 0.35f);
-        RenderStat(layout.Pixels(), "COMBO", "x" + g_session.CurrentMultiplier(),
+        RenderStat(layout.Pixels(), "COMBO", "x" + g_session.combo,
             comboColor, comboGained || comboBroken ? statPulse : 0.0f,
             comboBroken ? "BROKEN" : (comboGained ? "+1" : ""), badgeFade);
     }
@@ -447,11 +476,11 @@ void RenderWidgets() {
         bool newBest = statAge >= 0 &&
             g_session.bestCombo > g_statBestBefore;
         RenderStat(layout.Pixels(), "BEST COMBO",
-            "x" + DisplayComboMultiplier(g_session.bestCombo),
+            "x" + g_session.bestCombo,
             HudColor(0.46f, 0.79f, 1), newBest ? statPulse : 0.0f,
             newBest ? "NEW BEST" : "", badgeFade);
     }
     @layout = GetLayout("last");
     if (ShouldRenderWidget(layout))
-        RenderLast(layout.Pixels(), g_lastRun);
+        RenderLast(layout.Pixels(), LastRatedRun());
 }

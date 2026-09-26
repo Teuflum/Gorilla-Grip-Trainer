@@ -4,6 +4,7 @@ int g_previousContactMask = -1;
 float g_previousForce = -1.0f;
 int g_previousForceGate = -1;
 int g_previousRaceTime = -1;
+bool g_eventLoggingOn = false;
 TransitionTracker@ g_tracker;
 SessionState@ g_session;
 LastRunSummary@ g_lastRun;
@@ -82,11 +83,16 @@ void Main() {
     g_audio.Load();
     InitLayout();
     InitWidgets();
-    print("Gorilla Grip Trainer build supported: " + g_supportedBuild);
+    DebugLog("Gorilla Grip Trainer build supported: " + g_supportedBuild);
 }
 
 void Update(float dt) {
     if (!g_supportedBuild) return;
+    // One line per change, so the in-game tests can tell event logging is on.
+    if (S_DebugLogging != g_eventLoggingOn) {
+        g_eventLoggingOn = S_DebugLogging;
+        print("Gorilla Grip Trainer event logging " + (S_DebugLogging ? "on" : "off"));
+    }
     g_audio.UpdateSettings();
     auto vis = VehicleState::ViewingPlayerState();
     bool finishSequence = IsFinishSequence();
@@ -101,7 +107,7 @@ void Update(float dt) {
             g_history.Append(g_activeRun);
             @g_activeRun = null;
             g_audio.OnFinish();
-            print("Gorilla Grip Trainer finish summary: " + finishTime +
+            DebugLog("Gorilla Grip Trainer finish summary: " + finishTime +
                 "ms, score " + g_session.score);
         }
         return;
@@ -141,23 +147,23 @@ void Update(float dt) {
     @g_snapshot = next;
     g_tracker.Update(next);
     if (g_tracker.landingEvent) {
-        print("Gorilla Grip Trainer landing at " + g_tracker.landingRace +
+        DebugLog("Gorilla Grip Trainer landing at " + g_tracker.landingRace +
             "ms: takeoff mode " + g_tracker.takeoffMode +
             ", landing steer " + g_tracker.landingDirection);
     }
     if (g_tracker.unratedEvent)
-        print("Gorilla Grip Trainer timing unrated at " + t + "ms: " +
+        DebugLog("Gorilla Grip Trainer timing unrated at " + t + "ms: " +
             g_tracker.unratedReason);
     if (g_tracker.previewEvent) {
         JumpPreview@ p = g_tracker.preview;
-        print("Gorilla Grip Trainer preview at " + t + "ms: " + p.label +
+        DebugLog("Gorilla Grip Trainer preview at " + t + "ms: " + p.label +
             " lead " + p.leadMinMs + "-" + p.leadMaxMs + "ms" +
             (p.ambiguous ? " conservative" : ""));
     }
     if (g_tracker.takeoffCueEvent)
         g_audio.OnTakeoffCue();
     if (g_tracker.takeoffCueEvent)
-        print("Gorilla Grip Trainer takeoff cue at " + t + "ms");
+        DebugLog("Gorilla Grip Trainer takeoff cue at " + t + "ms");
     if (g_tracker.verdictEvent) {
         JumpVerdict@ v = g_tracker.verdict;
         int scoreBefore = g_session.score;
@@ -168,7 +174,7 @@ void Update(float dt) {
         g_activeRun.Record(v, g_session, g_tracker.preview);
         ShowResult(v, t);
         g_audio.OnVerdict(v);
-        print("Gorilla Grip Trainer verdict at " + t + "ms: " + v.label +
+        DebugLog("Gorilla Grip Trainer verdict at " + t + "ms: " + v.label +
             " | " + v.reason + " | force " + next.force +
             " | force gate " + next.forceGateState +
             " | eligible at " + g_tracker.forceEligibleClock +
@@ -178,7 +184,7 @@ void Update(float dt) {
     if (!next.exact) return;
     if (g_previousContactMask != int(next.contactMask) || (S_DebugForceTrace &&
         (g_previousForce != next.force || g_previousForceGate != next.forceGateState))) {
-        print("Gorilla Grip Trainer snapshot at " + t + "ms: exact true, mode " +
+        DebugLog("Gorilla Grip Trainer snapshot at " + t + "ms: exact true, mode " +
             next.mode + ", steer " + Text::Format("%.6f", next.smoothedSteer) +
             ", contacts " + next.ContactBits() + ", modeAt " + next.modeAt +
             ", clock " + next.gameTime + ", delay " + next.recoveryDelayMs +

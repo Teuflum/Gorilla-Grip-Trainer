@@ -2,14 +2,17 @@
 
 Run after finishing ANGULAR MOMENTUM and pressing Improve. This reads the
 Openplanet log from the last finish onward and waits for the first new verdict.
+Needs Openplanet Settings → Gorilla Grip Trainer → Debug → Log trainer events.
 """
 
 from pathlib import Path
 import re
 import time
+from trainer_log import require_event_logging
 
 
 def main():
+    require_event_logging()
     log_path = Path.home() / "OpenplanetNext/Openplanet.log"
     finish_pattern = re.compile(r"Gorilla Grip Trainer finish summary: \d+ms, score (\d+)")
     verdict_pattern = re.compile(

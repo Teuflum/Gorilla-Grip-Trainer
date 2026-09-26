@@ -2,6 +2,7 @@
 
 This integration check needs Trackmania, TICK, and GorillaGripLogger running.
 It reads only fresh Openplanet log lines produced by its own TICK replay.
+Needs Openplanet Settings → Gorilla Grip Trainer → Debug → Log trainer events.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ import sys
 import time
 import uuid
 from pathlib import Path
+from trainer_log import require_event_logging
 
 
 LOG = Path.home() / "OpenplanetNext" / "Openplanet.log"
@@ -224,6 +226,7 @@ def assert_full_finish(research_root: Path, finish_revision_id: str) -> None:
 
 
 def main() -> None:
+    require_event_logging()
     parser = argparse.ArgumentParser()
     parser.add_argument("--research-root", required=True, type=Path)
     parser.add_argument("--physics-only", action="store_true")

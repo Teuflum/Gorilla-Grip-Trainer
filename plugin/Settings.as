@@ -7,8 +7,15 @@ bool S_ShowWhenGameHudOff = false;
 [Setting hidden] bool S_GlobalHudVisibilityMigrated = false;
 [Setting category="Display" name="Show finish summary automatically"]
 bool S_AutoFinishSummary = true;
-[Setting category="Debug" name="Log every tire-force change" description="Also writes a snapshot line to Openplanet.log whenever the tire-force multiplier or force gate changes, not only on wheel-contact changes. For research traces; slow the game to capture every physics tick."]
+[Setting category="Debug" name="Log trainer events" description="Writes routine trainer events (contact snapshots, previews, verdicts, audio, history saves) to Openplanet.log. Problems are always logged. The in-game tests need this on."]
+bool S_DebugLogging = false;
+[Setting category="Debug" name="Log every tire-force change" description="With Log trainer events on, also writes a snapshot line whenever the tire-force multiplier or force gate changes, not only on wheel-contact changes. For research traces; slow the game to capture every physics tick."]
 bool S_DebugForceTrace = false;
+
+// Routine events only; report problems with print so they are always visible.
+void DebugLog(const string &in message) {
+    if (S_DebugLogging) print(message);
+}
 
 [Setting hidden]
 float S_MinIcing = 0.65f;

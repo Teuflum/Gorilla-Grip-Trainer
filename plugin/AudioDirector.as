@@ -86,7 +86,7 @@ class AudioDirector {
             previewBaseGain * S_MasterVolume);
         previewStatus = previewVoice is null ? "Could not play " + filename : "";
         if (previewVoice !is null)
-            print("Gorilla Grip Trainer audio: preview " + filename +
+            DebugLog("Gorilla Grip Trainer audio: preview " + filename +
                 " gain " + Text::Format("%.2f", previewVoice.GetGain()));
     }
 
@@ -127,7 +127,7 @@ class AudioDirector {
             finishVoice.SetPosition(0.0);
             rewindRequestedAt = Time::MilliStamp;
             finishStartedAt = Time::MilliStamp;
-            print("Gorilla Grip Trainer audio: results loop restarted via rewind");
+            DebugLog("Gorilla Grip Trainer audio: results loop restarted via rewind");
             return;
         }
         if (next is null) {
@@ -141,7 +141,7 @@ class AudioDirector {
         finishBaseGain = entry.volume;
         rewindRequestedAt = -1;
         finishStartedAt = Time::MilliStamp;
-        print("Gorilla Grip Trainer audio: results loop started");
+        DebugLog("Gorilla Grip Trainer audio: results loop started");
     }
 
     void OnTakeoffCue() {
@@ -152,7 +152,7 @@ class AudioDirector {
         cueBaseGain = entry.volume;
         @cueVoice = Audio::Play(entry.sample,
             cueBaseGain * S_MasterVolume);
-        print("Gorilla Grip Trainer audio: takeoff -> " + entry.file);
+        DebugLog("Gorilla Grip Trainer audio: takeoff -> " + entry.file);
     }
 
     bool GradeVoiceEnabled(const string &in grade) {
@@ -194,7 +194,7 @@ class AudioDirector {
                         resultBaseGain * S_MasterVolume);
                 }
             }
-            print("Gorilla Grip Trainer audio: failed landing");
+            DebugLog("Gorilla Grip Trainer audio: failed landing");
             return;
         }
         if (verdict.label == "UNRATED") return;
@@ -205,7 +205,7 @@ class AudioDirector {
                 resultBaseGain = entry.volume;
                 @resultVoice = Audio::Play(entry.sample,
                     resultBaseGain * S_MasterVolume);
-                print("Gorilla Grip Trainer audio: landing " + verdict.label +
+                DebugLog("Gorilla Grip Trainer audio: landing " + verdict.label +
                     " -> " + entry.file);
             }
         }
@@ -214,7 +214,7 @@ class AudioDirector {
     void PlayResults(bool loop = false) {
         StopResults();
         if (!S_EnableAudio || !S_SoundResults) {
-            print("Gorilla Grip Trainer audio: results disabled");
+            DebugLog("Gorilla Grip Trainer audio: results disabled");
             return;
         }
         VoiceEntry@ entry = PickVoice(VoicePoolFor("results"));
@@ -232,7 +232,7 @@ class AudioDirector {
         }
         loopResults = loop;
         finishStartedAt = Time::MilliStamp;
-        print("Gorilla Grip Trainer audio: results sound " + entry.file +
+        DebugLog("Gorilla Grip Trainer audio: results sound " + entry.file +
             " started, length " +
             Text::Format("%.2f", finishVoice.GetLength()) + "s, gain " +
             Text::Format("%.2f", finishVoice.GetGain()));

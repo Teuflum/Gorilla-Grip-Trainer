@@ -9,7 +9,8 @@ rating behavior or the HUD.
   `python tests/test_rating_settings.py` and
   `python tests/test_presentation_contract.py`. Do not run every test file
   blindly: `test_trainer_in_game.py`, `test_current_input.py`, and the
-  finish/reset tests interact with Trackmania or TICK.
+  finish/reset tests interact with Trackmania or TICK. They also need
+  Debug → Log trainer events on, since routine log lines are off by default.
 - For live verification, install the changed `plugin/` files, reload in
   Openplanet, inspect its compile/runtime log, and check the actual HUD
   behavior. Preserve the user's active TICK input, revision, map, and settings.

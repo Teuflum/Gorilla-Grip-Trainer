@@ -3,6 +3,7 @@
 The first landing must yield a single grade even when fast playback spans a
 grade boundary. The historical 16.8 s bounce check is opt-in because the
 user's selected input revision can change independently of this script.
+Needs Openplanet Settings → Gorilla Grip Trainer → Debug → Log trainer events.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ import sys
 import time
 import uuid
 from pathlib import Path
+from trainer_log import require_event_logging
 
 
 LOG = Path.home() / "OpenplanetNext" / "Openplanet.log"
@@ -50,6 +52,7 @@ def run_current(client, speed: float, target_ms: int) -> str:
 
 
 def main() -> None:
+    require_event_logging()
     parser = argparse.ArgumentParser()
     parser.add_argument("--research-root", type=Path, required=True)
     parser.add_argument("--expect-16s-s", action="store_true",

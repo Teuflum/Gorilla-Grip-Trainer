@@ -264,7 +264,7 @@ class HistoryStore {
         runs.InsertLast(run);
         while (runs.Length > HISTORY_LIMIT) runs.RemoveAt(0);
         Save();
-        print("Gorilla Grip Trainer history: " + run.status + " " + run.id +
+        DebugLog("Gorilla Grip Trainer history: " + run.status + " " + run.id +
             " jumps " + run.jumps.Length);
     }
 

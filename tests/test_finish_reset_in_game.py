@@ -2,15 +2,18 @@
 
 Requires Trackmania, TICK, and GorillaGripLogger. Run while the completed
 ANGULAR MOMENTUM attempt is still on its finish screen.
+Needs Openplanet Settings → Gorilla Grip Trainer → Debug → Log trainer events.
 """
 
 from pathlib import Path
 import re
 import time
 import uuid
+from trainer_log import require_event_logging
 
 
 def main():
+    require_event_logging()
     log_path = Path.home() / "OpenplanetNext/Openplanet.log"
     storage = Path.home() / "OpenplanetNext/PluginStorage/GorillaGripLogger"
     existing = log_path.read_text(encoding="utf-8", errors="replace")

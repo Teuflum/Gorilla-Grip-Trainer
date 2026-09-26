@@ -4,6 +4,7 @@ Standalone Openplanet trainer for the timing of a Trackmania ice-slide direction
 
 - [Design specification](docs/superpowers/specs/2026-09-25-gorilla-grip-trainer.md)
 - [Implementation plan](docs/superpowers/plans/2026-09-25-gorilla-grip-trainer.md)
+- [Player guide to the gorilla grip mechanic](https://github.com/Teuflum/tm-gorilla-grip-reverse-engineering/blob/main/outputs/gorilla_grip_player_guide.md)
 - [Physics research](https://github.com/Teuflum/tm-gorilla-grip-reverse-engineering)
 
 The supplied jump, announcer, failure, and results audio files are for local testing only. They are excluded from this repository. No game audio or impact sound is bundled.

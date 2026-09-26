@@ -1,6 +1,8 @@
 bool g_supportedBuild = false;
 PhysicsSnapshot@ g_snapshot;
 int g_previousContactMask = -1;
+float g_previousForce = -1.0f;
+int g_previousForceGate = -1;
 int g_previousRaceTime = -1;
 TransitionTracker@ g_tracker;
 SessionState@ g_session;
@@ -174,7 +176,8 @@ void Update(float dt) {
             " | score " + g_session.score);
     }
     if (!next.exact) return;
-    if (g_previousContactMask != int(next.contactMask)) {
+    if (g_previousContactMask != int(next.contactMask) || (S_DebugForceTrace &&
+        (g_previousForce != next.force || g_previousForceGate != next.forceGateState))) {
         print("Gorilla Grip Trainer snapshot at " + t + "ms: exact true, mode " +
             next.mode + ", steer " + Text::Format("%.6f", next.smoothedSteer) +
             ", contacts " + next.ContactBits() + ", modeAt " + next.modeAt +
@@ -183,6 +186,8 @@ void Update(float dt) {
             ", gate " + next.forceGateState);
     }
     g_previousContactMask = int(next.contactMask);
+    g_previousForce = next.force;
+    g_previousForceGate = next.forceGateState;
 }
 
 void RenderMenu() {

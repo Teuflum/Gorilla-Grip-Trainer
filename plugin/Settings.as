@@ -7,6 +7,8 @@ bool S_ShowWhenGameHudOff = false;
 [Setting hidden] bool S_GlobalHudVisibilityMigrated = false;
 [Setting category="Display" name="Show finish summary automatically"]
 bool S_AutoFinishSummary = true;
+[Setting category="Debug" name="Log every tire-force change" description="Also writes a snapshot line to Openplanet.log whenever the tire-force multiplier or force gate changes, not only on wheel-contact changes. For research traces; slow the game to capture every physics tick."]
+bool S_DebugForceTrace = false;
 
 [Setting hidden]
 float S_MinIcing = 0.65f;

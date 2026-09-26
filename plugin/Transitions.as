@@ -1,7 +1,9 @@
 const float STEER_GATE = 0.1f;
 const int MAX_TIMING_SAMPLE_GAP = 50;
 const int FORCE_SETTLE_MS = 30;
-const int FORCE_GATE_TIMEOUT_MS = 500;
+// Counted from touchdown or the end of the recovery delay, whichever is later;
+// gas-off spins can hold the force gate for a while.
+const int FORCE_GATE_TIMEOUT_MS = 1000;
 
 int SteeringDirection(float steer) {
     if (steer > STEER_GATE) return 2;
@@ -228,7 +230,7 @@ class TransitionTracker {
             landingDirection == takeoffMode;
         bool recovered = enoughIcing && matchingLanding && snap.mode == takeoffMode &&
             int(snap.modeAt) == takeoffModeAt &&
-            forceEligibleClock - takeoffModeAt >= 2 * recoveryDelayMs &&
+            forceEligibleClock - takeoffModeAt >= recoveryDelayMs &&
             snap.force > 1.001f;
         if (hasPreview) {
             @verdict = JumpVerdict();
@@ -328,12 +330,16 @@ class TransitionTracker {
                 snap.gameTime - landingClock <= 30 &&
                 SteeringDirection(snap.smoothedSteer) != 0)
                 landingDirection = SteeringDirection(snap.smoothedSteer);
-            if (snap.contactMask != 0 && snap.forceGateState == 0) {
+            // The recovery timer started at the pre-takeoff switch, so a landing
+            // inside the delay waits on the ground until force can start rising.
+            if (snap.contactMask != 0 && snap.forceGateState == 0 &&
+                snap.gameTime - takeoffModeAt >= recoveryDelayMs) {
                 if (forceEligibleClock < 0) forceEligibleClock = snap.gameTime;
             } else forceEligibleClock = -1;
             if (flightUncertain)
                 PublishUnrated("Landing contact timing became uncertain", snap.raceTime);
-            else if (snap.gameTime - landingClock > FORCE_GATE_TIMEOUT_MS)
+            else if (snap.gameTime - Math::Max(landingClock, takeoffModeAt + recoveryDelayMs) >
+                FORCE_GATE_TIMEOUT_MS)
                 PublishUnrated("Tire-force contact never became eligible", snap.raceTime);
             else if (snap.gameTime - landingClock >= 80 &&
                 forceEligibleClock >= 0 &&

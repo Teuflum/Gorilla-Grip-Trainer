@@ -101,37 +101,54 @@ string ModeName(int mode) {
     return "NEUTRAL";
 }
 
+// One wheel of the contact grid: the border shows ground contact (gold for a
+// front wheel, which alone raises tire force; blue for a rear wheel; dim in the
+// air) and the fill shows that tire's icing.
+void RenderWheelTile(float x, float y, float w, float h, float s,
+    const string &in name, bool front, bool contact, float icing, bool exact) {
+    vec4 border = !contact ? HudColor(0.18f, 0.25f, 0.34f) :
+        (front ? HudColor(1.0f, 0.85f, 0.36f) : HudColor(0.47f, 0.82f, 1.0f));
+    float edge = contact ? 2*s : 1*s;
+    HudBox(x, y, w, h, 7*s, border);
+    HudBox(x + edge, y + edge, w - 2*edge, h - 2*edge, 6*s,
+        contact ? HudColor(0.06f, 0.11f, 0.19f) : HudColor(0.04f, 0.07f, 0.13f));
+    if (exact && icing > 0.0f)
+        HudBox(x + edge, y + edge, (w - 2*edge) * Math::Clamp(icing, 0.0f, 1.0f),
+            h - 2*edge, 6*s, HudColor(0.47f, 0.82f, 1.0f, contact ? 0.22f : 0.10f));
+    HudText(x + 8*s, y + 11*s, name, 10*s,
+        contact ? border : HudColor(0.42f, 0.51f, 0.60f),
+        nvg::Align::Left | nvg::Align::Middle);
+    HudText(x + w - 8*s, y + h - 12*s,
+        exact ? Text::Format("%.0f%%", icing * 100.0f) : "--", 16*s,
+        contact ? HudColor(0.91f, 0.96f, 1) : HudColor(0.54f, 0.62f, 0.70f),
+        nvg::Align::Right | nvg::Align::Middle);
+}
+
 void RenderDiagnostics(const vec4 &in r, PhysicsSnapshot@ snap) {
     float s = Math::Min(r.z / 500.0f, r.w / 215.0f);
     int left = nvg::Align::Left | nvg::Align::Middle;
     int right = nvg::Align::Right | nvg::Align::Middle;
     int center = nvg::Align::Center | nvg::Align::Middle;
     HudCardBase(r, HudColor(0.03f, 0.91f, 0.87f));
-    HudText(r.x + 19*s, r.y + 21*s, "GORILLA GRIP", 16*s,
-        HudColor(0.91f, 0.98f, 1), left);
-    HudText(r.x + r.z - 17*s, r.y + 21*s,
-        snap !is null && snap.exact ? "EXACT PHYSICS" : "UNRATED",
-        10*s, snap !is null && snap.exact ? HudColor(0.10f, 1, 0.75f) :
-        HudColor(1, 0.64f, 0.35f), right);
     if (snap is null) {
         HudText(r.x + r.z*0.5f, r.y + r.w*0.5f, "NO CAR", 24*s,
             HudColor(0.7f, 0.8f, 0.9f), center);
         return;
     }
-    HudText(r.x + 20*s, r.y + 42*s, "SMOOTHED STEER", 10*s,
+    HudText(r.x + 20*s, r.y + 17*s, "SMOOTHED STEER", 10*s,
         HudColor(0.56f, 0.68f, 0.78f), left);
-    HudText(r.x + 20*s, r.y + 69*s,
+    HudText(r.x + 20*s, r.y + 42*s,
         snap.exact ? Text::Format("%+.1f%%", snap.smoothedSteer * 100.0f) : "--",
-        37*s, HudColor(1, 1, 1), left);
-    HudText(r.x + r.z - 18*s, r.y + 42*s, "STORED SLIDE MODE", 10*s,
+        28*s, HudColor(1, 1, 1), left);
+    HudText(r.x + r.z - 18*s, r.y + 17*s, "STORED SLIDE MODE", 10*s,
         HudColor(0.56f, 0.68f, 0.78f), right);
-    HudText(r.x + r.z - 18*s, r.y + 69*s,
+    HudText(r.x + r.z - 18*s, r.y + 44*s,
         snap.exact ? ModeName(snap.mode) : "--", 19*s,
         snap.mode == 2 ? HudColor(0.04f, 0.95f, 0.87f) :
         (snap.mode == 1 ? HudColor(1, 0.39f, 0.76f) :
         HudColor(0.6f, 0.7f, 0.8f)), right);
     float bx = r.x + 21*s;
-    float by = r.y + 94*s;
+    float by = r.y + 67*s;
     float bw = r.z - 42*s;
     HudBox(bx, by, bw, 15*s, 7*s, HudColor(0.09f, 0.15f, 0.23f));
     HudBox(bx + bw*0.45f, by-3*s, 2*s, 21*s, 0,
@@ -146,13 +163,26 @@ void RenderDiagnostics(const vec4 &in r, PhysicsSnapshot@ snap) {
     HudText(bx + bw, by + 29*s, "RIGHT GATE", 10*s,
         HudColor(0.04f, 0.95f, 0.87f), right);
 
+    // Wheel grid in the car's layout; indices are the game's wheel order.
+    array<string> names = {"FL", "FR", "RL", "RR"};
+    array<uint> wheels = {0, 1, 3, 2};
+    float tileW = 100*s;
+    float tileH = 40*s;
+    float gridX = r.x + 20*s;
+    float gridY = r.y + 112*s;
+    for (uint i = 0; i < 4; i++) {
+        uint wheel = wheels[i];
+        RenderWheelTile(gridX + float(i % 2) * (tileW + 10*s),
+            gridY + float(i / 2) * (tileH + 6*s), tileW, tileH, s,
+            names[i], wheel < 2, (snap.contactMask & (1 << wheel)) != 0,
+            snap.WheelIcing(wheel), snap.exact);
+    }
+
+    float cx = gridX + 2*tileW + 32*s;
+    float cr = r.x + r.z - 18*s;
     string phase = g_tracker.inFlight ? "AIR " +
-        Math::Max(0, snap.raceTime - g_tracker.takeoffRace) + "ms" : "GROUND";
-    HudText(r.x + 20*s, r.y + 157*s, phase, 14*s,
-        HudColor(0.9f, 0.95f, 1), left);
-    HudText(r.x + r.z*0.5f, r.y + 157*s,
-        "ICE " + Text::Format("%.0f%%", snap.meanIcing*100.0f), 13*s,
-        HudColor(0.47f, 0.82f, 1), center);
+        Math::Max(0, snap.raceTime - g_tracker.takeoffRace) + " ms" : "GROUND";
+    HudText(cx, r.y + 124*s, phase, 14*s, HudColor(0.9f, 0.95f, 1), left);
     int modeAge = snap.ModeAgeMs();
     string forceText;
     if (!snap.exact) forceText = "FORCE --";
@@ -163,28 +193,27 @@ void RenderDiagnostics(const vec4 &in r, PhysicsSnapshot@ snap) {
     else if (modeAge < 2 * snap.recoveryDelayMs)
         forceText = "RECOVERY WINDOW";
     else forceText = "WINDOW ELAPSED";
-    HudText(r.x + r.z - 18*s, r.y + 157*s, forceText, 12*s,
-        HudColor(1, 0.85f, 0.43f), right);
-    HudBox(r.x + 18*s, r.y + 176*s, r.z - 36*s, 1*s, 0,
-        HudColor(0.22f, 0.34f, 0.46f));
+    HudText(cr, r.y + 124*s, forceText, 12*s, HudColor(1, 0.85f, 0.43f), right);
+    HudText(cx, r.y + 150*s,
+        "ICE AVG " + Text::Format("%.0f%%", snap.meanIcing*100.0f), 11*s,
+        HudColor(0.47f, 0.82f, 1), left);
     string detail = !snap.exact ? "PHYSICS SAMPLE UNAVAILABLE" :
         modeAge < 0 ? "NO STORED SLIDE MODE" :
         "MODE AGE " + (modeAge < 10000 ? modeAge + " ms" :
             Text::Format("%.1f s", float(modeAge) / 1000.0f));
-    if (snap.exact && g_tracker.inFlight &&
-        g_tracker.unratedReason.Length > 0) detail = "TIMING UNVERIFIED";
+    bool unverified = snap.exact && g_tracker.inFlight &&
+        g_tracker.unratedReason.Length > 0;
+    if (unverified) detail = "TIMING UNVERIFIED";
+    HudText(cr, r.y + 150*s, detail, 11*s,
+        unverified ? HudColor(1, 0.58f, 0.36f) : HudColor(0.55f, 0.67f, 0.77f), right);
+    HudBox(cx, r.y + 168*s, cr - cx, 1*s, 0, HudColor(0.22f, 0.34f, 0.46f));
     string explanation = !snap.exact ? "" : modeAge < 0 ?
         "MODE STARTS ON ELIGIBLE WHEEL CONTACT" : g_tracker.inFlight ?
         snap.recoveryDelayMs + " ms delay | " +
             (2 * snap.recoveryDelayMs) + " ms max | check on landing" :
-        "";
-    HudText(r.x + r.z*0.5f,
-        r.y + (explanation.Length == 0 ? 195.0f : 190.0f)*s,
-        detail, 11*s, g_tracker.inFlight && g_tracker.unratedReason.Length > 0 ?
-        HudColor(1, 0.58f, 0.36f) : HudColor(0.55f, 0.67f, 0.77f), center);
-    if (explanation.Length > 0)
-        HudText(r.x + r.z*0.5f, r.y + 207*s, explanation, 10*s,
-            HudColor(0.45f, 0.59f, 0.70f), center);
+        "FRONT WHEELS RAISE TIRE FORCE";
+    HudText(cx, r.y + 186*s, explanation, 10*s,
+        HudColor(0.45f, 0.59f, 0.70f), left);
 }
 
 void RenderGradePreview(const vec4 &in r, JumpPreview@ preview, bool sample) {

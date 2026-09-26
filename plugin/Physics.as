@@ -13,6 +13,10 @@ class PhysicsSnapshot {
     int recoveryDelayMs = 400;
     uint contactMask = 0;
     float meanIcing = 0.0f;
+    float icingFL = 0.0f;
+    float icingFR = 0.0f;
+    float icingRR = 0.0f;
+    float icingRL = 0.0f;
     float speedKmh = 0.0f;
     float yaw = 0.0f;
 
@@ -21,6 +25,14 @@ class PhysicsSnapshot {
         if (!exact || mode == 0 || gameTime < 0 || changedAt < 0 ||
             changedAt > gameTime) return -1;
         return gameTime - changedAt;
+    }
+
+    // Icing of one wheel in the game's wheel order, matching the contact bits.
+    float WheelIcing(uint wheel) const {
+        if (wheel == 0) return icingFL;
+        if (wheel == 1) return icingFR;
+        if (wheel == 2) return icingRR;
+        return icingRL;
     }
 
     string ContactBits() const {
@@ -65,8 +77,11 @@ int ReadRaceTime(CSceneVehicleVisState@ vis) {
 PhysicsSnapshot@ ReadPhysics(CSceneVehicleVisState@ vis, int raceTime) {
     PhysicsSnapshot@ snap = PhysicsSnapshot();
     snap.raceTime = raceTime;
-    snap.meanIcing = (vis.FLIcing01 + vis.FRIcing01 +
-        vis.RLIcing01 + vis.RRIcing01) * 0.25f;
+    snap.icingFL = vis.FLIcing01;
+    snap.icingFR = vis.FRIcing01;
+    snap.icingRR = vis.RRIcing01;
+    snap.icingRL = vis.RLIcing01;
+    snap.meanIcing = (snap.icingFL + snap.icingFR + snap.icingRR + snap.icingRL) * 0.25f;
     snap.speedKmh = vis.WorldVel.Length() * 3.6f;
     snap.yaw = Math::Atan2(vis.Dir.x, vis.Dir.z);
     if (!g_supportedBuild) return snap;

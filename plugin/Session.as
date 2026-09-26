@@ -20,12 +20,20 @@ int GradeBasePoints(const string &in label) {
     return 0;
 }
 
+int DisplayComboMultiplier(int completedStreak) {
+    return Math::Min(completedStreak + 1, 8);
+}
+
 class SessionState {
     int combo = 0;
     int bestCombo = 0;
     int score = 0;
     int hits = 0;
     int misses = 0;
+
+    int CurrentMultiplier() {
+        return DisplayComboMultiplier(combo);
+    }
 
     void Reset() {
         combo = 0;
@@ -44,10 +52,11 @@ class SessionState {
         }
         int basePoints = GradeBasePoints(verdict.label);
         if (basePoints == 0) return;
+        int multiplier = CurrentMultiplier();
         combo++;
         hits++;
         bestCombo = Math::Max(bestCombo, combo);
-        verdict.points = basePoints * Math::Min(combo, 8) + 50 * verdict.spinCount;
+        verdict.points = basePoints * multiplier + 50 * verdict.spinCount;
         score += verdict.points;
     }
 }

@@ -85,7 +85,7 @@ void RenderFinishSummary(const vec4 &in r, RunRecord@ run) {
         HudColor(0.81f, 0.91f, 1.0f), center);
     array<string> statLabels = {"FINISH", "SCORE", "BEST COMBO"};
     array<string> statValues = {Time::Format(uint64(run.finishMs)),
-        "" + run.score, "x" + run.bestCombo};
+        "" + run.score, "x" + DisplayComboMultiplier(run.bestCombo)};
     float gap = 9*s;
     float statWidth = (inner - 2*gap) / 3.0f;
     for (uint i = 0; i < statLabels.Length; i++) {
@@ -162,5 +162,30 @@ void RenderFinishSummary(const vec4 &in r, RunRecord@ run) {
             HudColor(0.67f, 0.82f, 0.93f), alignLeft);
         HudText(x + detailWidth - 13*s, y + 17*s, detailValues[i], 16*s,
             accent, alignRight);
+    }
+    RenderFinishHistoryButton(r, s, run);
+}
+
+void RenderFinishHistoryButton(const vec4 &in panel, float scale,
+    RunRecord@ run) {
+    float width = 128*scale;
+    float height = 29*scale;
+    float x = panel.x + panel.z - 25*scale - width;
+    float y = panel.y + 18*scale;
+    vec2 mouse = UI::GetMousePos() * UI::GetScale();
+    bool hovered = mouse.x >= x && mouse.x < x + width &&
+        mouse.y >= y && mouse.y < y + height;
+    HudBox(x, y, width, height, 7*scale, hovered ?
+        HudColor(0.26f, 0.21f, 0.11f, 0.98f) :
+        HudColor(0.10f, 0.15f, 0.25f, 0.94f));
+    HudText(x + width*0.5f, y + height*0.5f, "VIEW HISTORY", 11*scale,
+        HudColor(1.0f, 0.85f, 0.36f),
+        nvg::Align::Center | nvg::Align::Middle);
+    if (hovered && !UI::IsOverlayShown() && UI::IsMouseClicked()) {
+        g_historySelectedId = run.id;
+        g_historyShowFinished = true;
+        g_historyMapFilter = "";
+        g_showHistory = true;
+        UI::ShowOverlay();
     }
 }

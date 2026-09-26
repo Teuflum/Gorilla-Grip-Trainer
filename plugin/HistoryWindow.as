@@ -56,7 +56,8 @@ void RenderHistoryWindow() {
         UI::Text(selected.mapName + "  |  " + selected.status);
         if (selected.status == "FINISHED")
             UI::Text("Finish: " + Time::Format(uint64(selected.finishMs)));
-        UI::Text("Score " + selected.score + "  Best combo x" + selected.bestCombo +
+        UI::Text("Score " + selected.score + "  Best combo x" +
+            DisplayComboMultiplier(selected.bestCombo) +
             "  Hits " + selected.hits + "  Misses " + selected.misses);
         UI::SeparatorText("Jumps");
         for (uint j = 0; j < selected.jumps.Length; j++) {
@@ -70,7 +71,8 @@ void RenderHistoryWindow() {
             if (jump.preview.Length > 0)
                 UI::Text("Takeoff preview: " + jump.preview +
                     (jump.timingEstimated ? "+" : ""));
-            UI::Text("Combo x" + jump.combo + "  +" + jump.points +
+            UI::Text("Streak " + jump.combo + "  Next x" +
+                DisplayComboMultiplier(jump.combo) + "  +" + jump.points +
                 " pts  Spins " + jump.spins);
             if (jump.scoreAfter >= 0)
                 UI::Text("Score after landing: " + jump.scoreAfter);

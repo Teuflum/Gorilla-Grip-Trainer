@@ -337,17 +337,34 @@ void RenderLast(const vec4 &in r, LastRunSummary@ last) {
     HudCardBase(r, HudColor(0.39f, 0.67f, 0.98f));
     float s = Math::Min(r.z / 410.0f, r.w / 105.0f);
     int left = nvg::Align::Left | nvg::Align::Middle;
+    int center = nvg::Align::Center | nvg::Align::Middle;
     HudText(r.x + 20*s, r.y + 25*s, "LAST RUN", 15*s,
         HudColor(0.65f, 0.77f, 0.88f), left);
     if (last is null || !last.hasRun) {
-        HudText(r.x + 20*s, r.y + 70*s, "NO RATED RUN YET", 18*s,
-            HudColor(0.84f, 0.93f, 1), left);
+        HudText(r.x + r.z*0.5f, r.y + 70*s, "NO RATED RUN YET", 18*s,
+            HudColor(0.84f, 0.93f, 1), center);
         return;
     }
-    HudText(r.x + 20*s, r.y + 69*s,
-        last.score + " PTS   " + last.hits + " HITS   " +
-        last.misses + " MISSES   BEST x" + last.bestCombo, 15*s,
-        HudColor(0.87f, 0.95f, 1), left);
+    array<string> labels = {"SCORE", "HITS", "MISSES", "BEST"};
+    array<string> values = {"" + last.score, "" + last.hits,
+        "" + last.misses, "x" + DisplayComboMultiplier(last.bestCombo)};
+    float gap = 7*s;
+    float width = (r.z - 40*s - 3*gap) / 4.0f;
+    for (uint i = 0; i < labels.Length; i++) {
+        float x = r.x + 20*s + float(i)*(width + gap);
+        vec4 color = i == 0 ? HudColor(1.0f, 0.85f, 0.36f) :
+            (i == 1 ? HudColor(0.13f, 0.93f, 0.78f) :
+            (i == 2 ? HudColor(1.0f, 0.48f, 0.58f) :
+            HudColor(0.60f, 0.89f, 1.0f)));
+        HudBox(x, r.y + 42*s, width, 52*s, 8*s,
+            HudColor(0.035f, 0.065f, 0.13f, 0.88f));
+        HudBox(x + 8*s, r.y + 43*s, width - 16*s, 2*s, 1*s,
+            HudColor(color.x, color.y, color.z, 0.75f));
+        HudText(x + width*0.5f, r.y + 60*s, labels[i], 10*s,
+            HudColor(0.62f, 0.76f, 0.88f), center);
+        HudText(x + width*0.5f, r.y + 79*s, values[i], 20*s,
+            color, center);
+    }
 }
 
 bool ShouldRenderWidget(WidgetLayout@ layout) {
@@ -390,7 +407,7 @@ void RenderWidgets() {
     if (ShouldRenderWidget(layout)) {
         vec4 comboColor = comboBroken && badgeFade > 0.0f ?
             HudColor(1.0f, 0.43f, 0.57f) : HudColor(1, 0.82f, 0.35f);
-        RenderStat(layout.Pixels(), "COMBO", "x" + g_session.combo,
+        RenderStat(layout.Pixels(), "COMBO", "x" + g_session.CurrentMultiplier(),
             comboColor, comboGained || comboBroken ? statPulse : 0.0f,
             comboBroken ? "BROKEN" : (comboGained ? "+1" : ""), badgeFade);
     }
@@ -413,7 +430,8 @@ void RenderWidgets() {
     if (ShouldRenderWidget(layout)) {
         bool newBest = statAge >= 0 &&
             g_session.bestCombo > g_statBestBefore;
-        RenderStat(layout.Pixels(), "BEST COMBO", "x" + g_session.bestCombo,
+        RenderStat(layout.Pixels(), "BEST COMBO",
+            "x" + DisplayComboMultiplier(g_session.bestCombo),
             HudColor(0.46f, 0.79f, 1), newBest ? statPulse : 0.0f,
             newBest ? "NEW BEST" : "", badgeFade);
     }

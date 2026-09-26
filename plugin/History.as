@@ -160,7 +160,7 @@ bool ValidHistory(Json::Value@ root) {
         if (status == "RESET" &&
             !HistoryField(record, "finishMs", Json::Type::Null)) return false;
         Json::Value@ jumps = record["jumps"];
-        if (jumps.Length == 0) return false;
+        if (jumps.Length == 0 && status != "FINISHED") return false;
         int previousLanding = -1;
         for (uint j = 0; j < jumps.Length; j++) {
             Json::Value@ jump = jumps[int(j)];
@@ -259,7 +259,8 @@ class HistoryStore {
     }
 
     void Append(RunRecord@ run) {
-        if (run is null || run.jumps.Length == 0) return;
+        if (run is null || (run.jumps.Length == 0 && run.status != "FINISHED"))
+            return;
         runs.InsertLast(run);
         while (runs.Length > HISTORY_LIMIT) runs.RemoveAt(0);
         Save();

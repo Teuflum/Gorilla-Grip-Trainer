@@ -7,6 +7,7 @@ storage file instead of duplicating its serializer in the test.
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 from pathlib import Path
 
@@ -47,7 +48,10 @@ def validate(doc: object) -> list[dict]:
         for key in ("score", "bestCombo", "hits", "misses"):
             assert isinstance(run.get(key), int) and run[key] >= 0
         jumps = run.get("jumps")
-        assert isinstance(jumps, list) and jumps, "Only runs with verdicts are stored"
+        assert isinstance(jumps, list)
+        assert jumps or run["status"] == "FINISHED", (
+            "Only finished maps may be stored without a verdict"
+        )
         previous = -1
         for jump in jumps:
             assert isinstance(jump, dict)
@@ -79,6 +83,15 @@ def main() -> None:
     assert args.file.is_file(), f"No live Trainer history yet: {args.file}"
     runs = validate(json.loads(args.file.read_text(encoding="utf-8")))
     assert runs, "Run one rated attempt before this integration check"
+    empty_finish = copy.deepcopy(runs[0])
+    empty_finish["status"] = "FINISHED"
+    empty_finish["finishMs"] = 1000
+    empty_finish["jumps"] = []
+    empty_finish["score"] = 0
+    empty_finish["bestCombo"] = 0
+    empty_finish["hits"] = 0
+    empty_finish["misses"] = 0
+    assert len(validate({"version": 1, "runs": [empty_finish]})) == 1
     print(f"History v1 schema: PASS ({len(runs)} attempts)")
 
 

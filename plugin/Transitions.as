@@ -1,6 +1,8 @@
 const float STEER_GATE = 0.1f;
 const int MAX_TIMING_SAMPLE_GAP = 50;
 const int FORCE_SETTLE_MS = 30;
+// A takeoff is rated only if the car slid within this time before it.
+const int SLIDE_WINDOW_MS = 500;
 // Contact bits of the front wheels (0 and 1); only they update the tire-force multiplier.
 const uint FRONT_WHEELS = 0x3;
 // Counted from touchdown or the end of the recovery delay, whichever is later;
@@ -58,6 +60,7 @@ class TransitionTracker {
     int switchOldMode = 0;
     int switchNewMode = 0;
     int rawReversalAt = -1;
+    int lastSlideClock = -1;
 
     bool inFlight = false;
     bool pendingLanding = false;
@@ -94,6 +97,7 @@ class TransitionTracker {
         switchOldMode = 0;
         switchNewMode = 0;
         rawReversalAt = -1;
+        lastSlideClock = -1;
         inFlight = false;
         pendingLanding = false;
         landingTouchLifted = false;
@@ -151,7 +155,9 @@ class TransitionTracker {
         takeoffMode = snap.mode;
         takeoffModeAt = int(snap.modeAt);
         recoveryDelayMs = snap.recoveryDelayMs;
+        // Only a jump out of an ice slide is a gorilla-grip attempt.
         flightEligible = takeoffMode != 0 &&
+            lastSlideClock >= 0 && snap.gameTime - lastSlideClock <= SLIDE_WINDOW_MS &&
             previous.meanIcing >= S_MinIcing &&
             previous.speedKmh >= float(S_MinSpeed);
         if (!flightEligible || previous.gameTime < 0 ||
@@ -314,6 +320,8 @@ class TransitionTracker {
             airSpinRadians += Math::Abs(turn);
         }
 
+        if (snap.contactMask != 0 && snap.slipDeg >= S_MinSlideSlip)
+            lastSlideClock = snap.gameTime;
         if (sampleGap <= MAX_TIMING_SAMPLE_GAP) ObserveSteeringAndMode(snap);
         if (crossingTakeoff) {
             StartFlight(snap);

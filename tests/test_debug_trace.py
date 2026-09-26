@@ -17,3 +17,13 @@ assert "S_DebugForceTrace" in snapshot
 assert "g_previousForce != next.force" in snapshot
 assert "g_previousForceGate != next.forceGateState" in snapshot
 print("Debug force trace is opt-in: PASS")
+
+# Snapshot lines carry each wheel's ground material, icing and the speed, so
+# landings on non-ice surfaces can be told apart in a trace.
+physics = (root / "Physics.as").read_text(encoding="utf-8")
+for wheel in ("FL", "FR", "RR", "RL"):
+    assert f"tostring(vis.{wheel}GroundContactMaterial)" in physics, wheel
+line = main.split('DebugLog("Gorilla Grip Trainer snapshot at', 1)[1].split(";", 1)[0]
+for part in ('", materials " + next.materials', '", icing "', '", speed "'):
+    assert part in line, part
+print("Snapshot lines include materials, icing and speed: PASS")

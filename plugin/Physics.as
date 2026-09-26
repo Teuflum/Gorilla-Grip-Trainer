@@ -17,7 +17,11 @@ class PhysicsSnapshot {
     float icingFR = 0.0f;
     float icingRR = 0.0f;
     float icingRL = 0.0f;
+    // Ground material under each wheel in the game's wheel order (FL FR RR RL).
+    string materials = "";
     float speedKmh = 0.0f;
+    // Angle between the car's heading and its horizontal velocity.
+    float slipDeg = 0.0f;
     float yaw = 0.0f;
 
     int ModeAgeMs() const {
@@ -82,8 +86,15 @@ PhysicsSnapshot@ ReadPhysics(CSceneVehicleVisState@ vis, int raceTime) {
     snap.icingRR = vis.RRIcing01;
     snap.icingRL = vis.RLIcing01;
     snap.meanIcing = (snap.icingFL + snap.icingFR + snap.icingRR + snap.icingRL) * 0.25f;
+    snap.materials = tostring(vis.FLGroundContactMaterial) + "/" +
+        tostring(vis.FRGroundContactMaterial) + "/" +
+        tostring(vis.RRGroundContactMaterial) + "/" +
+        tostring(vis.RLGroundContactMaterial);
     snap.speedKmh = vis.WorldVel.Length() * 3.6f;
     snap.yaw = Math::Atan2(vis.Dir.x, vis.Dir.z);
+    float forward = vis.WorldVel.x * vis.Dir.x + vis.WorldVel.z * vis.Dir.z;
+    float side = vis.WorldVel.x * vis.Dir.z - vis.WorldVel.z * vis.Dir.x;
+    snap.slipDeg = Math::ToDeg(Math::Atan2(Math::Abs(side), forward));
     if (!g_supportedBuild) return snap;
 
     auto app = GetApp();

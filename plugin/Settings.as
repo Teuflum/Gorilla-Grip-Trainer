@@ -23,6 +23,8 @@ float S_MinIcing = 0.65f;
 int S_MinSpeed = 50;
 [Setting hidden]
 int S_MinFlight = 100;
+// Slip angle that marks an ice slide before takeoff; bobsleigh steering stays far below.
+[Setting hidden] float S_MinSlideSlip = 20.0f;
 [Setting hidden] int S_SMaxLeadMs = 15;
 [Setting hidden] int S_AMaxLeadMs = 35;
 [Setting hidden] int S_BMaxLeadMs = 65;
@@ -43,6 +45,7 @@ void RenderSettingsRating() {
         S_SMaxLeadMs = 15; S_AMaxLeadMs = 35; S_BMaxLeadMs = 65;
         S_CMaxLeadMs = 110; S_DMaxLeadMs = 250;
         S_MinIcing = 0.65f; S_MinSpeed = 50; S_MinFlight = 100;
+        S_MinSlideSlip = 20.0f;
     }
     UI::TextWrapped("How early the physics steering direction may switch before the last wheel leaves. Each value is the latest grade's upper limit in milliseconds.");
     UI::TextWrapped("S+ is awarded only for a confirmed 0-0 ms switch lead, with no separate threshold. It uses S points and sounds.");

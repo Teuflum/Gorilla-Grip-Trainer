@@ -185,7 +185,14 @@ void Update(float dt) {
             ", contacts " + next.ContactBits() + ", modeAt " + next.modeAt +
             ", clock " + next.gameTime + ", delay " + next.recoveryDelayMs +
             ", force " + Text::Format("%.3f", next.force) +
-            ", gate " + next.forceGateState);
+            ", gate " + next.forceGateState +
+            ", materials " + next.materials +
+            ", icing " + Text::Format("%.0f", next.icingFL * 100.0f) + "/" +
+            Text::Format("%.0f", next.icingFR * 100.0f) + "/" +
+            Text::Format("%.0f", next.icingRR * 100.0f) + "/" +
+            Text::Format("%.0f", next.icingRL * 100.0f) +
+            ", speed " + Text::Format("%.0f", next.speedKmh) +
+            ", slip " + Text::Format("%.0f", next.slipDeg));
     }
     g_previousContactMask = int(next.contactMask);
     g_previousForce = next.force;

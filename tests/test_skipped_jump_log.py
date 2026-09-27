@@ -27,7 +27,13 @@ assert "skippedEvent = false;" in per_frame and 'skippedReason = "";' in per_fra
 ineligible = start_body.split("if (!flightEligible) {", 1)[1].split("return;", 1)[0]
 assert "switchOldMode != 0 && switchOldMode != takeoffMode" in ineligible
 assert "takeoffReversalLeadMs >= 0" in ineligible
-assert "NoteSkipped(EligibilityMisses(" in ineligible
+assert "pendingSkip = EligibilityMisses(" in ineligible
+# Contact that flickers on the ground makes a "takeoff" every tick; only a
+# flight long enough to count as a jump is logged.
+assert 'pendingSkip = "";' in start_body.split("takeoffClock = snap.contactClock;", 1)[0]
+assert "bool longFlight = landingRace - takeoffRace >= S_MinFlight;" in land_body
+assert "if (pendingSkip.Length > 0 && longFlight) NoteSkipped(pendingSkip);" in land_body
+assert 'pendingSkip = "";' in reset_body and "shortSkipSwitchAt = -1;" in reset_body
 # The switch is known before the filters run.
 assert start_body.index("bool attempted =") < start_body.index("flightEligible = takeoffMode != 0")
 
@@ -39,7 +45,9 @@ for check in ("takeoffMode == 0",
     assert check in misses, check
 
 # Landing: a graded jump whose flight was too short is dropped silently otherwise.
-assert "!pendingLanding && preview !is null" in land_body
+assert "!longFlight && preview !is null" in land_body
+# Repeated short hops after one switch are named once.
+assert "preview.modeAt != shortSkipSwitchAt" in land_body
 assert '"ms below " + S_MinFlight + "ms"' in land_body
 
 assert "if (g_tracker.skippedEvent)" in main

@@ -115,6 +115,11 @@ class TransitionTracker {
     // A switch or late reversal before takeoff that a rating filter dropped.
     bool skippedEvent = false;
     string skippedReason = "";
+    // Filters an ineligible takeoff failed; logged only if the flight is long
+    // enough to be a jump, not a wheel flickering on the ground.
+    string pendingSkip = "";
+    // Switch already logged as a too-short flight, so a hop is named once.
+    int shortSkipSwitchAt = -1;
 
     int switchAt = -1;
     int switchOldMode = 0;
@@ -166,6 +171,8 @@ class TransitionTracker {
         unratedReason = "";
         skippedEvent = false;
         skippedReason = "";
+        pendingSkip = "";
+        shortSkipSwitchAt = -1;
         switchAt = -1;
         switchOldMode = 0;
         switchNewMode = 0;
@@ -224,6 +231,7 @@ class TransitionTracker {
         cuePublished = false;
         @preview = null;
         unratedReason = "";
+        pendingSkip = "";
         takeoffClock = snap.contactClock;
         bool exactTakeoff = TakeoffClockValid(previous, snap);
         if (!exactTakeoff) takeoffClock = snap.gameTime;
@@ -246,7 +254,7 @@ class TransitionTracker {
             // their limits can be checked against real jumps.
             bool switched = attempted && switchOldMode != 0 && switchOldMode != takeoffMode;
             if (switched || takeoffReversalLeadMs >= 0)
-                NoteSkipped(EligibilityMisses(switched ? takeoffClock - switchAt : -1));
+                pendingSkip = EligibilityMisses(switched ? takeoffClock - switchAt : -1);
             return;
         }
         if (!exactTakeoff) {
@@ -290,11 +298,16 @@ class TransitionTracker {
         firstChangeSeen = false;
         firstChangeAt = -1;
         firstChangeMode = 0;
-        pendingLanding = flightEligible && !flightUncertain &&
-            landingRace - takeoffRace >= S_MinFlight;
-        if (flightEligible && !flightUncertain && !pendingLanding && preview !is null)
+        bool longFlight = landingRace - takeoffRace >= S_MinFlight;
+        pendingLanding = flightEligible && !flightUncertain && longFlight;
+        if (pendingSkip.Length > 0 && longFlight) NoteSkipped(pendingSkip);
+        pendingSkip = "";
+        if (flightEligible && !flightUncertain && !longFlight && preview !is null &&
+            preview.modeAt != shortSkipSwitchAt) {
+            shortSkipSwitchAt = preview.modeAt;
             NoteSkipped("lead " + preview.leadMs + "ms | flight " +
                 (landingRace - takeoffRace) + "ms below " + S_MinFlight + "ms");
+        }
         if (flightUncertain && (previewPublished || unratedReason.Length > 0))
             PublishUnrated(unratedReason.Length > 0 ? unratedReason :
                 "Exact contact timing was lost during flight", landingRace);

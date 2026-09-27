@@ -12,7 +12,7 @@ The plugin is a trainer, not a speedometer or a claim that one multiplier alone 
 | --- | --- | --- |
 | 100 ms of continuous airtime after a recent pre-takeoff reversal | One Grade widget shows a small, calm `S+`–`D` preview only when the physics mode switched; otherwise it stays empty | Local `SP2_SND_GROUP_00000006.wav` cue when a recent grounded input reversal was observed |
 | During the rest of airtime | Preview remains; diagnostics show direction-mode age/readiness | No announcer |
-| At least 80 ms after first landing contact, once tire force is active | The same Grade widget expands into a large animated final S+–D or `MISSED`; S and S+ have bouncing gorilla images; an ordinary same-direction landing stays silent | Success: one random clip from the grade's enabled landing voice list. Miss: local `SP2_SND_GROUP_00000002.wav`, with no success call |
+| At least 80 ms after first landing contact, once tire force is active | The same Grade widget expands into a large animated final S+–D or `MISSED`; the popup uses the selected style (see 2026-09-27-grade-popup-pictures-design.md), with an optional picture per result; only S and S+ pictures bounce; an ordinary same-direction landing stays silent | Success: one random clip from the grade's enabled landing voice list. Miss: local `SP2_SND_GROUP_00000002.wav`, with no success call |
 | Confirmed map finish | Optional finish summary; run enters history as `FINISHED` | Local `WSR_Wakeboarding_Results.mp3` starts and loops while the finished run remains active |
 | Restart or map exit after at least one rated jump | Attempt enters history as `RESET`; active score and combo reset | Stop finish music; no finish summary |
 

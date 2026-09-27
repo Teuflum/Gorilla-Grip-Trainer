@@ -22,7 +22,7 @@ rating behavior or the HUD.
 - Exact physics reads are gated by the supported executable signature.
   VehicleState front-wheel steering angles are visual wheel angles, not the
   normalized internal steering value used for the direction threshold.
-- `LocalSounds/`, local audio, maps, replays, binaries, and runtime history
+- `LocalSounds/`, `LocalImages/`, local audio, maps, replays, binaries, and runtime history
   stay out of Git. Do not delete or reset `PluginStorage` as test cleanup.
   Check `git diff --check`, focused tests, and the staged file list before
   committing or pushing.

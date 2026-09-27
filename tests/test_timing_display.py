@@ -5,16 +5,17 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[1] / "plugin"
 widgets = (root / "Widgets.as").read_text(encoding="utf-8")
+popup = (root / "GradeAnimation.as").read_text(encoding="utf-8")
 settings = (root / "Settings.as").read_text(encoding="utf-8")
 history = (root / "HistoryWindow.as").read_text(encoding="utf-8")
 transitions = (root / "Transitions.as").read_text(encoding="utf-8")
 
 assert 'preview.ambiguous ? label + "+" : label' in widgets
 assert 'g_resultTimingEstimated = verdict.timingEstimated' in widgets
-assert 'estimated && GradeBasePoints(label) > 0' in widgets
-assert 'showPlus ? label + "+" : label' in widgets
-assert '"CONSERVATIVE PREVIEW"' not in widgets
-assert '"CONSERVATIVE TIMING"' not in widgets
+# The landing popup (GradeAnimation.as) adds + only to a graded result.
+assert 'f.shown = estimated && GradeBasePoints(label) > 0 ? label + "+" : label;' in popup
+assert '"CONSERVATIVE PREVIEW"' not in widgets + popup
+assert '"CONSERVATIVE TIMING"' not in widgets + popup
 assert 'jump.label != "S+" && jump.timingEstimated &&' in history
 assert 'uncertainGrade ? "+" : ""' in history
 assert 'S+ is awarded only for a confirmed 0-0 ms switch lead' in settings

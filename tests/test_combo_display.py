@@ -21,8 +21,9 @@ for name, text in sources.items():
     assert "CurrentMultiplier" not in text, name
 
 # Every combo display shows the plain streak.
-assert 'RenderStat(layout.Pixels(), "COMBO", "x" + g_session.combo,' in widgets
-assert '"x" + g_session.bestCombo,' in widgets
+stats = widgets.split("void RenderStats(", 1)[1].split("\n}", 1)[0]
+assert '"x" + g_session.combo' in stats
+assert '"x" + g_session.bestCombo' in stats
 assert '"x" + last.bestCombo}' in widgets
 assert '"x" + run.bestCombo}' in sources["Finish.as"]
 history = sources["HistoryWindow.as"]

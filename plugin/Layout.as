@@ -14,6 +14,15 @@
 [Setting hidden] bool S_ResultVisible = true;
 [Setting hidden] bool S_ResultWhenHudOff = false;
 
+[Setting hidden] float S_StatsX = 0.030f;
+[Setting hidden] float S_StatsY = 0.701f;
+[Setting hidden] float S_StatsW = 0.160f;
+[Setting hidden] float S_StatsH = 0.130f;
+[Setting hidden] bool S_StatsVisible = true;
+[Setting hidden] bool S_StatsMigrated = false;
+
+// Retain these saved setting keys so the separate Combo, Score and Best combo
+// placement carries over to the combined Stats widget.
 [Setting hidden] float S_ComboX = 0.030f;
 [Setting hidden] float S_ComboY = 0.590f;
 [Setting hidden] float S_ComboW = 0.160f;
@@ -107,12 +116,22 @@ void InitLayout() {
             S_LastWhenHudOff || S_FinishWhenHudOff;
         S_GlobalHudVisibilityMigrated = true;
     }
+    if (!S_StatsMigrated) {
+        // Keep the old stat column's left edge and width, and end where it
+        // ended, so the Stats card still sits above Last run.
+        float left = Math::Min(S_ComboX, Math::Min(S_ScoreX, S_BestX));
+        float width = Math::Max(S_ComboW, Math::Max(S_ScoreW, S_BestW));
+        float bottom = Math::Max(S_ComboY + S_ComboH,
+            Math::Max(S_ScoreY + S_ScoreH, S_BestY + S_BestH));
+        S_StatsX = left; S_StatsW = width;
+        S_StatsY = Math::Max(0.0f, bottom - S_StatsH);
+        S_StatsVisible = S_ComboVisible || S_ScoreVisible || S_BestVisible;
+        S_StatsMigrated = true;
+    }
     g_layouts.RemoveRange(0, g_layouts.Length);
     g_layouts.InsertLast(WidgetLayout("diagnostics", "Physics", vec4(0.030f, 0.029f, 0.258f, 0.181f), true));
     g_layouts.InsertLast(WidgetLayout("grade", "Grade", vec4(0.379f, 0.800f, 0.240f, 0.109f), true));
-    g_layouts.InsertLast(WidgetLayout("combo", "Combo", vec4(0.030f, 0.590f, 0.160f, 0.075f), true));
-    g_layouts.InsertLast(WidgetLayout("score", "Score", vec4(0.030f, 0.673f, 0.160f, 0.075f), true));
-    g_layouts.InsertLast(WidgetLayout("best", "Best combo", vec4(0.030f, 0.756f, 0.160f, 0.075f), true));
+    g_layouts.InsertLast(WidgetLayout("stats", "Stats", vec4(0.030f, 0.701f, 0.160f, 0.130f), true));
     g_layouts.InsertLast(WidgetLayout("last", "Last run", vec4(0.030f, 0.839f, 0.210f, 0.094f), true));
     g_layouts.InsertLast(WidgetLayout("finish", "Finish summary", vec4(0.670f, 0.029f, 0.330f, 0.329f), true));
     LoadLayoutSettings();
@@ -128,15 +147,12 @@ void LoadLayoutSettings() {
     array<vec4> saved = {
         vec4(S_DiagX, S_DiagY, S_DiagW, S_DiagH),
         vec4(S_ResultX, S_ResultY, S_ResultW, S_ResultH),
-        vec4(S_ComboX, S_ComboY, S_ComboW, S_ComboH),
-        vec4(S_ScoreX, S_ScoreY, S_ScoreW, S_ScoreH),
-        vec4(S_BestX, S_BestY, S_BestW, S_BestH),
+        vec4(S_StatsX, S_StatsY, S_StatsW, S_StatsH),
         vec4(S_LastX, S_LastY, S_LastW, S_LastH),
         vec4(S_FinishX, S_FinishY, S_FinishW, S_FinishH)
     };
-    array<bool> shown = {S_DiagVisible, S_ResultVisible,
-        S_ComboVisible, S_ScoreVisible, S_BestVisible, S_LastVisible,
-        S_FinishVisible};
+    array<bool> shown = {S_DiagVisible, S_ResultVisible, S_StatsVisible,
+        S_LastVisible, S_FinishVisible};
     for (uint i = 0; i < g_layouts.Length; i++) {
         g_layouts[i].rect = saved[i];
         g_layouts[i].visible = shown[i];
@@ -153,20 +169,14 @@ void SaveLayoutSettings() {
     S_ResultX = a.x; S_ResultY = a.y; S_ResultW = a.z; S_ResultH = a.w;
     S_ResultVisible = g_layouts[1].visible;
     a = g_layouts[2].rect;
-    S_ComboX = a.x; S_ComboY = a.y; S_ComboW = a.z; S_ComboH = a.w;
-    S_ComboVisible = g_layouts[2].visible;
+    S_StatsX = a.x; S_StatsY = a.y; S_StatsW = a.z; S_StatsH = a.w;
+    S_StatsVisible = g_layouts[2].visible;
     a = g_layouts[3].rect;
-    S_ScoreX = a.x; S_ScoreY = a.y; S_ScoreW = a.z; S_ScoreH = a.w;
-    S_ScoreVisible = g_layouts[3].visible;
-    a = g_layouts[4].rect;
-    S_BestX = a.x; S_BestY = a.y; S_BestW = a.z; S_BestH = a.w;
-    S_BestVisible = g_layouts[4].visible;
-    a = g_layouts[5].rect;
     S_LastX = a.x; S_LastY = a.y; S_LastW = a.z; S_LastH = a.w;
-    S_LastVisible = g_layouts[5].visible;
-    a = g_layouts[6].rect;
+    S_LastVisible = g_layouts[3].visible;
+    a = g_layouts[4].rect;
     S_FinishX = a.x; S_FinishY = a.y; S_FinishW = a.z; S_FinishH = a.w;
-    S_FinishVisible = g_layouts[6].visible;
+    S_FinishVisible = g_layouts[4].visible;
 }
 
 [SettingsTab name="Layout" icon="" order="3"]

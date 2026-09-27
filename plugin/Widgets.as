@@ -358,24 +358,73 @@ void RenderResult(const vec4 &in r, int age, const string &in label,
             Math::Clamp(float(age - 75) / 150.0f, 0.0f, 1.0f)), centered);
 }
 
-void RenderStat(const vec4 &in r, const string &in title,
-    const string &in value, const vec4 &in accent, float pulse,
-    const string &in badge, float badgeFade) {
-    HudCardBase(r, accent);
-    float s = Math::Min(r.z / 320.0f, r.w / 85.0f);
+// Score leads the card; combo and best combo share the line below it. Each
+// value pulses and shows its own badge when a landing changes it.
+void RenderStats(const vec4 &in r, int statAge) {
+    vec4 gold = HudColor(1, 0.82f, 0.35f);
+    vec4 white = HudColor(0.90f, 0.98f, 1);
+    vec4 blue = HudColor(0.46f, 0.79f, 1);
+    vec4 pink = HudColor(1.0f, 0.43f, 0.57f);
+    vec4 label = HudColor(0.60f, 0.73f, 0.84f);
+    HudCardBase(r, gold);
+    float s = Math::Min(r.z / 320.0f, r.w / 150.0f);
     int left = nvg::Align::Left | nvg::Align::Middle;
     int right = nvg::Align::Right | nvg::Align::Middle;
-    if (pulse > 0.0f)
-        HudBox(r.x + 4*s, r.y + 4*s, r.z - 8*s, r.w - 8*s, 9*s,
-            HudColor(accent.x, accent.y, accent.z, 0.13f*pulse));
-    HudText(r.x + 18*s, r.y + 23*s, title, 14*s,
-        HudColor(0.60f, 0.73f, 0.84f), left);
-    if (badge.Length > 0 && badgeFade > 0.0f)
-        HudText(r.x + r.z - 18*s, r.y + 23*s, badge, 13*s,
-            HudColor(accent.x, accent.y, accent.z, badgeFade), right);
-    HudText(r.x + r.z - 18*s, r.y + r.w - 29*s, value,
-        30*s*(1.0f + 0.16f*pulse),
-        accent, right);
+    float pulse = StatPulse(statAge);
+    float fade = StatBadgeFade(statAge);
+    bool changed = statAge >= 0;
+
+    bool earned = changed && g_statEarned > 0;
+    float scorePulse = earned ? pulse : 0.0f;
+    int shownScore = g_session.score;
+    if (earned && statAge < 500) {
+        float remaining = 1.0f - float(statAge) / 500.0f;
+        float eased = 1.0f - remaining*remaining*remaining;
+        shownScore = g_statScoreBefore + int(float(g_statEarned)*eased + 0.5f);
+    }
+    HudText(r.x + 18*s, r.y + 22*s, "SCORE", 14*s, label, left);
+    if (earned && fade > 0.0f)
+        HudText(r.x + r.z - 18*s, r.y + 22*s, "+" + g_statEarned, 13*s,
+            HudColor(white.x, white.y, white.z, fade), right);
+    HudText(r.x + r.z - 18*s, r.y + 62*s, "" + shownScore,
+        40*s*(1.0f + 0.12f*scorePulse), white, right);
+
+    HudBox(r.x + 18*s, r.y + 96*s, r.z - 36*s, Math::Max(1.0f, s),
+        0, HudColor(0.11f, 0.16f, 0.24f));
+
+    float rowY = r.y + 123*s;
+    bool comboGained = changed && g_session.combo > g_statComboBefore;
+    bool comboBroken = changed && g_statComboBefore > 0 && g_session.combo == 0;
+    float comboPulse = comboGained || comboBroken ? pulse : 0.0f;
+    vec4 comboColor = comboBroken && fade > 0.0f ? pink : gold;
+    HudText(r.x + 18*s, rowY, "COMBO", 13*s, label, left);
+    string combo = "x" + g_session.combo;
+    float comboSize = 22*s*(1.0f + 0.16f*comboPulse);
+    float comboX = r.x + 78*s;
+    HudText(comboX, rowY, combo, comboSize, comboColor, left);
+    if ((comboGained || comboBroken) && fade > 0.0f) {
+        nvg::FontSize(comboSize);
+        float badgeX = comboX + nvg::TextBounds(combo).x + 8*s;
+        HudText(badgeX, rowY, comboBroken ? "BROKEN" : "+1", 12*s,
+            HudColor(comboColor.x, comboColor.y, comboColor.z, fade), left);
+    }
+
+    bool newBest = changed && g_session.bestCombo > g_statBestBefore;
+    float bestPulse = newBest ? pulse : 0.0f;
+    string best = "x" + g_session.bestCombo;
+    float bestSize = 22*s*(1.0f + 0.16f*bestPulse);
+    float bestX = r.x + r.z - 18*s;
+    HudText(bestX, rowY, best, bestSize, blue, right);
+    nvg::FontSize(bestSize);
+    float labelX = bestX - nvg::TextBounds(best).x - 8*s;
+    // NEW BEST fades back into the plain BEST label.
+    float newBestFade = newBest ? fade : 0.0f;
+    if (newBestFade < 1.0f)
+        HudText(labelX, rowY, "BEST", 13*s,
+            HudColor(label.x, label.y, label.z, 1.0f - newBestFade), right);
+    if (newBestFade > 0.0f)
+        HudText(labelX, rowY, "NEW BEST", 13*s,
+            HudColor(blue.x, blue.y, blue.z, newBestFade), right);
 }
 
 RunRecord@ g_lastRatedRun = null;
@@ -470,44 +519,11 @@ void RenderWidgets() {
                 active ? g_resultLabel : "S",
                 active && g_resultTimingEstimated);
     }
-    @layout = GetLayout("combo");
-    int statAge = g_statChangedAt < 0 ? -1 :
-        g_snapshot.raceTime - g_statChangedAt;
-    float statPulse = StatPulse(statAge);
-    float badgeFade = StatBadgeFade(statAge);
-    bool comboGained = statAge >= 0 && g_session.combo > g_statComboBefore;
-    bool comboBroken = statAge >= 0 && g_statComboBefore > 0 &&
-        g_session.combo == 0;
+    @layout = GetLayout("stats");
     if (ShouldRenderWidget(layout)) {
-        vec4 comboColor = comboBroken && badgeFade > 0.0f ?
-            HudColor(1.0f, 0.43f, 0.57f) : HudColor(1, 0.82f, 0.35f);
-        RenderStat(layout.Pixels(), "COMBO", "x" + g_session.combo,
-            comboColor, comboGained || comboBroken ? statPulse : 0.0f,
-            comboBroken ? "BROKEN" : (comboGained ? "+1" : ""), badgeFade);
-    }
-    @layout = GetLayout("score");
-    if (ShouldRenderWidget(layout)) {
-        int shownScore = g_session.score;
-        if (g_statEarned > 0 && statAge >= 0 && statAge < 500) {
-            float remaining = 1.0f - float(statAge) / 500.0f;
-            float eased = 1.0f - remaining*remaining*remaining;
-            shownScore = g_statScoreBefore +
-                int(float(g_statEarned)*eased + 0.5f);
-        }
-        RenderStat(layout.Pixels(), "SCORE", "" + shownScore,
-            HudColor(0.90f, 0.98f, 1),
-            g_statEarned > 0 ? statPulse : 0.0f,
-            g_statEarned > 0 && statAge >= 0 ? "+" + g_statEarned : "",
-            badgeFade);
-    }
-    @layout = GetLayout("best");
-    if (ShouldRenderWidget(layout)) {
-        bool newBest = statAge >= 0 &&
-            g_session.bestCombo > g_statBestBefore;
-        RenderStat(layout.Pixels(), "BEST COMBO",
-            "x" + g_session.bestCombo,
-            HudColor(0.46f, 0.79f, 1), newBest ? statPulse : 0.0f,
-            newBest ? "NEW BEST" : "", badgeFade);
+        int statAge = g_statChangedAt < 0 ? -1 :
+            g_snapshot.raceTime - g_statChangedAt;
+        RenderStats(layout.Pixels(), statAge);
     }
     @layout = GetLayout("last");
     if (ShouldRenderWidget(layout))

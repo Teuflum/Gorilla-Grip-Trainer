@@ -16,21 +16,19 @@ widgets = {
     for match in RECT.finditer(SOURCE)
 }
 assert set(widgets) == {
-    "diagnostics", "grade", "combo", "score", "best", "last", "finish"
+    "diagnostics", "grade", "stats", "last", "finish"
 }
 # The shipped layout (set from the author's in-game arrangement, 2026-09-27).
 assert widgets == {
     "diagnostics": (0.030, 0.029, 0.258, 0.181),
     "grade": (0.379, 0.800, 0.240, 0.109),
-    "combo": (0.030, 0.590, 0.160, 0.075),
-    "score": (0.030, 0.673, 0.160, 0.075),
-    "best": (0.030, 0.756, 0.160, 0.075),
+    "stats": (0.030, 0.701, 0.160, 0.130),
     "last": (0.030, 0.839, 0.210, 0.094),
     "finish": (0.670, 0.029, 0.330, 0.329),
 }, widgets
 # The [Setting] defaults match the reset rectangles.
-prefixes = {"diagnostics": "Diag", "grade": "Result", "combo": "Combo", "score": "Score",
-            "best": "Best", "last": "Last", "finish": "Finish"}
+prefixes = {"diagnostics": "Diag", "grade": "Result", "stats": "Stats",
+            "last": "Last", "finish": "Finish"}
 settings = dict(re.findall(r"\[Setting hidden\] float (S_\w+) = ([0-9.]+)f;", SOURCE))
 for widget_id, rect in widgets.items():
     saved = tuple(float(settings[f"S_{prefixes[widget_id]}{k}"]) for k in "XYWH")
@@ -51,4 +49,4 @@ for width, height in ((2048, 1151), (1280, 720)):
         assert 0.08 <= w <= 0.9 and 0.045 <= h <= 0.8, (widget_id, w, h)
         assert x + w <= 1 and y + h <= 1, (widget_id, x, y, w, h)
         assert w * width >= 100 and h * height >= 30, (widget_id, width, height)
-print("Seven HUD default rectangles fit at 2048x1151 and 1280x720: PASS")
+print("Five HUD default rectangles fit at 2048x1151 and 1280x720: PASS")

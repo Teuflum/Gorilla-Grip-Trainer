@@ -124,7 +124,16 @@ void Update(float dt) {
         return;
     }
     int t = ReadRaceTime(vis);
-    if (t < 0) return;
+    if (t < 0) {
+        // The start countdown after Improve already begins the next attempt:
+        // stop the finish music now, not when the timer reaches zero.
+        if (g_finish.summary !is null) {
+            ResetAttemptState();
+            g_finish.NewAttempt();
+            g_previousRaceTime = -1;
+        }
+        return;
+    }
     if (g_activeRun is null && g_finish.summary !is null &&
         t > 500 && t >= g_finish.summary.finishMs - 50) return;
     string mapUid = CurrentMapUid();

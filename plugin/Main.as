@@ -5,6 +5,7 @@ float g_previousForce = -1.0f;
 int g_previousForceGate = -1;
 int g_previousRaceTime = -1;
 bool g_eventLoggingOn = false;
+int g_loggedFrameSkip = -1;
 TransitionTracker@ g_tracker;
 SessionState@ g_session;
 AudioDirector@ g_audio;
@@ -91,6 +92,12 @@ void Update(float dt) {
         g_eventLoggingOn = DebugLoggingOn();
         print("Gorilla Grip Trainer event logging " + (g_eventLoggingOn ? "on" : "off"));
     }
+    // The frame-skip value is logged whenever it or event logging changes.
+    int frameSkip = DebugLoggingOn() ? DebugFrameSkip() : -1;
+    if (frameSkip != g_loggedFrameSkip) {
+        g_loggedFrameSkip = frameSkip;
+        if (frameSkip > 0) DebugLog("Gorilla Grip Trainer frame skip " + frameSkip);
+    }
     g_audio.UpdateSettings();
     auto vis = VehicleState::ViewingPlayerState();
     bool finishSequence = IsFinishSequence();
@@ -152,28 +159,32 @@ void Update(float dt) {
         g_activeRun.mapName = CurrentMapName();
     }
     g_previousRaceTime = t;
+    // Developer frame skipping simulates a low frame rate for timing tests.
+    if (!ProcessThisFrame()) return;
     PhysicsSnapshot@ next = ReadPhysics(vis, t);
     @g_snapshot = next;
     g_tracker.Update(next);
     if (g_tracker.landingEvent) {
         DebugLog("Gorilla Grip Trainer landing at " + g_tracker.landingRace +
             "ms: takeoff mode " + g_tracker.takeoffMode +
-            ", landing steer " + g_tracker.landingDirection);
+            ", stored mode " + next.mode);
     }
     if (g_tracker.silentLandingEvent)
         DebugLog("Gorilla Grip Trainer landing resolved without verdict at " + t +
             "ms: takeoff mode " + g_tracker.takeoffMode + ", stored mode " + next.mode +
-            ", landing steer " + g_tracker.landingDirection +
             ", force " + Text::Format("%.3f", next.force) +
             ", gate " + next.forceGateState);
+    if (g_tracker.forceDisagreedEvent)
+        DebugLog("Gorilla Grip Trainer force did not rise although the direction held at " + t +
+            "ms: force " + Text::Format("%.3f", next.force) + ", gate " + next.forceGateState +
+            ", steer " + Text::Format("%.3f", next.smoothedSteer));
     if (g_tracker.unratedEvent)
         DebugLog("Gorilla Grip Trainer timing unrated at " + t + "ms: " +
             g_tracker.unratedReason);
     if (g_tracker.previewEvent) {
         JumpPreview@ p = g_tracker.preview;
         DebugLog("Gorilla Grip Trainer preview at " + t + "ms: " + p.label +
-            " lead " + p.leadMinMs + "-" + p.leadMaxMs + "ms" +
-            (p.ambiguous ? " conservative" : ""));
+            " lead " + p.leadMs + "ms");
     }
     if (g_tracker.takeoffCueEvent)
         g_audio.OnTakeoffCue();
@@ -194,7 +205,9 @@ void Update(float dt) {
             " | force gate " + next.forceGateState +
             " | eligible at " + g_tracker.forceEligibleClock +
             " | spins " + v.spinCount + " | combo " + g_session.combo +
-            " | score " + g_session.score);
+            " | score " + g_session.score +
+            " | takeoff " + v.takeoffTime + "ms | landing " + v.landingTime +
+            "ms | lead " + v.leadMs + "ms");
     }
     if (!next.exact) return;
     if (g_previousContactMask != int(next.contactMask) || (DebugForceTraceOn() &&

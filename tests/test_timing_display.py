@@ -1,4 +1,4 @@
-"""Uncertain frame timing keeps the lower internal rank and gets a quiet + marker."""
+"""The lead is one exact number: no + marker and no lead range on new results."""
 
 from pathlib import Path
 
@@ -8,20 +8,18 @@ widgets = (root / "Widgets.as").read_text(encoding="utf-8")
 popup = (root / "GradeAnimation.as").read_text(encoding="utf-8")
 settings = (root / "Settings.as").read_text(encoding="utf-8")
 history = (root / "HistoryWindow.as").read_text(encoding="utf-8")
-transitions = (root / "Transitions.as").read_text(encoding="utf-8")
+main = (root / "Main.as").read_text(encoding="utf-8")
 
-assert 'preview.ambiguous ? label + "+" : label' in widgets
-assert 'g_resultTimingEstimated = verdict.timingEstimated' in widgets
-# The landing popup (GradeAnimation.as) adds + only to a graded result.
-assert 'f.shown = estimated && GradeBasePoints(label) > 0 ? label + "+" : label;' in popup
-assert '"CONSERVATIVE PREVIEW"' not in widgets + popup
-assert '"CONSERVATIVE TIMING"' not in widgets + popup
+assert "ambiguous" not in widgets + popup + main
+assert "g_resultTimingEstimated" not in widgets
+assert "f.shown = label;" in popup
+assert 'preview.leadMs + " ms"' in widgets
+assert '" lead " + p.leadMs + "ms"' in main
+# Older history entries keep their + marker and range.
 assert 'jump.label != "S+" && jump.timingEstimated &&' in history
-assert 'uncertainGrade ? "+" : ""' in history
-assert 'S+ is awarded only for a confirmed 0-0 ms switch lead' in settings
-assert 'A+ still scores A' in settings
-assert 'preview.label = GradeLead(hi, hi)' in transitions
-unrated_body = transitions.split('void PublishUnrated(', 1)[1].split('void ResolveLanding(', 1)[0]
-assert 'verdict.timingEstimated = preview !is null && preview.ambiguous' in unrated_body
-assert 'conservative grade' not in transitions
-print("Uncertain timing display keeps the lower rank and uses +: PASS")
+lead = history.split("string HistoryLead(HistoryJump@ jump) {", 1)[1].split("\n}", 1)[0]
+assert 'if (jump.leadMinMs == jump.leadMaxMs) return jump.leadMinMs + " ms";' in lead
+assert history.count("HistoryLead(jump)") == 2
+assert 'S+ is awarded only for a 0 ms switch lead' in settings
+assert "A+" not in settings
+print("Exact lead display: PASS")

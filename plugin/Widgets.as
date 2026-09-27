@@ -1,7 +1,6 @@
 int g_hudFont = -1;
 string g_resultLabel = "";
 string g_resultReason = "";
-bool g_resultTimingEstimated = false;
 int g_resultShownAt = -1;
 int g_statChangedAt = -1;
 int g_statScoreBefore = 0;
@@ -18,14 +17,12 @@ void ShowResult(JumpVerdict@ verdict, int raceTime) {
     StopPopupPreview();
     g_resultLabel = verdict.label;
     g_resultReason = verdict.reason;
-    g_resultTimingEstimated = verdict.timingEstimated;
     g_resultShownAt = raceTime;
 }
 
 void ClearResult() {
     g_resultLabel = "";
     g_resultReason = "";
-    g_resultTimingEstimated = false;
     g_resultShownAt = -1;
 }
 
@@ -216,7 +213,6 @@ void RenderDiagnostics(const vec4 &in r, PhysicsSnapshot@ snap) {
 void RenderGradePreview(const vec4 &in r, JumpPreview@ preview, bool sample) {
     if (preview is null && !sample) return;
     string label = preview is null ? "S" : preview.label;
-    string shownLabel = preview !is null && preview.ambiguous ? label + "+" : label;
     vec4 accent = GradeColor(label);
     float s = Math::Min(r.z / 500.0f, r.w / 125.0f);
     float cx = r.x + r.z*0.5f;
@@ -232,9 +228,8 @@ void RenderGradePreview(const vec4 &in r, JumpPreview@ preview, bool sample) {
     int center = nvg::Align::Center | nvg::Align::Middle;
     HudText(cx, cy - 31*s, "TAKEOFF PREVIEW", 10*s,
         HudColor(0.68f, 0.78f, 0.88f), center);
-    HudText(cx, cy - 1*s, shownLabel, 48.0f*s, accent, center);
-    string lead = preview is null ? "0-15 ms" :
-        preview.leadMinMs + "-" + preview.leadMaxMs + " ms";
+    HudText(cx, cy - 1*s, label, 48.0f*s, accent, center);
+    string lead = preview is null ? "12 ms" : preview.leadMs + " ms";
     HudText(cx, cy + 31*s, lead + " BEFORE TAKEOFF", 10*s,
         HudColor(0.77f, 0.86f, 0.94f), center);
 }
@@ -403,7 +398,7 @@ void RenderWidgets() {
     if (previewAge >= 0) {
         WidgetLayout@ grade = GetLayout("grade");
         if (grade !is null)
-            RenderResult(grade.Pixels(), previewAge, g_popupPreviewLabel, false,
+            RenderResult(grade.Pixels(), previewAge, g_popupPreviewLabel,
                 PopupPreviewSeed(g_popupPreviewLabel));
     }
 }
@@ -428,7 +423,6 @@ void RenderWidgetCards(int previewAge) {
         else if (active || g_layoutEditing)
             RenderResult(layout.Pixels(), active ? age : 450,
                 active ? g_resultLabel : "S",
-                active && g_resultTimingEstimated,
                 active ? uint(g_resultShownAt) + 1 : 1);
     }
     @layout = GetLayout("stats");

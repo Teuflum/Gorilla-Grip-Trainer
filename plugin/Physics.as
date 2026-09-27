@@ -1,3 +1,9 @@
+// Yaw rate on this build (stage 0 of the tick-exact timing spec: slope
+// +1.005, r2 0.997 against the frame-to-frame yaw change); -1 when unknown.
+const int YAW_RATE_OFFSET = 0x554;
+// Converts the stored value to rad/s with the sign of the yaw change.
+const float YAW_RATE_SCALE = 1.0f;
+
 // Read-only snapshots of the active physics car on the validated game build.
 class PhysicsSnapshot {
     bool exact = false;
@@ -23,6 +29,25 @@ class PhysicsSnapshot {
     // Angle between the car's heading and its horizontal velocity.
     float slipDeg = 0.0f;
     float yaw = 0.0f;
+    // Yaw rate in rad/s, from the physics state; false when unknown.
+    bool hasYawRate = false;
+    float yawRate = 0.0f;
+    // Game clock of each wheel's last contact change (touchdown or lift-off),
+    // in the contact-bit order. The physics step writes it, so it dates a
+    // change that happened between two rendered frames.
+    array<uint> wheelChangedAt = array<uint>(4);
+    // The physics step's own clock (vehicle+0x4f4).
+    int physicsClock = -1;
+    // Start of the current neutral-steering spell (vehicle+0x14e0), or -1.
+    int neutralAt = -1;
+    // Neutral time after which the game lets the stored direction lapse.
+    int neutralTimeoutMs = -1;
+    // The car's last tick with ground contact (vehicle+0x1414). It stays at the
+    // takeoff tick through the flight; sub-tick wheel grazes do not move it.
+    int contactClock = -1;
+    // The frame clock (PlaygroundClientScriptAPI.GameTime); it runs ahead of
+    // the physics tick but advances with race time.
+    int frameClock = -1;
 
     int ModeAgeMs() const {
         int changedAt = int(modeAt);
@@ -45,6 +70,9 @@ class PhysicsSnapshot {
             bits += (contactMask & (1 << i)) != 0 ? "1" : "0";
         return bits;
     }
+
+    // Race time of a physics tick; race time and the frame clock advance together.
+    int RaceAt(int tick) const { return tick + raceTime - frameClock; }
 }
 
 bool IsSupportedBuild() {
@@ -131,9 +159,24 @@ PhysicsSnapshot@ ReadPhysics(CSceneVehicleVisState@ vis, int raceTime) {
     snap.forceGateState = int(Dev::SafeReadUint32(vehicle + 0x1600));
     snap.recoveryDelayMs = int(delay);
     for (uint i = 0; i < 4; i++) {
-        if (Dev::SafeReadUint32(vehicle + 0x17b4 + 0xb8 * i) != 0)
+        uint64 wheel = vehicle + 0x17b4 + 0xb8 * i;
+        if (Dev::SafeReadUint32(wheel) != 0)
             snap.contactMask |= (1 << i);
+        snap.wheelChangedAt[i] = Dev::SafeReadUint32(wheel + 0x6c);
     }
+    snap.physicsClock = int(Dev::SafeReadUint32(vehicle + 0x4f4));
+    snap.contactClock = int(Dev::SafeReadUint32(vehicle + 0x1414));
+    // Stage 0: time everything on the physics clock.
+    snap.frameClock = snap.gameTime;
+    snap.gameTime = snap.physicsClock;
+    if (YAW_RATE_OFFSET >= 0) {
+        snap.yawRate = YAW_RATE_SCALE * Dev::SafeReadFloat(vehicle + uint64(YAW_RATE_OFFSET));
+        snap.hasYawRate = Math::Abs(snap.yawRate) < 100.0f;
+    }
+    snap.neutralAt = int(Dev::SafeReadUint32(vehicle + 0x14e0));
+    uint neutralTimeout = Dev::SafeReadUint32(model + 0x1198);
+    snap.neutralTimeoutMs = neutralTimeout >= 50 && neutralTimeout <= 5000 ?
+        int(neutralTimeout) : -1;
     snap.exact = true;
     return snap;
 }

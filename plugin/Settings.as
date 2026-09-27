@@ -11,6 +11,8 @@ bool S_AutoFinishSummary = true;
 // effect outside Openplanet's developer mode.
 [Setting hidden] bool S_DebugLogging = false;
 [Setting hidden] bool S_DebugForceTrace = false;
+[Setting hidden] int S_DebugFrameSkip = 1;
+int g_frameSkipCounter = 0;
 
 bool DebugLoggingOn() {
 #if SIG_DEVELOPER
@@ -22,6 +24,22 @@ bool DebugLoggingOn() {
 
 bool DebugForceTraceOn() {
     return DebugLoggingOn() && S_DebugForceTrace;
+}
+
+// Process every Nth frame to simulate a low frame rate; 1 outside developer mode.
+int DebugFrameSkip() {
+#if SIG_DEVELOPER
+    return Math::Clamp(S_DebugFrameSkip, 1, 10);
+#else
+    return 1;
+#endif
+}
+
+bool ProcessThisFrame() {
+    int n = DebugFrameSkip();
+    if (n <= 1) return true;
+    g_frameSkipCounter = (g_frameSkipCounter + 1) % n;
+    return g_frameSkipCounter == 0;
 }
 
 // Routine events only; report problems with print so they are always visible.
@@ -63,11 +81,14 @@ void RenderSettingsDebug() {
     if (ConfirmedResetButton("Reset to default", "debug")) {
         S_DebugLogging = false;
         S_DebugForceTrace = false;
+        S_DebugFrameSkip = 1;
     }
     S_DebugLogging = UI::Checkbox("Log trainer events", S_DebugLogging);
     HelpMarker("Writes routine trainer events (contact snapshots, previews, verdicts, audio, history saves) to Openplanet.log. Problems are always logged. The in-game tests need this on.");
     S_DebugForceTrace = UI::Checkbox("Log every tire-force change", S_DebugForceTrace);
     HelpMarker("With Log trainer events on, also writes a snapshot line whenever the tire-force multiplier or force gate changes, not only on wheel-contact changes. For research traces; slow the game to capture every physics tick.");
+    S_DebugFrameSkip = UI::SliderInt("Process every Nth frame", S_DebugFrameSkip, 1, 10);
+    HelpMarker("Skips frames so the rating sees a lower frame rate, for timing tests. 1 processes every frame.");
 }
 #endif
 
@@ -103,7 +124,7 @@ void RenderSettingsRating() {
     }
     UI::SeparatorText("Grade limits");
     S_SMaxLeadMs = UI::InputInt("S maximum lead (ms)", S_SMaxLeadMs);
-    HelpMarker("How early the physics steering direction may switch before the last wheel leaves. Each value is the latest grade's upper limit in milliseconds.\n\nS+ is awarded only for a confirmed 0-0 ms switch lead, with no separate threshold. It uses S points and sounds.\n\nThe + marker on A-D means takeoff happened between sampled frames that cross a grade limit. A+ still scores A; the true timing may qualify for a higher rank.");
+    HelpMarker("How early the physics steering direction may switch before the last wheel leaves. Each value is the latest grade's upper limit in milliseconds.\n\nS+ is awarded only for a 0 ms switch lead, with no separate threshold. It uses S points and sounds.\n\nTimes come from the game's own physics clock, so they do not depend on frame rate or game speed.");
     S_AMaxLeadMs = UI::InputInt("A maximum lead (ms)", S_AMaxLeadMs);
     S_BMaxLeadMs = UI::InputInt("B maximum lead (ms)", S_BMaxLeadMs);
     S_CMaxLeadMs = UI::InputInt("C maximum lead (ms)", S_CMaxLeadMs);

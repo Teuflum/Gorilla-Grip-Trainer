@@ -34,6 +34,13 @@ string HistoryGrade(HistoryJump@ jump) {
     return jump.label + (uncertainGrade ? "+" : "");
 }
 
+// Older entries may hold a lead range; new ones hold one exact value.
+string HistoryLead(HistoryJump@ jump) {
+    if (jump.leadMinMs < 0) return "--";
+    if (jump.leadMinMs == jump.leadMaxMs) return jump.leadMinMs + " ms";
+    return jump.leadMinMs + "-" + jump.leadMaxMs + " ms";
+}
+
 UI::Font@ HistoryFont() {
     if (g_historyTileFont is null)
         @g_historyTileFont = UI::LoadFont("DroidSans-Bold.ttf", 22);
@@ -101,7 +108,7 @@ void RenderJumpTiles(HistoryJump@ jump) {
     vec4 muted = HudColor(0.62f, 0.76f, 0.88f);
     array<string> captions = {"GRADE", "LANDING", "LEAD", "POINTS", "COMBO"};
     array<string> values = {HistoryGrade(jump), Time::Format(uint64(jump.landingMs)),
-        jump.leadMinMs < 0 ? "--" : jump.leadMinMs + "-" + jump.leadMaxMs + " ms",
+        HistoryLead(jump),
         "+" + jump.points, "x" + jump.combo};
     array<vec4> accents = {grade, muted, muted, gold, cyan};
     array<vec4> valueColors = {grade, white, white, gold, cyan};
@@ -210,8 +217,7 @@ void RenderHistoryJumps(RunRecord@ selected) {
             UI::TableNextColumn();
             UI::Text(Time::Format(uint64(jump.landingMs)));
             UI::TableNextColumn();
-            UI::Text(jump.leadMinMs < 0 ? "--" :
-                jump.leadMinMs + "-" + jump.leadMaxMs + " ms");
+            UI::Text(HistoryLead(jump));
             UI::TableNextColumn();
             UI::Text("+" + jump.points);
             UI::TableNextColumn();

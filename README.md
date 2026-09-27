@@ -29,8 +29,9 @@ The grade depends only on how early the direction switched before the last wheel
 | D | up to 250 ms | 30 |
 
 - **Score:** base points × combo multiplier (up to ×8), plus 50 per full spin.
-- **`A+`:** takeoff happened between two sampled frames that cross a grade limit. It scores as A, but the true timing may have been better.
 - **`UNRATED`:** the plugin lost the physics read or the contact timing, so it doesn't guess a grade.
+
+Timing comes from the game's own physics clock, so grades don't depend on frame rate or game speed.
 
 ## HUD widgets
 

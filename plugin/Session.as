@@ -1,13 +1,11 @@
 class JumpVerdict {
     string label;
     string reason;
-    int leadMinMs = -1;
-    int leadMaxMs = -1;
+    int leadMs = -1;
     int takeoffTime = -1;
     int landingTime = -1;
     int spinCount = 0;
     int points = 0;
-    bool timingEstimated = false;
     bool exact = false;
 }
 

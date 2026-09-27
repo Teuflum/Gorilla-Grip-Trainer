@@ -24,13 +24,13 @@ class HistoryJump {
         reason = verdict.reason;
         takeoffMs = verdict.takeoffTime;
         landingMs = verdict.landingTime;
-        leadMinMs = verdict.leadMinMs;
-        leadMaxMs = verdict.leadMaxMs;
+        // New entries store the exact lead in both fields.
+        leadMinMs = verdict.leadMs;
+        leadMaxMs = verdict.leadMs;
         spins = verdict.spinCount;
         combo = currentCombo;
         points = verdict.points;
         scoreAfter = currentScore;
-        timingEstimated = verdict.timingEstimated;
     }
 
     Json::Value@ ToJson() {

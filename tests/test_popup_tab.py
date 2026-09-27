@@ -48,7 +48,7 @@ widgets_render = widgets.split("void RenderWidgets() {", 1)[1].split("\n}", 1)[0
 cards = widgets.split("void RenderWidgetCards(int previewAge) {", 1)[1].split("\n}", 1)[0]
 assert widgets_render.index("int previewAge = PopupPreviewAge();") < widgets_render.index("if (S_EnableWidgets) RenderWidgetCards(previewAge);")
 assert widgets_render.index("if (S_EnableWidgets) RenderWidgetCards(previewAge);") < widgets_render.index("RenderResult(grade.Pixels(), previewAge,")
-assert "RenderResult(grade.Pixels(), previewAge, g_popupPreviewLabel, false,\n                PopupPreviewSeed(g_popupPreviewLabel));" in widgets_render
+assert "RenderResult(grade.Pixels(), previewAge, g_popupPreviewLabel,\n                PopupPreviewSeed(g_popupPreviewLabel));" in widgets_render
 assert "return;" not in widgets_render
 assert "if (previewAge < 0 && ShouldRenderWidget(layout)) {" in cards
 show = widgets.split("void ShowResult(JumpVerdict@ verdict, int raceTime) {", 1)[1].split("\n}", 1)[0]

@@ -32,3 +32,9 @@ for name in ("test_trainer_in_game.py", "test_current_input.py",
     assert "The Trainer itself does not need GorillaGripLogger" in doc, name
     assert research in doc, name
 print("README setup notes: PASS")
+
+# Grades come from the game's physics clock; A+ is gone.
+assert "don't depend on frame rate or game speed" in readme
+assert "`A+`" not in readme
+info = (ROOT / "plugin" / "info.toml").read_text(encoding="utf-8")
+assert 'version = "0.3.0"' in info

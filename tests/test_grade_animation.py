@@ -72,21 +72,21 @@ print("Popup styles, effects, and intensity model: PASS")
 widgets = (ROOT / "Widgets.as").read_text(encoding="utf-8")
 
 # One RenderResult, in GradeAnimation.as, with a seed.
-assert "void RenderResult(const vec4 &in r, int age, const string &in label,\n    bool estimated, uint seed) {" in anim
+assert "void RenderResult(const vec4 &in r, int age, const string &in label,\n    uint seed) {" in anim
 assert "void RenderResult(" not in widgets
 for gone in ("g_gorillaTexture", "RenderSGorillas", "DrawGorillaEmoji", "DrawFallbackFlame", "GorillaDot"):
     assert gone not in widgets, gone
 assert "RenderResult(layout.Pixels(), active ? age : 450," in widgets
 assert "active ? uint(g_resultShownAt) + 1 : 1" in widgets
 
-render = body("void RenderResult(const vec4 &in r, int age, const string &in label,\n    bool estimated, uint seed)")
+render = body("void RenderResult(const vec4 &in r, int age, const string &in label,\n    uint seed)")
 # Calm results get no intensity, effects, flash, or picture.
 assert "f.calm = f.power <= 0.0f;" in render
 assert "f.k = f.calm ? 0.0f : PopupIntensity();" in render
 assert "f.fx = f.k > 0.0f ? CurrentEffects() : 0;" in render
 assert "if (!f.calm) DrawPopupPictures(f);" in render
 assert "if (!f.calm) DrawPopupFlash(f);" in render
-assert 'f.shown = estimated && GradeBasePoints(label) > 0 ? label + "+" : label;' in render
+assert "f.shown = label;" in render
 assert "f.fade = 1.0f - Clamp01(float(age - 700) / 300.0f);" in render
 assert "f.s = Math::Min(r.z / 500.0f, r.w / 125.0f);" in render
 # Grade-only effects.

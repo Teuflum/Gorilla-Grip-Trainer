@@ -1,10 +1,18 @@
 const float STEER_GATE = 0.1f;
-const int MAX_TIMING_SAMPLE_GAP = 50;
+// The physics step runs in fixed 10 ms ticks.
+const int PHYSICS_TICK_MS = 10;
 const int FORCE_SETTLE_MS = 30;
+// The force check waits this long after touchdown.
+const int LANDING_CHECK_MS = 80;
+const uint ALL_WHEELS = 0xf;
+// The game stores an opposite landing steer within the first contact ticks.
+const int LANDING_STEER_MS = 30;
 // A takeoff is rated only if the car slid within this time before it.
 const int SLIDE_WINDOW_MS = 500;
 // A grounded steering reversal this soon before takeoff plays the takeoff cue.
 const int CUE_REVERSAL_WINDOW_MS = 250;
+// Smoothed steering follows the input by about 0.2 per tick on ice.
+const float SMOOTHED_STEER_STEP = 0.2f;
 // Contact bits of the front wheels (0 and 1); only they update the tire-force multiplier.
 const uint FRONT_WHEELS = 0x3;
 // Counted from touchdown or the end of the recovery delay, whichever is later;
@@ -23,24 +31,67 @@ int RawDirection(float steer) {
     return 0;
 }
 
-string GradeLead(int lo, int hi) {
+string GradeLead(int leadMs) {
     NormalizeGradeThresholds();
-    if (lo < 0 || hi < lo || hi > S_DMaxLeadMs) return "";
-    // Both contact samples bound the switch to the exact takeoff millisecond.
-    if (lo == 0 && hi == 0) return "S+";
-    if (hi <= S_SMaxLeadMs) return "S";
-    if (lo > S_SMaxLeadMs && hi <= S_AMaxLeadMs) return "A";
-    if (lo > S_AMaxLeadMs && hi <= S_BMaxLeadMs) return "B";
-    if (lo > S_BMaxLeadMs && hi <= S_CMaxLeadMs) return "C";
-    if (lo > S_CMaxLeadMs && hi <= S_DMaxLeadMs) return "D";
-    return "";
+    if (leadMs < 0 || leadMs > S_DMaxLeadMs) return "";
+    // The switch happened on the tick the last wheel left.
+    if (leadMs == 0) return "S+";
+    if (leadMs <= S_SMaxLeadMs) return "S";
+    if (leadMs <= S_AMaxLeadMs) return "A";
+    if (leadMs <= S_BMaxLeadMs) return "B";
+    if (leadMs <= S_CMaxLeadMs) return "C";
+    return "D";
+}
+
+// The car's contact clock stops at the takeoff tick, the first tick whose
+// previous flags were all clear; sub-tick wheel grazes do not move it. It
+// must lie between the two frames.
+bool TakeoffClockValid(PhysicsSnapshot@ before, PhysicsSnapshot@ after) {
+    return after.contactClock > before.gameTime && after.contactClock <= after.gameTime;
+}
+
+// When the game began processing the current contact of the grounded wheels
+// in `mask`: the earliest timestamp newer than `after`. A flag set on the
+// frame's own tick is processed on the next one; until then the wheel keeps
+// its previous timestamp, which can be a graze after takeoff, so only a
+// timestamp the car's contact clock has reached counts. -1 when none of them
+// touches.
+int ContactStart(PhysicsSnapshot@ snap, uint mask, int after) {
+    int start = -1;
+    for (uint i = 0; i < 4; i++) {
+        if ((snap.contactMask & mask & (1 << i)) == 0) continue;
+        int at = int(snap.wheelChangedAt[i]);
+        if (at <= after || at > snap.contactClock) at = snap.gameTime + PHYSICS_TICK_MS;
+        if (start < 0 || at < start) start = at;
+    }
+    return start;
+}
+
+// When the stored direction last changed: modeAt, or for a lapse to neutral,
+// which stores an unset modeAt, the tick after the neutral timeout ran out.
+// -1 when a lapse cannot be dated.
+int StoredChangeTick(PhysicsSnapshot@ snap) {
+    int storedAt = int(snap.modeAt);
+    if (snap.mode != 0 || storedAt != -1) return storedAt;
+    return snap.neutralAt >= 0 && snap.neutralTimeoutMs > 0 ?
+        snap.neutralAt + snap.neutralTimeoutMs + PHYSICS_TICK_MS : -1;
+}
+
+// Dates a raw steering reversal inside a frame gap from how far the smoothed
+// steering has moved toward the new side. Once it has reached the input, the
+// travel no longer tells when it started: take the earliest possible tick.
+int EstimateReversal(PhysicsSnapshot@ before, PhysicsSnapshot@ after) {
+    int earliest = Math::Min(before.gameTime + PHYSICS_TICK_MS, after.gameTime);
+    if (Math::Abs(after.smoothedSteer - after.rawSteer) < 0.001f) return earliest;
+    float travel = Math::Abs(after.smoothedSteer - before.smoothedSteer);
+    int ticks = Math::Max(1, int(travel / SMOOTHED_STEER_STEP + 0.999f));
+    return Math::Clamp(after.gameTime - (ticks - 1) * PHYSICS_TICK_MS,
+        earliest, after.gameTime);
 }
 
 class JumpPreview {
     string label;
-    bool ambiguous = false;
-    int leadMinMs = -1;
-    int leadMaxMs = -1;
+    int leadMs = -1;
     int takeoffTime = -1;
     int oldMode = 0;
     int newMode = 0;
@@ -57,6 +108,8 @@ class TransitionTracker {
     bool landingEvent = false;
     // A pending landing ended without a verdict (same-direction landing).
     bool silentLandingEvent = false;
+    // A confirmed landing whose direction held but whose force did not rise.
+    bool forceDisagreedEvent = false;
     bool unratedEvent = false;
     string unratedReason = "";
 
@@ -82,12 +135,24 @@ class TransitionTracker {
     int takeoffReversalLeadMs = -1;
     int landingRace = -1;
     int landingClock = -1;
-    int landingDirection = 0;
     int forceEligibleClock = -1;
+    // The tick the landing verdict is decided at, once known.
+    int checkClock = -1;
+    // Latest frame that showed the backwards-motion gate set, or -1.
+    int gateSeenAt = -1;
+    // Earliest front-wheel touchdown seen since the landing, or -1.
+    int frontTouchAt = -1;
+    // First stored-direction change seen since takeoff: when it was stored
+    // (-1 if a lapse to neutral cannot be dated) and the mode it stored.
+    bool firstChangeSeen = false;
+    int firstChangeAt = -1;
+    int firstChangeMode = 0;
     int recoveryDelayMs = 400;
     float airSpinRadians = 0.0f;
     int flightSpinCount = 0;
     bool spinReliable = true;
+    // Fastest yaw rate seen in this flight, for the no-yaw-rate fallback.
+    float maxYawRate = 0.0f;
 
     void Reset() {
         @previous = null;
@@ -98,6 +163,7 @@ class TransitionTracker {
         takeoffCueEvent = false;
         landingEvent = false;
         silentLandingEvent = false;
+        forceDisagreedEvent = false;
         unratedEvent = false;
         unratedReason = "";
         switchAt = -1;
@@ -119,22 +185,29 @@ class TransitionTracker {
         takeoffReversalLeadMs = -1;
         landingRace = -1;
         landingClock = -1;
-        landingDirection = 0;
         forceEligibleClock = -1;
+        checkClock = -1;
+        gateSeenAt = -1;
+        frontTouchAt = -1;
+        firstChangeSeen = false;
+        firstChangeAt = -1;
+        firstChangeMode = 0;
         airSpinRadians = 0.0f;
         flightSpinCount = 0;
         spinReliable = true;
+        maxYawRate = 0.0f;
     }
 
     void ObserveSteeringAndMode(PhysicsSnapshot@ snap) {
         if (previous is null) return;
         bool previousGround = previous.contactMask != 0;
-        bool currentGround = snap.contactMask != 0;
         int beforeRaw = RawDirection(previous.rawSteer);
         int afterRaw = RawDirection(snap.rawSteer);
-        if (previousGround && currentGround && beforeRaw != 0 && afterRaw != 0 &&
+        // A reversal first seen on the all-air frame may still have happened
+        // on the ground; StartFlight keeps it only if it dates before takeoff.
+        if (previousGround && beforeRaw != 0 && afterRaw != 0 &&
             beforeRaw != afterRaw && previous.mode == beforeRaw)
-            rawReversalAt = snap.gameTime;
+            rawReversalAt = EstimateReversal(previous, snap);
 
         if (!previousGround) return;
         if (previous.mode == 0 || snap.mode == 0 || previous.mode == snap.mode)
@@ -154,12 +227,16 @@ class TransitionTracker {
         airSpinRadians = 0.0f;
         flightSpinCount = 0;
         spinReliable = true;
+        maxYawRate = 0.0f;
         previewPublished = false;
         cuePublished = false;
         @preview = null;
         unratedReason = "";
-        takeoffRace = snap.raceTime;
-        takeoffClock = snap.gameTime;
+        takeoffClock = snap.contactClock;
+        bool exactTakeoff = TakeoffClockValid(previous, snap);
+        if (!exactTakeoff) takeoffClock = snap.gameTime;
+        takeoffRace = snap.RaceAt(takeoffClock);
+        CountSpin(previous, snap, takeoffClock, snap.gameTime);
         takeoffMode = snap.mode;
         takeoffModeAt = int(snap.modeAt);
         int reversalLead = takeoffClock - rawReversalAt;
@@ -168,40 +245,29 @@ class TransitionTracker {
         recoveryDelayMs = snap.recoveryDelayMs;
         // Only a jump out of an ice slide is a gorilla-grip attempt.
         flightEligible = takeoffMode != 0 &&
-            lastSlideClock >= 0 && snap.gameTime - lastSlideClock <= SLIDE_WINDOW_MS &&
+            lastSlideClock >= 0 && takeoffClock - lastSlideClock <= SLIDE_WINDOW_MS &&
             previous.meanIcing >= S_MinIcing &&
             previous.speedKmh >= float(S_MinSpeed);
-        if (!flightEligible || previous.gameTime < 0 ||
-            snap.gameTime - previous.gameTime > MAX_TIMING_SAMPLE_GAP) {
-            if (snap.gameTime - previous.gameTime > MAX_TIMING_SAMPLE_GAP) {
-                flightUncertain = true;
-                if (flightEligible && switchAt >= 0 &&
-                    switchNewMode == takeoffMode &&
-                    snap.gameTime - switchAt <= S_DMaxLeadMs) {
-                    unratedReason = "contact sample gap exceeded 50 ms";
-                    unratedEvent = true;
-                }
+        if (!flightEligible) return;
+        bool attempted = switchAt >= 0 && switchNewMode == takeoffMode &&
+            takeoffClock - switchAt <= S_DMaxLeadMs;
+        if (!exactTakeoff) {
+            flightUncertain = true;
+            if (attempted) {
+                unratedReason = "Contact timestamps were inconsistent at takeoff";
+                unratedEvent = true;
             }
             return;
         }
-        if (switchAt < 0 || switchNewMode != takeoffMode ||
-            switchOldMode == 0 || switchOldMode == takeoffMode ||
-            switchAt > snap.gameTime || snap.gameTime - switchAt > S_DMaxLeadMs) return;
-        int lo = Math::Max(0, previous.gameTime - switchAt);
-        int hi = snap.gameTime - switchAt;
-        string grade = GradeLead(lo, hi);
+        if (!attempted || switchOldMode == 0 || switchOldMode == takeoffMode ||
+            switchAt > takeoffClock) return;
+        int lead = takeoffClock - switchAt;
+        string grade = GradeLead(lead);
+        if (grade.Length == 0) return;
         @preview = JumpPreview();
-        if (grade.Length == 0) {
-            preview.label = GradeLead(hi, hi);
-            preview.ambiguous = true;
-            if (preview.label.Length == 0) {
-                @preview = null;
-                return;
-            }
-        } else preview.label = grade;
-        preview.leadMinMs = lo;
-        preview.leadMaxMs = hi;
-        preview.takeoffTime = snap.raceTime;
+        preview.label = grade;
+        preview.leadMs = lead;
+        preview.takeoffTime = takeoffRace;
         preview.oldMode = switchOldMode;
         preview.newMode = switchNewMode;
         preview.modeAt = switchAt;
@@ -209,13 +275,26 @@ class TransitionTracker {
 
     void Land(PhysicsSnapshot@ snap) {
         inFlight = false;
-        flightSpinCount = spinReliable ? int(airSpinRadians / (2.0f * Math::PI)) : 0;
         landingEvent = true;
-        landingRace = snap.raceTime;
-        landingClock = snap.gameTime;
-        landingDirection = SteeringDirection(snap.smoothedSteer);
-        landingTouchLifted = false;
+        // The grounded wheels date the touchdown; a touch that already lifted
+        // again is dated by the car's contact clock. Only changes after the
+        // last all-air frame count: a wheel whose contact is not processed yet
+        // can still carry a graze timestamp from the flight.
+        int after = previous is null ? takeoffClock : Math::Max(takeoffClock, previous.gameTime);
+        landingClock = snap.contactMask != 0 ?
+            ContactStart(snap, ALL_WHEELS, after) : snap.contactClock;
+        landingRace = snap.RaceAt(landingClock);
+        if (previous !is null && previous.contactMask == 0 && snap.contactMask != 0)
+            CountSpin(previous, snap, previous.gameTime, landingClock);
+        flightSpinCount = spinReliable ? int(airSpinRadians / (2.0f * Math::PI)) : 0;
+        landingTouchLifted = snap.contactMask == 0;
         forceEligibleClock = -1;
+        checkClock = -1;
+        gateSeenAt = -1;
+        frontTouchAt = -1;
+        firstChangeSeen = false;
+        firstChangeAt = -1;
+        firstChangeMode = 0;
         pendingLanding = flightEligible && !flightUncertain &&
             landingRace - takeoffRace >= S_MinFlight;
         if (flightUncertain && (previewPublished || unratedReason.Length > 0))
@@ -236,9 +315,7 @@ class TransitionTracker {
         verdict.reason = reason;
         verdict.takeoffTime = takeoffRace;
         verdict.landingTime = Math::Max(takeoffRace, raceTime);
-        verdict.leadMinMs = preview is null ? -1 : preview.leadMinMs;
-        verdict.leadMaxMs = preview is null ? -1 : preview.leadMaxMs;
-        verdict.timingEstimated = preview !is null && preview.ambiguous;
+        verdict.leadMs = preview is null ? -1 : preview.leadMs;
         verdict.spinCount = 0;
         verdict.exact = false;
         verdictEvent = true;
@@ -246,42 +323,44 @@ class TransitionTracker {
 
     void ResolveLanding(PhysicsSnapshot@ snap) {
         pendingLanding = false;
-        if (snap.contactMask == 0) return;
         bool hasPreview = preview !is null && previewPublished;
         bool enoughIcing = snap.meanIcing >= S_MinIcing;
-        bool matchingLanding = landingDirection != 0 &&
-            landingDirection == takeoffMode;
-        bool recovered = enoughIcing && matchingLanding && snap.mode == takeoffMode &&
-            int(snap.modeAt) == takeoffModeAt &&
-            forceEligibleClock - takeoffModeAt >= recoveryDelayMs &&
-            snap.force > 1.001f;
+        // The verdict uses the stored direction as of the check tick: the first
+        // change seen since takeoff (every tire-force reset writes modeAt), and
+        // only if it was stored by then. A later frame may already show a
+        // second change; the recorded first one still decides.
+        bool switchedByCheck = firstChangeSeen && firstChangeAt <= checkClock;
+        // Tire force does not decide: without a reset, a low force means a low
+        // target (light steering, low speed), not a delayed grip.
+        bool recovered = enoughIcing && !switchedByCheck &&
+            forceEligibleClock - takeoffModeAt >= recoveryDelayMs;
+        if (hasPreview && recovered && !firstChangeSeen && snap.force <= 1.001f)
+            forceDisagreedEvent = true;
         // A scrape in flight counts as ground contact and can store the new
         // direction before the real landing; name it instead of a generic miss.
-        bool touchSwitched = landingTouchLifted && int(snap.modeAt) != takeoffModeAt;
+        bool touchSwitched = landingTouchLifted && switchedByCheck;
         const string touchReason = "Direction switched on a brief touch before the landing";
         // The stored direction changes only on the ground: after a neutral
         // landing, steering the other way switches it and delays the force.
-        bool storedSwitched = snap.mode != 0 && snap.mode != takeoffMode &&
-            int(snap.modeAt) != takeoffModeAt;
-        bool oppositeLanding = landingDirection != 0 && landingDirection != takeoffMode;
+        bool storedSwitched = switchedByCheck && firstChangeMode != 0 &&
+            firstChangeMode != takeoffMode;
+        bool oppositeLanding = storedSwitched && firstChangeAt <= landingClock + LANDING_STEER_MS;
         if (hasPreview) {
             @verdict = JumpVerdict();
             verdict.label = recovered ? preview.label : "MISSED";
-            verdict.reason = recovered ? (preview.ambiguous ?
-                "Grip recovered; takeoff fell within samples that crossed a grade limit" :
-                "Pre-takeoff mode held through force-eligible contact") :
+            verdict.reason = recovered ?
+                "Pre-takeoff mode held through force-eligible contact" :
                 (enoughIcing ? (touchSwitched ? touchReason :
                 "Direction or tire force did not recover on force-eligible contact") :
                 "Landing icing fell below the rating threshold");
-            verdict.leadMinMs = preview.leadMinMs;
-            verdict.leadMaxMs = preview.leadMaxMs;
-            verdict.timingEstimated = preview.ambiguous;
-        } else if (enoughIcing && takeoffMode != 0 &&
-            (oppositeLanding || storedSwitched) && snap.force <= 1.1f) {
+            verdict.leadMs = preview.leadMs;
+        } else if (enoughIcing && takeoffMode != 0 && storedSwitched &&
+            // The switch reset the force and holds it for the recovery delay.
+            checkClock - firstChangeAt < recoveryDelayMs) {
             @verdict = JumpVerdict();
             verdict.label = "MISSED";
             verdict.reason = touchSwitched ? touchReason :
-                storedSwitched && takeoffReversalLeadMs >= 0 ?
+                takeoffReversalLeadMs >= 0 ?
                 "Steering reversed " + takeoffReversalLeadMs +
                 " ms before takeoff, too late to store the direction; it switched after the landing" :
                 oppositeLanding ? "Opposite landing direction with delayed tire force" :
@@ -297,12 +376,40 @@ class TransitionTracker {
         verdictEvent = true;
     }
 
+    // Signed yaw turned between two frames. With the yaw rate known, the turn
+    // is unwrapped to the whole-turn count the rate predicts, so a long frame
+    // gap cannot lose or add a turn. Without it, a gap long enough to hide
+    // half a turn makes the count unreliable.
+    float TurnBetween(PhysicsSnapshot@ before, PhysicsSnapshot@ after) {
+        float turn = after.yaw - before.yaw;
+        if (turn > Math::PI) turn -= 2.0f * Math::PI;
+        if (turn < -Math::PI) turn += 2.0f * Math::PI;
+        float gap = float(after.gameTime - before.gameTime) / 1000.0f;
+        if (after.hasYawRate && before.hasYawRate) {
+            float expected = 0.5f * (after.yawRate + before.yawRate) * gap;
+            float turns = (expected - turn) / (2.0f * Math::PI);
+            int whole = int(turns >= 0.0f ? turns + 0.5f : turns - 0.5f);
+            turn += 2.0f * Math::PI * float(whole);
+        } else if (gap > 0.0f && maxYawRate * gap > Math::PI) spinReliable = false;
+        if (gap > 0.0f) maxYawRate = Math::Max(maxYawRate, Math::Abs(turn) / gap);
+        return turn;
+    }
+
+    // Adds the airborne share, the ticks from `from` to `to`, of the yaw turned
+    // between two frames, assuming a steady turn across the gap.
+    void CountSpin(PhysicsSnapshot@ before, PhysicsSnapshot@ after, int from, int to) {
+        int gap = after.gameTime - before.gameTime;
+        float share = gap > 0 ? float(Math::Clamp(to - from, 0, gap)) / float(gap) : 1.0f;
+        airSpinRadians += Math::Abs(TurnBetween(before, after)) * share;
+    }
+
     void Update(PhysicsSnapshot@ snap) {
         previewEvent = false;
         verdictEvent = false;
         takeoffCueEvent = false;
         landingEvent = false;
         silentLandingEvent = false;
+        forceDisagreedEvent = false;
         unratedEvent = false;
         if (snap is null || !snap.exact || snap.gameTime < 0) {
             if (pendingLanding)
@@ -323,36 +430,26 @@ class TransitionTracker {
             return;
         }
 
-        int sampleGap = snap.gameTime - previous.gameTime;
         bool crossingTakeoff = previous.contactMask != 0 &&
             snap.contactMask == 0 && !pendingLanding;
-        if (sampleGap > MAX_TIMING_SAMPLE_GAP) {
-            // Keep a recent grounded switch until StartFlight can report the
-            // uncertain takeoff. It cannot receive a timing grade from this gap.
-            if (!crossingTakeoff) switchAt = -1;
-            rawReversalAt = -1;
-            if (previous.contactMask != snap.contactMask)
-                flightUncertain = true;
-            if (pendingLanding) flightUncertain = true;
-            if (inFlight) spinReliable = false;
-        }
 
-        if (inFlight && previous.contactMask == 0) {
-            float turn = snap.yaw - previous.yaw;
-            if (turn > Math::PI) turn -= 2.0f * Math::PI;
-            if (turn < -Math::PI) turn += 2.0f * Math::PI;
-            airSpinRadians += Math::Abs(turn);
-        }
+        if (inFlight && previous.contactMask == 0 && snap.contactMask == 0)
+            CountSpin(previous, snap, previous.gameTime, snap.gameTime);
 
-        if (snap.contactMask != 0 && snap.slipDeg >= S_MinSlideSlip)
+        // A slide lasts at least until the next frame that shows none.
+        if ((snap.contactMask != 0 && snap.slipDeg >= S_MinSlideSlip) ||
+            (previous.contactMask != 0 && previous.slipDeg >= S_MinSlideSlip))
             lastSlideClock = snap.gameTime;
-        if (sampleGap <= MAX_TIMING_SAMPLE_GAP) ObserveSteeringAndMode(snap);
-        if (crossingTakeoff) {
-            StartFlight(snap);
-            if (sampleGap > MAX_TIMING_SAMPLE_GAP) switchAt = -1;
-        }
+        ObserveSteeringAndMode(snap);
+        if (crossingTakeoff) StartFlight(snap);
         else if (previous.contactMask == 0 && snap.contactMask != 0 && inFlight)
             Land(snap);
+        else if (inFlight && snap.contactMask == 0 && snap.contactClock > takeoffClock) {
+            // The game processed a touch between two frames: land, then take
+            // off again unless this landing is being rated.
+            Land(snap);
+            if (!pendingLanding) StartFlight(snap);
+        }
 
         if (inFlight && snap.contactMask == 0 && flightEligible &&
             !flightUncertain && snap.raceTime - takeoffRace >= S_MinFlight) {
@@ -369,26 +466,35 @@ class TransitionTracker {
             }
         }
         if (pendingLanding) {
-            if (landingDirection == 0 &&
-                snap.gameTime - landingClock <= 30 &&
-                SteeringDirection(snap.smoothedSteer) != 0)
-                landingDirection = SteeringDirection(snap.smoothedSteer);
-            // The recovery timer started at the pre-takeoff switch, so a landing
-            // inside the delay waits on the ground until force can start rising.
             if (snap.contactMask == 0) landingTouchLifted = true;
-            if ((snap.contactMask & FRONT_WHEELS) != 0 && snap.forceGateState == 0 &&
-                snap.gameTime - takeoffModeAt >= recoveryDelayMs) {
-                if (forceEligibleClock < 0) forceEligibleClock = snap.gameTime;
-            } else forceEligibleClock = -1;
+            if (!firstChangeSeen && int(snap.modeAt) != takeoffModeAt) {
+                firstChangeSeen = true;
+                firstChangeMode = snap.mode;
+                firstChangeAt = StoredChangeTick(snap);
+            }
+            // The backwards-motion gate has no timestamp; eligibility restarts
+            // at the frame that shows it set.
+            if (snap.forceGateState != 0) gateSeenAt = snap.gameTime;
+            // Recovery waits for a front wheel on the ground and the delay; its
+            // contact cannot have started before the landing. The earliest front
+            // touchdown is kept, so a later bounce cannot move the check tick.
+            int front = ContactStart(snap, FRONT_WHEELS, landingClock - 1);
+            if (front >= 0 && (frontTouchAt < 0 || front < frontTouchAt)) frontTouchAt = front;
+            int eligibleAt = frontTouchAt < 0 ? -1 :
+                Math::Max(Math::Max(frontTouchAt, takeoffModeAt + recoveryDelayMs), gateSeenAt);
+            int checkAt = eligibleAt < 0 ? -1 :
+                Math::Max(landingClock + LANDING_CHECK_MS, eligibleAt + FORCE_SETTLE_MS);
+            int deadline = FORCE_GATE_TIMEOUT_MS +
+                Math::Max(landingClock, takeoffModeAt + recoveryDelayMs);
             if (flightUncertain)
                 PublishUnrated("Landing contact timing became uncertain", snap.raceTime);
-            else if (snap.gameTime - Math::Max(landingClock, takeoffModeAt + recoveryDelayMs) >
-                FORCE_GATE_TIMEOUT_MS)
-                PublishUnrated("Tire-force contact never became eligible", snap.raceTime);
-            else if (snap.gameTime - landingClock >= 80 &&
-                forceEligibleClock >= 0 &&
-                snap.gameTime - forceEligibleClock >= FORCE_SETTLE_MS)
+            else if (checkAt >= 0 && checkAt <= deadline && snap.forceGateState == 0 &&
+                snap.gameTime >= checkAt) {
+                forceEligibleClock = eligibleAt;
+                checkClock = checkAt;
                 ResolveLanding(snap);
+            } else if (snap.gameTime > deadline)
+                PublishUnrated("Tire-force contact never became eligible", snap.raceTime);
         }
         @previous = snap;
     }

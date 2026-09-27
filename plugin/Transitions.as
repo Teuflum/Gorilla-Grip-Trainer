@@ -18,6 +18,10 @@ const uint FRONT_WHEELS = 0x3;
 // Counted from touchdown or the end of the recovery delay, whichever is later;
 // gas-off spins can hold the force gate for a while.
 const int FORCE_GATE_TIMEOUT_MS = 1000;
+// Landing icing needed to confirm a grade, about what still starts an ice
+// slide. The configured minimum applies at takeoff: tires lose icing in the
+// air (a 2.75 s flight took them from 100% to 54%).
+const float LANDING_MIN_ICING = 0.34f;
 
 int SteeringDirection(float steer) {
     if (steer > STEER_GATE) return 2;
@@ -359,10 +363,7 @@ class TransitionTracker {
     void ResolveLanding(PhysicsSnapshot@ snap) {
         pendingLanding = false;
         bool hasPreview = preview !is null && previewPublished;
-        // The minimum icing applies at takeoff. Tires lose icing in the air
-        // (a 2.75 s flight took them from 100% to 54%) while the icy-force
-        // branch keeps running, so the landing only needs some icing left.
-        bool enoughIcing = snap.meanIcing > 0.0f;
+        bool enoughIcing = snap.meanIcing >= LANDING_MIN_ICING;
         // The verdict uses the stored direction as of the check tick: the first
         // change seen since takeoff (every tire-force reset writes modeAt), and
         // only if it was stored by then. A later frame may already show a
@@ -394,7 +395,7 @@ class TransitionTracker {
                 "Pre-takeoff mode held through force-eligible contact" :
                 (enoughIcing ? (touchSwitched ? touchReason :
                 "Direction or tire force did not recover on force-eligible contact") :
-                "The tires had no icing left at landing");
+                "Landing icing fell below 34%");
             verdict.leadMs = preview.leadMs;
         } else if (enoughIcing && takeoffMode != 0 && storedSwitched &&
             // The switch reset the force and holds it for the recovery delay.

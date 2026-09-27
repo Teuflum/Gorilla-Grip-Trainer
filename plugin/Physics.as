@@ -29,6 +29,10 @@ class PhysicsSnapshot {
     array<uint> wheelChangedAt = array<uint>(4);
     // The physics step's own clock (vehicle+0x4f4).
     int physicsClock = -1;
+    // Start of the current neutral-steering spell (vehicle+0x14e0), or -1.
+    int neutralAt = -1;
+    // Neutral time after which the game lets the stored direction lapse.
+    int neutralTimeoutMs = -1;
     // The car's last tick with ground contact (vehicle+0x1414). It stays at the
     // takeoff tick through the flight; sub-tick wheel grazes do not move it.
     int contactClock = -1;
@@ -158,6 +162,10 @@ PhysicsSnapshot@ ReadPhysics(CSceneVehicleVisState@ vis, int raceTime) {
     // Stage 0: time everything on the physics clock.
     snap.frameClock = snap.gameTime;
     snap.gameTime = snap.physicsClock;
+    snap.neutralAt = int(Dev::SafeReadUint32(vehicle + 0x14e0));
+    uint neutralTimeout = Dev::SafeReadUint32(model + 0x1198);
+    snap.neutralTimeoutMs = neutralTimeout >= 50 && neutralTimeout <= 5000 ?
+        int(neutralTimeout) : -1;
     if (DebugForceTraceOn()) {
         for (uint i = 0; i < 32; i++)
             snap.probe += (i == 0 ? "" : ",") +

@@ -175,14 +175,17 @@ void Update(float dt) {
     if (g_tracker.landingEvent) {
         DebugLog("Gorilla Grip Trainer landing at " + g_tracker.landingRace +
             "ms: takeoff mode " + g_tracker.takeoffMode +
-            ", landing steer " + g_tracker.landingDirection);
+            ", stored mode " + next.mode);
     }
     if (g_tracker.silentLandingEvent)
         DebugLog("Gorilla Grip Trainer landing resolved without verdict at " + t +
             "ms: takeoff mode " + g_tracker.takeoffMode + ", stored mode " + next.mode +
-            ", landing steer " + g_tracker.landingDirection +
             ", force " + Text::Format("%.3f", next.force) +
             ", gate " + next.forceGateState);
+    if (g_tracker.forceDisagreedEvent)
+        DebugLog("Gorilla Grip Trainer force did not rise although the direction held at " + t +
+            "ms: force " + Text::Format("%.3f", next.force) + ", gate " + next.forceGateState +
+            ", steer " + Text::Format("%.3f", next.smoothedSteer));
     if (g_tracker.unratedEvent)
         DebugLog("Gorilla Grip Trainer timing unrated at " + t + "ms: " +
             g_tracker.unratedReason);

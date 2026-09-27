@@ -17,20 +17,23 @@ pending_body = update_body.split("if (pendingLanding) {", 1)[1].split("\n       
 # The 800 ms cutoff is not a pass condition any more.
 assert "2 * recoveryDelayMs" not in transitions
 
-# Force is only expected once the gate is clear, the delay has run out, and a
-# front wheel touches: the game updates the multiplier only for front wheels,
-# so a rear-wheel-only contact leaves it unchanged even past 800 ms.
+# Force is expected once a front wheel touches (the game updates the
+# multiplier only for front wheels), the delay has run out, and the
+# backwards-motion gate is clear. Eligibility starts at the exact touchdown.
 assert "const uint FRONT_WHEELS = 0x3;" in transitions
-assert "(snap.contactMask & FRONT_WHEELS) != 0" in pending_body
+assert "int frontSince = ContactStart(snap, FRONT_WHEELS, takeoffClock);" in pending_body
+assert "Math::Max(frontSince, takeoffModeAt + recoveryDelayMs)" in pending_body
 assert "snap.forceGateState == 0" in pending_body
-assert "snap.gameTime - takeoffModeAt >= recoveryDelayMs" in pending_body
 
 # Deliberate gas-off spins can hold the gate longer; the wait counts from
 # whichever comes later, touchdown or the end of the delay.
 assert "const int FORCE_GATE_TIMEOUT_MS = 1000;" in transitions
-assert "Math::Max(landingClock, takeoffModeAt + recoveryDelayMs)" in pending_body
+assert "int deadline = FORCE_GATE_TIMEOUT_MS +" in pending_body
+assert "Math::Max(landingClock, takeoffModeAt + recoveryDelayMs);" in pending_body
 
-# A pass still needs the held mode and a rising multiplier.
-assert "int(snap.modeAt) == takeoffModeAt" in resolve_body
-assert "snap.force > 1.001f" in resolve_body
+# A pass needs the direction held as of the check tick; tire force only
+# confirms, and a disagreement is logged.
+assert "bool recovered = enoughIcing && !switchedByCheck &&" in resolve_body
+assert "forceEligibleClock - takeoffModeAt >= recoveryDelayMs" in resolve_body
+assert "snap.force > 1.001f" not in resolve_body
 print("Landing confirmation waits for the delay, not the cutoff: PASS")

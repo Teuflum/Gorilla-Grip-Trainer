@@ -29,9 +29,9 @@ assert "CUE_REVERSAL_WINDOW_MS" in start_body
 
 # Without a preview, a stored switch since takeoff counts like an opposite
 # landing steer; icing and the delayed-force check still apply.
-assert ("bool storedSwitched = snap.mode != 0 && snap.mode != takeoffMode &&\n"
-        "            int(snap.modeAt) != takeoffModeAt;") in resolve_body
-assert "(oppositeLanding || storedSwitched)" in no_preview
+assert ("bool storedSwitched = switchedByCheck && snap.mode != 0 &&\n"
+        "            snap.mode != takeoffMode;") in resolve_body
+assert "storedSwitched && snap.force <= 1.1f" in no_preview
 assert "enoughIcing" in no_preview and "snap.force <= 1.1f" in no_preview
 
 # The reason names the late reversal when the cue played.

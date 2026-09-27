@@ -73,3 +73,37 @@ assert "timingEstimated" not in verdict_class and "leadMinMs" not in verdict_cla
 update_body = transitions.split("void Update(PhysicsSnapshot@ snap) {", 1)[1]
 assert "\n        ObserveSteeringAndMode(snap);" in update_body
 print("Exact takeoff lead: PASS")
+
+# Landing: exact touchdown, touches between frames, and the stored direction
+# as of a fixed check tick.
+land = transitions.split("void Land(", 1)[1].split("\n    }\n", 1)[0]
+resolve = transitions.split("void ResolveLanding(", 1)[1].split("\n    }\n", 1)[0]
+pending = update_body.split("if (pendingLanding) {", 1)[1].split("\n        }\n", 1)[0]
+assert "landingDirection" not in transitions
+assert "ContactStart(snap, ALL_WHEELS, takeoffClock) : snap.contactClock;" in land
+assert "landingRace = snap.RaceAt(landingClock);" in land
+assert "landingTouchLifted = snap.contactMask == 0;" in land
+# A grounded wheel whose contact is not processed yet counts from the next tick.
+contact_start = transitions.split("int ContactStart(", 1)[1].split("\n}", 1)[0]
+assert "at = snap.gameTime + PHYSICS_TICK_MS;" in contact_start
+assert "TouchedSince" not in transitions and "EarliestWheelChange" not in transitions
+# Review Focus 1: a touch the game processed between two all-air frames.
+assert "else if (inFlight && snap.contactMask == 0 && snap.contactClock > takeoffClock) {" in update_body
+assert "if (!pendingLanding) StartFlight(snap);" in update_body
+assert "int frontSince = ContactStart(snap, FRONT_WHEELS, takeoffClock);" in pending
+assert "if (snap.forceGateState != 0) gateSeenAt = snap.gameTime;" in pending
+assert "Math::Max(landingClock + LANDING_CHECK_MS, eligibleAt + FORCE_SETTLE_MS)" in pending
+assert "snap.gameTime >= checkAt" in pending
+# Review Focus 2 and 5: the verdict uses the stored mode as of the check
+# tick; a lapse to neutral is dated from the neutral timer; force only confirms.
+assert "snap.neutralAt = int(Dev::SafeReadUint32(vehicle + 0x14e0));" in physics
+assert "Dev::SafeReadUint32(model + 0x1198)" in physics
+assert "bool switchedByCheck = storedAt != takeoffModeAt && changedAt <= checkClock;" in resolve
+assert "snap.neutralAt + snap.neutralTimeoutMs + PHYSICS_TICK_MS" in resolve
+assert "bool recovered = enoughIcing && !switchedByCheck &&" in resolve
+assert "snap.force > 1.001f" not in resolve
+assert "forceDisagreedEvent = true;" in resolve
+assert "forceDisagreedEvent = false;" in update_body.split("if (snap is null", 1)[0]
+assert 'DebugLog("Gorilla Grip Trainer force did not rise although the direction held at "' in main
+assert "storedAt <= landingClock + LANDING_STEER_MS" in resolve
+print("Landing from timestamps and stored mode: PASS")

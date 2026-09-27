@@ -28,4 +28,17 @@ assert '&inout' not in '\n'.join(line.split('//')[0] for line in settings.splitl
 assert 'S_UseAirAnnouncer' not in settings + audio
 assert 'OnAirCall' not in audio
 
+# Custom settings tabs carry no icon; Debug stays last.
+import re
+tabs = re.findall(r'\[SettingsTab name="(\w+)" icon="" order="(\d+)"\]', layout + settings)
+assert sorted(tabs, key=lambda tab: int(tab[1])) == [
+    ("Rating", "1"), ("Sounds", "2"), ("Layout", "3"), ("Debug", "99")], tabs
+assert (layout + settings).count("[SettingsTab") == 4
+
+# Only the top-level plugin menu entry has an icon.
+main = (ROOT / "Main.as").read_text(encoding="utf-8")
+menu = main.split("void RenderMenu() {", 1)[1].split("\n}", 1)[0]
+assert menu.count("Icons::") == 1 and "UI::BeginMenu(Icons::" in menu
+assert "UI::MenuItem(Icons::" not in menu
+
 print("Combined grade, compact sound settings, and voice timing contract: PASS")

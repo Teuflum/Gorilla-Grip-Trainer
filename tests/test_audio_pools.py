@@ -9,7 +9,7 @@ audio = (ROOT / "AudioDirector.as").read_text(encoding="utf-8")
 main = (ROOT / "Main.as").read_text(encoding="utf-8")
 
 assert '[Setting category="Audio"' not in settings
-assert '[SettingsTab name="Sounds"]' in settings
+assert '[SettingsTab name="Sounds"' in settings
 assert 'S_UseAirAnnouncer' not in settings + audio
 assert 'OnAirCall' not in audio
 assert 'g_audio.Update(' not in main

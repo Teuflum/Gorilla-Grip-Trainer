@@ -7,15 +7,53 @@ bool S_ShowWhenGameHudOff = false;
 [Setting hidden] bool S_GlobalHudVisibilityMigrated = false;
 [Setting category="Display" name="Show finish summary automatically"]
 bool S_AutoFinishSummary = true;
-[Setting category="Debug" name="Log trainer events" description="Writes routine trainer events (contact snapshots, previews, verdicts, audio, history saves) to Openplanet.log. Problems are always logged. The in-game tests need this on."]
-bool S_DebugLogging = false;
-[Setting category="Debug" name="Log every tire-force change" description="With Log trainer events on, also writes a snapshot line whenever the tire-force multiplier or force gate changes, not only on wheel-contact changes. For research traces; slow the game to capture every physics tick."]
-bool S_DebugForceTrace = false;
+// Debug options are edited on the developer-only Debug tab below and have no
+// effect outside Openplanet's developer mode.
+[Setting hidden] bool S_DebugLogging = false;
+[Setting hidden] bool S_DebugForceTrace = false;
+
+bool DebugLoggingOn() {
+#if SIG_DEVELOPER
+    return S_DebugLogging;
+#else
+    return false;
+#endif
+}
+
+bool DebugForceTraceOn() {
+    return DebugLoggingOn() && S_DebugForceTrace;
+}
 
 // Routine events only; report problems with print so they are always visible.
 void DebugLog(const string &in message) {
-    if (S_DebugLogging) print(message);
+    if (DebugLoggingOn()) print(message);
 }
+
+// A dimmed question mark that shows the text as a tooltip on hover.
+void HelpMarker(const string &in text) {
+    UI::SameLine();
+    UI::TextDisabled(Icons::QuestionCircle);
+    if (UI::BeginItemTooltip()) {
+        UI::PushTextWrapPos(UI::GetFontSize() * 30.0f);
+        UI::Text(text);
+        UI::PopTextWrapPos();
+        UI::EndTooltip();
+    }
+}
+
+#if SIG_DEVELOPER
+[SettingsTab name="Debug" icon="" order="99"]
+void RenderSettingsDebug() {
+    if (UI::Button("Reset to default")) {
+        S_DebugLogging = false;
+        S_DebugForceTrace = false;
+    }
+    S_DebugLogging = UI::Checkbox("Log trainer events", S_DebugLogging);
+    HelpMarker("Writes routine trainer events (contact snapshots, previews, verdicts, audio, history saves) to Openplanet.log. Problems are always logged. The in-game tests need this on.");
+    S_DebugForceTrace = UI::Checkbox("Log every tire-force change", S_DebugForceTrace);
+    HelpMarker("With Log trainer events on, also writes a snapshot line whenever the tire-force multiplier or force gate changes, not only on wheel-contact changes. For research traces; slow the game to capture every physics tick.");
+}
+#endif
 
 [Setting hidden]
 float S_MinIcing = 0.65f;
@@ -39,18 +77,17 @@ void NormalizeGradeThresholds() {
     S_DMaxLeadMs = Math::Clamp(S_DMaxLeadMs, S_CMaxLeadMs, 2000);
 }
 
-[SettingsTab name="Rating"]
+[SettingsTab name="Rating" icon="" order="1"]
 void RenderSettingsRating() {
-    if (UI::Button("Reset rating defaults")) {
+    if (UI::Button("Reset to default")) {
         S_SMaxLeadMs = 15; S_AMaxLeadMs = 35; S_BMaxLeadMs = 65;
         S_CMaxLeadMs = 110; S_DMaxLeadMs = 250;
         S_MinIcing = 0.65f; S_MinSpeed = 50; S_MinFlight = 100;
         S_MinSlideSlip = 20.0f;
     }
-    UI::TextWrapped("How early the physics steering direction may switch before the last wheel leaves. Each value is the latest grade's upper limit in milliseconds.");
-    UI::TextWrapped("S+ is awarded only for a confirmed 0-0 ms switch lead, with no separate threshold. It uses S points and sounds.");
-    UI::TextWrapped("The + marker on A-D means takeoff happened between sampled frames that cross a grade limit. A+ still scores A; the true timing may qualify for a higher rank.");
+    UI::SeparatorText("Grade limits");
     S_SMaxLeadMs = UI::InputInt("S maximum lead (ms)", S_SMaxLeadMs);
+    HelpMarker("How early the physics steering direction may switch before the last wheel leaves. Each value is the latest grade's upper limit in milliseconds.\n\nS+ is awarded only for a confirmed 0-0 ms switch lead, with no separate threshold. It uses S points and sounds.\n\nThe + marker on A-D means takeoff happened between sampled frames that cross a grade limit. A+ still scores A; the true timing may qualify for a higher rank.");
     S_AMaxLeadMs = UI::InputInt("A maximum lead (ms)", S_AMaxLeadMs);
     S_BMaxLeadMs = UI::InputInt("B maximum lead (ms)", S_BMaxLeadMs);
     S_CMaxLeadMs = UI::InputInt("C maximum lead (ms)", S_CMaxLeadMs);
@@ -170,7 +207,7 @@ SoundSlotChoice RenderSoundSlot(const string &in file, float volume) {
     return choice;
 }
 
-[SettingsTab name="Sounds"]
+[SettingsTab name="Sounds" icon="" order="2"]
 void RenderSettingsSounds() {
     InitVoicePools();
     if (!g_soundFilesScanned) RefreshSoundFiles();

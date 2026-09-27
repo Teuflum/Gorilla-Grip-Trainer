@@ -24,5 +24,5 @@ def require_event_logging(log_path: Path = LOG) -> None:
     text = log_path.read_text(encoding="utf-8", errors="replace")
     if not event_logging_enabled(text):
         raise SystemExit(
-            "Trainer event logging is off. Enable Openplanet Settings → "
+            "Trainer event logging is off. In Openplanet developer mode, enable Settings → "
             "Gorilla Grip Trainer → Debug → Log trainer events, then rerun.")

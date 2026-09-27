@@ -3,7 +3,8 @@
 The first landing must yield a single grade even when fast playback spans a
 grade boundary. The historical 16.8 s bounce check is opt-in because the
 user's selected input revision can change independently of this script.
-Needs Openplanet Settings → Gorilla Grip Trainer → Debug → Log trainer events.
+Needs Openplanet developer mode and Settings → Gorilla Grip Trainer → Debug →
+Log trainer events.
 """
 
 from __future__ import annotations

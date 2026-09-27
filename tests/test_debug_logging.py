@@ -8,10 +8,21 @@ root = Path(__file__).resolve().parents[1] / "plugin"
 settings = (root / "Settings.as").read_text(encoding="utf-8")
 sources = {path.name: path.read_text(encoding="utf-8") for path in root.glob("*.as")}
 
-assert '[Setting category="Debug" name="Log trainer events"' in settings
-assert "bool S_DebugLogging = false;" in settings
+assert "[Setting hidden] bool S_DebugLogging = false;" in settings
 helper = settings.split("void DebugLog(const string &in message) {", 1)[1].split("\n}", 1)[0]
-assert "if (S_DebugLogging) print(message);" in helper
+assert "if (DebugLoggingOn()) print(message);" in helper
+
+# Debug options work and appear only in Openplanet's developer mode.
+gate = settings.split("bool DebugLoggingOn() {", 1)[1].split("\n}", 1)[0]
+assert gate.split() == ["#if", "SIG_DEVELOPER", "return", "S_DebugLogging;",
+                        "#else", "return", "false;", "#endif"], gate
+before_tab, debug_tab = settings.split('[SettingsTab name="Debug"', 1)
+assert before_tab.rstrip().endswith("#if SIG_DEVELOPER")
+assert 'order="99"' in debug_tab.split("]", 1)[0]
+debug_body, after_tab = debug_tab.split("void RenderSettingsDebug() {", 1)[1].split("\n}", 1)
+assert 'UI::Checkbox("Log trainer events", S_DebugLogging)' in debug_body
+assert after_tab.lstrip().startswith("#endif")
+assert 'category="Debug"' not in settings
 
 # Problem reports, plus the one-line marker when event logging changes state.
 PROBLEMS = (
@@ -45,8 +56,10 @@ for prefix in PROBLEMS:
 
 # In-game tests look for the marker to know event logging is on.
 update = sources["Main.as"].split("void Update(float dt) {", 1)[1].split("\n}", 1)[0]
-assert "S_DebugLogging != g_eventLoggingOn" in update
-assert 'print("Gorilla Grip Trainer event logging " + (S_DebugLogging ? "on" : "off"))' in update
+assert "DebugLoggingOn() != g_eventLoggingOn" in update
+assert 'print("Gorilla Grip Trainer event logging " + (g_eventLoggingOn ? "on" : "off"))' in update
+assert not any("S_DebugLogging" in text for name, text in sources.items()
+               if name != "Settings.as"), "read the setting through DebugLoggingOn()"
 
 # The in-game tests read the marker since the latest plugin load.
 from trainer_log import event_logging_enabled

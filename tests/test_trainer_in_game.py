@@ -2,7 +2,8 @@
 
 This integration check needs Trackmania, TICK, and GorillaGripLogger running.
 It reads only fresh Openplanet log lines produced by its own TICK replay.
-Needs Openplanet Settings → Gorilla Grip Trainer → Debug → Log trainer events.
+Needs Openplanet developer mode and Settings → Gorilla Grip Trainer → Debug →
+Log trainer events.
 """
 
 from __future__ import annotations

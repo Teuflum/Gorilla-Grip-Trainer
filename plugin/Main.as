@@ -86,9 +86,9 @@ void Main() {
 void Update(float dt) {
     if (!g_supportedBuild) return;
     // One line per change, so the in-game tests can tell event logging is on.
-    if (S_DebugLogging != g_eventLoggingOn) {
-        g_eventLoggingOn = S_DebugLogging;
-        print("Gorilla Grip Trainer event logging " + (S_DebugLogging ? "on" : "off"));
+    if (DebugLoggingOn() != g_eventLoggingOn) {
+        g_eventLoggingOn = DebugLoggingOn();
+        print("Gorilla Grip Trainer event logging " + (g_eventLoggingOn ? "on" : "off"));
     }
     g_audio.UpdateSettings();
     auto vis = VehicleState::ViewingPlayerState();
@@ -178,7 +178,7 @@ void Update(float dt) {
             " | score " + g_session.score);
     }
     if (!next.exact) return;
-    if (g_previousContactMask != int(next.contactMask) || (S_DebugForceTrace &&
+    if (g_previousContactMask != int(next.contactMask) || (DebugForceTraceOn() &&
         (g_previousForce != next.force || g_previousForceGate != next.forceGateState))) {
         DebugLog("Gorilla Grip Trainer snapshot at " + t + "ms: exact true, mode " +
             next.mode + ", steer " + Text::Format("%.6f", next.smoothedSteer) +
@@ -200,14 +200,14 @@ void Update(float dt) {
 }
 
 void RenderMenu() {
-    if (!g_supportedBuild || !UI::BeginMenu(Icons::Bolt + " Gorilla Grip Trainer"))
+    if (!g_supportedBuild || !UI::BeginMenu(Icons::SnowflakeO + " Gorilla Grip Trainer"))
         return;
     if (g_finish !is null && g_finish.summary !is null &&
-        UI::MenuItem(Icons::Flag + " Finish summary", "", g_finish.visible))
+        UI::MenuItem("Finish summary", "", g_finish.visible))
         g_finish.visible = !g_finish.visible;
-    if (UI::MenuItem(Icons::History + " Run history", "", g_showHistory))
+    if (UI::MenuItem("Run history", "", g_showHistory))
         g_showHistory = !g_showHistory;
-    if (UI::MenuItem(Icons::Eye + " Enable widgets", "", S_EnableWidgets))
+    if (UI::MenuItem("Enable widgets", "", S_EnableWidgets))
         S_EnableWidgets = !S_EnableWidgets;
     UI::EndMenu();
 }

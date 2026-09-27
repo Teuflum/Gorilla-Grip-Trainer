@@ -13,11 +13,11 @@
 
 array<string> g_pictureResults = {"S+", "S", "A", "B", "C", "D", "MISSED"};
 array<string> g_emojiNames = {"gorilla", "oncoming-fist", "flexed-biceps",
-    "fire", "thumbs-up", "ok-hand", "slightly-smiling-face", "skull", "ice",
-    "snowflake", "trophy", "star"};
+    "fire", "thumbs-up", "ok-hand", "slightly-smiling-face", "skull",
+    "loudly-crying-face", "ice", "snowflake", "trophy", "star"};
 array<string> g_emojiLabels = {"Gorilla", "Oncoming fist", "Flexed biceps",
-    "Fire", "Thumbs up", "OK hand", "Slightly smiling face", "Skull", "Ice",
-    "Snowflake", "Trophy", "Star"};
+    "Fire", "Thumbs up", "OK hand", "Slightly smiling face", "Skull",
+    "Loudly crying face", "Ice", "Snowflake", "Trophy", "Star"};
 array<string> g_emojiSets = {"fluent-flat", "fluent-3d", "twemoji", "noto", "openmoji"};
 array<string> g_emojiSetLabels = {"Fluent Flat", "Fluent 3D", "Twemoji", "Noto (Android)", "OpenMoji"};
 

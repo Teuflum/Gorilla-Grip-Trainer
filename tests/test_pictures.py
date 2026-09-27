@@ -9,12 +9,13 @@ ASSETS = ROOT / "plugin" / "assets"
 EMOJI = {
     "gorilla": "1f98d", "oncoming-fist": "1f44a", "flexed-biceps": "1f4aa",
     "fire": "1f525", "thumbs-up": "1f44d", "ok-hand": "1f44c",
-    "slightly-smiling-face": "1f642", "skull": "1f480", "ice": "1f9ca",
+    "slightly-smiling-face": "1f642", "skull": "1f480",
+    "loudly-crying-face": "1f62d", "ice": "1f9ca",
     "snowflake": "2744", "trophy": "1f3c6", "star": "2b50",
 }
 SETS = ["fluent-flat", "fluent-3d", "twemoji", "noto", "openmoji"]
 
-# Each set ships the same twelve 256x256 RGBA PNGs, and nothing else.
+# Each set ships the same thirteen 256x256 RGBA PNGs, and nothing else.
 emoji = ASSETS / "emoji"
 assert sorted(p.name for p in emoji.iterdir() if p.is_dir()) == sorted(SETS)
 for emoji_set in SETS:
@@ -82,7 +83,8 @@ labels = re.search(r"array<string> g_emojiLabels = \{([^}]*)\};", pictures).grou
 assert re.findall(r'"([^"]+)"', names) == list(EMOJI)
 assert re.findall(r'"([^"]+)"', labels) == [
     "Gorilla", "Oncoming fist", "Flexed biceps", "Fire", "Thumbs up", "OK hand",
-    "Slightly smiling face", "Skull", "Ice", "Snowflake", "Trophy", "Star"]
+    "Slightly smiling face", "Skull", "Loudly crying face", "Ice", "Snowflake",
+    "Trophy", "Star"]
 for result, setting in (("S+", "S_PictureSPlus"), ("MISSED", "S_PictureMissed")):
     assert f'if (result == "{result}") return {setting};' in pictures, result
 

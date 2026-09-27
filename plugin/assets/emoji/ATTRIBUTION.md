@@ -1,6 +1,6 @@
 # Emoji pictures
 
-Each folder holds the same twelve pictures from one open-source emoji project,
+Each folder holds the same thirteen pictures from one open-source emoji project,
 rendered at 256×256 by `tools/render_emoji.py` from the pinned sources below.
 The pictures are unchanged apart from rasterization.
 
@@ -24,6 +24,7 @@ thumbs up, OK hand) the default yellow variant is used.
 | `ok-hand.png` | 👌 | 1f44c |
 | `slightly-smiling-face.png` | 🙂 | 1f642 |
 | `skull.png` | 💀 | 1f480 |
+| `loudly-crying-face.png` | 😭 | 1f62d |
 | `ice.png` | 🧊 | 1f9ca |
 | `snowflake.png` | ❄️ | 2744 |
 | `trophy.png` | 🏆 | 1f3c6 |

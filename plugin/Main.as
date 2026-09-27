@@ -125,13 +125,16 @@ void Update(float dt) {
     }
     int t = ReadRaceTime(vis);
     if (t < 0) {
-        // The start countdown after Improve already begins the next attempt:
-        // stop the finish music now, not when the timer reaches zero.
-        if (g_finish.summary !is null) {
+        // The start countdown (a failed read gives -1) already begins the next
+        // attempt: stop the finish music and clear the old run's stats now,
+        // not when the timer reaches zero.
+        if (t < -1 && (g_activeRun !is null || g_finish.summary !is null)) {
             ResetAttemptState();
-            g_finish.NewAttempt();
+            if (g_finish.summary !is null) g_finish.NewAttempt();
             g_previousRaceTime = -1;
         }
+        // Keep the widgets up during the countdown, without timing anything.
+        if (g_activeRun is null) @g_snapshot = ReadPhysics(vis, t);
         return;
     }
     if (g_activeRun is null && g_finish.summary !is null &&

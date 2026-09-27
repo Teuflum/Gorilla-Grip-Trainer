@@ -453,7 +453,7 @@ void RenderWidgets() {
     if (g_finish !is null && g_finish.visible &&
         g_finish.summary !is null && ShouldRenderWidget(layout))
         RenderFinishSummary(layout.Pixels(), g_finish.summary);
-    if (g_snapshot is null || g_snapshot.raceTime < 0) return;
+    if (g_snapshot is null) return;
     @layout = GetLayout("diagnostics");
     if (ShouldRenderWidget(layout))
         RenderDiagnostics(layout.Pixels(), g_snapshot);

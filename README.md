@@ -22,16 +22,16 @@ The grade depends only on how early the direction switched before the last wheel
 | Grade | Switch lead (default) | Base points |
 | --- | --- | --- |
 | S+ | exactly 0 ms | 150 |
-| S | up to 15 ms | 150 |
-| A | up to 35 ms | 120 |
-| B | up to 65 ms | 90 |
+| S | up to 10 ms | 150 |
+| A | up to 30 ms | 120 |
+| B | up to 60 ms | 90 |
 | C | up to 110 ms | 60 |
 | D | up to 250 ms | 30 |
 
 - **Score:** base points × combo multiplier (up to ×8).
 - **`UNRATED`:** the plugin lost the physics read or the contact timing, so it doesn't guess a grade.
 
-Timing comes from the game's own physics clock, so grades don't depend on frame rate or game speed.
+Timing comes from the game's own physics clock, so grades don't depend on frame rate or game speed. The physics runs in 10 ms ticks, so every lead is a multiple of 10 ms: S is one tick early, A two or three, B four to six.
 
 ## HUD widgets
 

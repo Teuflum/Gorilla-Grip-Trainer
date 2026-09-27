@@ -141,7 +141,8 @@ void RenderFinishSummary(const vec4 &in r, RunRecord@ run) {
         int median = leads[leads.Length / 2];
         if (leads.Length % 2 == 0)
             median = (leads[leads.Length / 2 - 1] + median) / 2;
-        bestLead = bestLo + "-" + bestHi + "ms";
+        // Older entries may hold a lead range; new ones hold one exact value.
+        bestLead = bestLo == bestHi ? bestLo + "ms" : bestLo + "-" + bestHi + "ms";
         medianLead = "~" + median + "ms";
     }
     array<string> detailLabels = {"MISSED", "UNRATED", "BEST LEAD", "MEDIAN"};

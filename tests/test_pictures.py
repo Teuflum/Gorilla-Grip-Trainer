@@ -126,7 +126,9 @@ for kind in ("nvg::Texture@", "UI::Texture@"):
     assert "texture !is null && texture.GetSize().x > 0 && texture.GetSize().y > 0" in usable, kind
 # Review fix: pictures are drawn much smaller than 256 px, so use mipmaps.
 assert "nvg::LoadTexture(asset, nvg::TextureFlags::GenerateMipmaps)" in load
-assert "nvg::LoadTexture(ReadLocalImage(path), nvg::TextureFlags::GenerateMipmaps)" in load
+assert "nvg::LoadTexture(buffer, nvg::TextureFlags::GenerateMipmaps)" in load
+assert load.count("ReadLocalImage(") == 1 and "MemoryBuffer@ buffer = ReadLocalImage(path);" in load
+assert "buffer.Seek(0);" in load
 print("Invalid pictures fail safely, with mipmaps: PASS")
 
 # Each picture picks its own source: an emoji set, a local file, or none.

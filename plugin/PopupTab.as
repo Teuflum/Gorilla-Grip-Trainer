@@ -47,10 +47,15 @@ void RenderPictureRow(const string &in result) {
     string choice = PictureSetting(result);
     float thumb = 28.0f*UI::GetScale();
     PictureTexture@ picture = GetPicture(choice);
-    if (picture !is null && picture.thumbnail !is null)
-        UI::Image(picture.thumbnail, vec2(thumb, thumb));
-    else
-        UI::Dummy(vec2(thumb, thumb));
+    vec2 cell = UI::GetCursorScreenPos();
+    UI::Dummy(vec2(thumb, thumb));
+    if (picture !is null && picture.thumbnail !is null) {
+        // Fit the picture inside the square cell without stretching it.
+        vec2 dims = picture.thumbnail.GetSize();
+        float aspect = dims.x / Math::Max(dims.y, 1.0f);
+        vec2 size = aspect >= 1.0f ? vec2(thumb, thumb/aspect) : vec2(thumb*aspect, thumb);
+        UI::GetWindowDrawList().AddImage(picture.thumbnail, cell + (vec2(thumb, thumb) - size)*0.5f, size);
+    }
     UI::SameLine();
     UI::AlignTextToFramePadding();
     UI::Text(result == "MISSED" ? "Missed" : result);

@@ -37,13 +37,24 @@ row = tab.split("void RenderPictureRow(const string &in result) {", 1)[1].split(
 assert 'if (UI::Button("Preview")) StartPopupPreview(result);' in row
 assert 'if (UI::Selectable("None", source.Length == 0))' in row
 assert 'SetPictureSetting(result, "local:" + g_localImages[i]);' in row
-assert "UI::Image(picture.thumbnail, vec2(thumb, thumb));" in row
+# Thumbnails fit inside a square cell without stretching.
+assert "UI::Image(" not in row
+assert "vec2 size = aspect >= 1.0f ? vec2(thumb, thumb/aspect) : vec2(thumb*aspect, thumb);" in row
+assert "UI::GetWindowDrawList().AddImage(picture.thumbnail, cell + (vec2(thumb, thumb) - size)*0.5f, size);" in row
 
-# Previews draw even with widgets off; a real verdict replaces a preview (Review Focus 4).
+# Previews draw even with widgets off, on top of the other widgets; a real
+# verdict replaces a preview (Review Focus 4).
 widgets_render = widgets.split("void RenderWidgets() {", 1)[1].split("\n}", 1)[0]
-assert widgets_render.index("int previewAge = PopupPreviewAge();") < widgets_render.index("if (!S_EnableWidgets) return;")
+cards = widgets.split("void RenderWidgetCards(int previewAge) {", 1)[1].split("\n}", 1)[0]
+assert widgets_render.index("int previewAge = PopupPreviewAge();") < widgets_render.index("if (S_EnableWidgets) RenderWidgetCards(previewAge);")
+assert widgets_render.index("if (S_EnableWidgets) RenderWidgetCards(previewAge);") < widgets_render.index("RenderResult(grade.Pixels(), previewAge,")
 assert "RenderResult(grade.Pixels(), previewAge, g_popupPreviewLabel, false,\n                PopupPreviewSeed(g_popupPreviewLabel));" in widgets_render
-assert "if (previewAge < 0 && ShouldRenderWidget(layout)) {" in widgets_render
+assert "return;" not in widgets_render
+assert "if (previewAge < 0 && ShouldRenderWidget(layout)) {" in cards
 show = widgets.split("void ShowResult(JumpVerdict@ verdict, int raceTime) {", 1)[1].split("\n}", 1)[0]
 assert "StopPopupPreview();" in show
 print("Popup tab and previews: PASS")
+
+readme = (ROOT.parent / "README.md").read_text(encoding="utf-8")
+assert "The settings tabs are Display, Rating, Sounds, Popup, and Layout, followed by Debug" in readme
+print("Thumbnails, preview order and README tab list: PASS")

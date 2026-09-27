@@ -149,3 +149,8 @@ print("Ice shards stay behind the grade visually: PASS")
 cracks = body("void DrawPopupCracks(PopupFrame@ f)")
 assert "vec2 p = vec2(f.cx + f.ox + Math::Cos(angle)*40.0f*f.s,\n            f.cy + f.oy - 8.0f*f.s + Math::Sin(angle)*40.0f*f.s*0.55f);" in cracks
 print("Cracks start outside the grade letter: PASS")
+
+spec = (ROOT.parent / "docs" / "superpowers" / "specs" / "2026-09-27-grade-popup-pictures-design.md").read_text(encoding="utf-8")
+assert "- particle and snowflake counts (rounded) and crack counts (rounded down);" in spec
+assert "- particle, crack, and snowflake counts (rounded);" not in spec
+print("Spec intensity rules match the crack counts: PASS")

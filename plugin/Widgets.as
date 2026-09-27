@@ -397,15 +397,18 @@ bool ShouldRenderWidget(WidgetLayout@ layout) {
 
 void RenderWidgets() {
     if (g_hudFont >= 0) nvg::FontFace(g_hudFont);
-    // A Popup-tab preview plays even with widgets off or outside a run.
     int previewAge = PopupPreviewAge();
+    if (S_EnableWidgets) RenderWidgetCards(previewAge);
+    // A Popup-tab preview plays on top, even with widgets off or outside a run.
     if (previewAge >= 0) {
         WidgetLayout@ grade = GetLayout("grade");
         if (grade !is null)
             RenderResult(grade.Pixels(), previewAge, g_popupPreviewLabel, false,
                 PopupPreviewSeed(g_popupPreviewLabel));
     }
-    if (!S_EnableWidgets) return;
+}
+
+void RenderWidgetCards(int previewAge) {
     WidgetLayout@ layout = GetLayout("finish");
     if (g_finish !is null && g_finish.visible &&
         g_finish.summary !is null && ShouldRenderWidget(layout))

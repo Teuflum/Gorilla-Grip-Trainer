@@ -25,7 +25,7 @@ assert "if (g_activeRun is null) @g_snapshot = ReadPhysics(vis, t);" in countdow
 assert "g_tracker.Update" not in countdown
 assert countdown.rstrip().endswith("return;")
 widgets = (root / "Widgets.as").read_text(encoding="utf-8")
-render = widgets.split("void RenderWidgets() {", 1)[1].split("\n}", 1)[0]
+render = widgets.split("void RenderWidgetCards(int previewAge) {", 1)[1].split("\n}", 1)[0]
 assert "if (g_snapshot is null) return;" in render
 assert "raceTime < 0" not in render
 

@@ -158,8 +158,10 @@ PictureTexture@ LoadPicture(const string &in choice) {
         } else {
             string path = IO::FromStorageFolder("LocalImages/" + choice.SubStr(6));
             if (IO::FileExists(path)) {
-                @picture.drawing = nvg::LoadTexture(ReadLocalImage(path), nvg::TextureFlags::GenerateMipmaps);
-                @picture.thumbnail = UI::LoadTexture(ReadLocalImage(path));
+                MemoryBuffer@ buffer = ReadLocalImage(path);
+                @picture.drawing = nvg::LoadTexture(buffer, nvg::TextureFlags::GenerateMipmaps);
+                buffer.Seek(0);
+                @picture.thumbnail = UI::LoadTexture(buffer);
             }
         }
     } catch {

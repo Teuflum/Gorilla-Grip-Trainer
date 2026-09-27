@@ -129,7 +129,7 @@ shows the style name followed by "(custom)", for example
 `S_PopupIntensity` is an integer from 0 to 200 (default 100); let
 `k = intensity / 100`. It multiplies:
 
-- particle, crack, and snowflake counts (rounded);
+- particle and snowflake counts (rounded) and crack counts (rounded down);
 - particle speed and travel distance;
 - shake amplitude;
 - the style's flash alpha (the one base-look element that scales);

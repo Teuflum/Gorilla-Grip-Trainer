@@ -30,6 +30,9 @@ The work happens on the branch `tick-exact-timing`.
 - The landing direction comes from the stored mode, not from the steering
   seen on the first grounded frame (see *Landing*).
 - `A+`, the lead range, and the 50 ms sample-gap rule go away.
+- Tire force no longer decides a confirmed landing; the stored direction does
+  (see *Landing*). A debug line records any landing where the direction held
+  but the force did not rise.
 - Version 0.3.0.
 
 ## Evidence so far
@@ -117,10 +120,19 @@ removed or folded into the existing snapshot debug line.
   above is such a touch, it is contact, and the takeoff tick is the last
   lift-off after it.
 - **Landing direction.** The engine's stored state decides:
-  - *confirmed* when the stored mode and `modeAt` are unchanged at the check
-    tick and force was eligible;
+  - *confirmed* when `modeAt` is unchanged as of the check tick and force was
+    eligible;
   - *opposite* (`MISSED`) when `modeAt` changed between the takeoff tick and
     the check tick.
+
+  Every tire-force reset writes `modeAt`. In the decompiled car update
+  (research repository, `work/ghidra_decompiled/14084f98a.c`, lines 143–165)
+  the multiplier is reset to `1.0` in one block, which also stores the current
+  clock in `modeAt`; it runs when the stored direction changes or when the
+  status bit `vehicle + 0x128c & 0x20000` is set. A lapse to neutral stores
+  `0xFFFFFFFF` in `modeAt`. It happens on the first tick after the neutral
+  spell's start (`vehicle + 0x14e0`) plus the model's neutral timeout
+  (`model + 0x1198`, 300 ms), so the verdict dates it exactly.
 
   Behaviour change: a landing with neutral steering during the first 30 ms
   that then steers the matching way used to be `MISSED`; it is now confirmed,
@@ -133,9 +145,17 @@ removed or folded into the existing snapshot debug line.
   resolved on the first frame at or after the check tick, using the state at
   that tick:
   - a mode switch whose `modeAt` is after the check tick is ignored;
-  - the force reading (above `1.001×`) is checked only while the stored mode
-    is still unchanged; if a later switch reset the force, the tick rule
-    decides.
+  - tire force does not decide. Without a reset, a low multiplier means a low
+    target (neutral or light steering, a low-speed curve, the backwards-motion
+    flag), not a delayed grip, and reading it on a late frame would make the
+    verdict depend on the frame rate. In the Openplanet logs up to 27
+    September 2026, the force floor decided no 0.2.x verdict; the ten 0.1.0
+    verdicts it decided came from checks before the delay ran out or with
+    only rear wheels down, which the current rules already exclude;
+  - when a previewed landing is confirmed while the stored direction still
+    holds and the multiplier is at most `1.001×`, a debug line ("force did
+    not rise although the direction held") records it, so testing on other
+    maps shows any disagreement.
 - **Still sampled per frame:** the backwards-motion flag (`vehicle + 0x1600`)
   has no timestamp. While a frame shows it set, eligibility restarts at that
   frame. The 1000 ms "force never eligible" timeout is measured from the

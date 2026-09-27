@@ -30,7 +30,7 @@
 2. **Late verdict frame.** At low fps the first frame after the check tick can be hundreds of ms late, and the player may have switched direction in between. The verdict must use `modeAt <= checkClock`. Test: Task 4 asserts `switchedByCheck` and the no-force-check path.
 3. **Unset or stale timestamps.** On a fresh car or after a respawn a timestamp can be `0xFFFFFFFF` (read as -1) or older than the previous frame. The takeoff must become `UNRATED` ("Contact timestamps were inconsistent at takeoff"), never a wrong grade. Test: Task 3 asserts `TakeoffStampsValid` rejects a takeoff outside `(before, after]` and a grounded wheel without a new timestamp.
 4. **Frame skip left on.** `S_DebugFrameSkip` saved as 5 must have no effect outside developer mode. Test: Task 1 asserts `DebugFrameSkip()` returns 1 under `#else`.
-5. **Mode cleared to neutral after the check tick.** A late frame sees mode 0 with an unchanged `modeAt`. It is treated as not held; this is the one remaining frame-dependent verdict edge. Test: Task 4 asserts `stillHeld` requires `snap.mode == takeoffMode`, and Task 7 documents the edge in the main spec.
+5. **Direction lapsed to neutral, or force low while it held.** A lapse writes `modeAt = -1`; a late frame must date it from the neutral timer, so a lapse after the check tick still counts as held. A low force without a reset (light steering, low speed) must confirm, with a debug line, not miss. Test: Task 4 asserts `changedAt` from `neutralAt + neutralTimeoutMs`, that force is absent from `recovered`, and the disagreement line.
 
 ---
 
@@ -944,12 +944,13 @@ git -c safe.directory='*' commit -m "Grade the takeoff from wheel timestamps"
 
 **Files:**
 - Modify: `plugin/Transitions.as` (constants, helpers, tracker fields, `Reset`, `Land`, `ResolveLanding`, `Update`)
-- Modify: `plugin/Main.as` (landing log lines)
-- Test: `tests/test_tick_timing.py`, `tests/test_landing_confirmation.py`, `tests/test_touch_switch_reason.py`, `tests/test_late_switch_miss.py`
+- Modify: `plugin/Physics.as` (neutral timer reads)
+- Modify: `plugin/Main.as` (landing log lines, force-disagreement line)
+- Test: `tests/test_tick_timing.py`, `tests/test_landing_confirmation.py`, `tests/test_touch_switch_reason.py`, `tests/test_late_switch_miss.py`, `tests/test_debug_logging.py:48`
 
 **Interfaces:**
 - Consumes: `PHYSICS_TICK_MS`, `LatestWheelChange`, `takeoffClock` (Task 3).
-- Produces: `int EarliestWheelChange(PhysicsSnapshot@ snap, int after)`, `int ContactStart(PhysicsSnapshot@ snap, uint mask, int after)`, `bool TouchedSince(PhysicsSnapshot@ snap, int after)`, tracker fields `int checkClock`, `int gateSeenAt`. `landingDirection` is removed.
+- Produces: `int EarliestWheelChange(PhysicsSnapshot@ snap, int after)`, `int ContactStart(PhysicsSnapshot@ snap, uint mask, int after)`, `bool TouchedSince(PhysicsSnapshot@ snap, int after)`, `PhysicsSnapshot.neutralAt`, `PhysicsSnapshot.neutralTimeoutMs`, tracker fields `int checkClock`, `int gateSeenAt`, `bool forceDisagreedEvent`. `landingDirection` is removed.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -973,10 +974,17 @@ assert "int frontSince = ContactStart(snap, FRONT_WHEELS, takeoffClock);" in pen
 assert "if (snap.forceGateState != 0) gateSeenAt = snap.gameTime;" in pending
 assert "Math::Max(landingClock + LANDING_CHECK_MS, eligibleAt + FORCE_SETTLE_MS)" in pending
 assert "snap.gameTime >= checkAt" in pending
-# Review Focus 2 and 5: the verdict uses the stored mode as of the check tick.
-assert "bool switchedByCheck = storedAt != takeoffModeAt && storedAt <= checkClock;" in resolve
-assert "bool stillHeld = snap.mode == takeoffMode && storedAt == takeoffModeAt;" in resolve
-assert "(!stillHeld || snap.force > 1.001f)" in resolve
+# Review Focus 2 and 5: the verdict uses the stored mode as of the check
+# tick; a lapse to neutral is dated from the neutral timer; force only confirms.
+assert "snap.neutralAt = int(Dev::SafeReadUint32(vehicle + 0x14e0));" in physics
+assert "Dev::SafeReadUint32(model + 0x1198)" in physics
+assert "bool switchedByCheck = storedAt != takeoffModeAt && changedAt <= checkClock;" in resolve
+assert "snap.neutralAt + snap.neutralTimeoutMs + PHYSICS_TICK_MS" in resolve
+assert "bool recovered = enoughIcing && !switchedByCheck &&" in resolve
+assert "snap.force > 1.001f" not in resolve
+assert "forceDisagreedEvent = true;" in resolve
+assert "forceDisagreedEvent = false;" in update_body.split("if (snap is null", 1)[0]
+assert 'DebugLog("Gorilla Grip Trainer force did not rise although the direction held at "' in main
 assert "storedAt <= landingClock + LANDING_STEER_MS" in resolve
 print("Landing from timestamps and stored mode: PASS")
 ```
@@ -998,9 +1006,11 @@ assert "const int FORCE_GATE_TIMEOUT_MS = 1000;" in transitions
 assert "int deadline = FORCE_GATE_TIMEOUT_MS +" in pending_body
 assert "Math::Max(landingClock, takeoffModeAt + recoveryDelayMs);" in pending_body
 
-# A pass still needs the held mode and, while it is held, a rising multiplier.
-assert "bool stillHeld = snap.mode == takeoffMode && storedAt == takeoffModeAt;" in resolve_body
-assert "snap.force > 1.001f" in resolve_body
+# A pass needs the direction held as of the check tick; tire force only
+# confirms, and a disagreement is logged.
+assert "bool recovered = enoughIcing && !switchedByCheck &&" in resolve_body
+assert "forceEligibleClock - takeoffModeAt >= recoveryDelayMs" in resolve_body
+assert "snap.force > 1.001f" not in resolve_body
 print("Landing confirmation waits for the delay, not the cutoff: PASS")
 ```
 
@@ -1087,7 +1097,16 @@ bool TouchedSince(PhysicsSnapshot@ snap, int after) {
 }
 ```
 
-In `class TransitionTracker`, delete `    int landingDirection = 0;` and, after `    int forceEligibleClock = -1;`, add:
+In `class TransitionTracker`, after `    bool silentLandingEvent = false;`, add:
+
+```angelscript
+    // A confirmed landing whose direction held but whose force did not rise.
+    bool forceDisagreedEvent = false;
+```
+
+Add `        forceDisagreedEvent = false;` after `        silentLandingEvent = false;` in both `Reset()` and the event resets at the top of `Update`.
+
+Delete `    int landingDirection = 0;` and, after `    int forceEligibleClock = -1;`, add:
 
 ```angelscript
     // The tick the landing verdict is decided at, once known.
@@ -1138,17 +1157,21 @@ Replace the body of `void ResolveLanding(PhysicsSnapshot@ snap) { … }` with:
         pendingLanding = false;
         bool hasPreview = preview !is null && previewPublished;
         bool enoughIcing = snap.meanIcing >= S_MinIcing;
-        // The verdict uses the stored direction as of the check tick: a switch
-        // stored after that tick had not happened yet.
+        // The verdict uses the stored direction as of the check tick. Every
+        // tire-force reset writes modeAt; a lapse to neutral writes -1 and
+        // happens on the tick after the neutral timeout runs out.
         int storedAt = int(snap.modeAt);
-        bool switchedByCheck = storedAt != takeoffModeAt && storedAt <= checkClock;
-        bool stillHeld = snap.mode == takeoffMode && storedAt == takeoffModeAt;
-        bool heldAtCheck = stillHeld || (storedAt != takeoffModeAt && !switchedByCheck);
-        // Force corroborates only while the direction is still held; a later
-        // switch has reset it, and the tick rule above decides.
-        bool recovered = enoughIcing && heldAtCheck &&
-            forceEligibleClock - takeoffModeAt >= recoveryDelayMs &&
-            (!stillHeld || snap.force > 1.001f);
+        int changedAt = storedAt;
+        if (snap.mode == 0 && storedAt == -1)
+            changedAt = snap.neutralAt >= 0 && snap.neutralTimeoutMs > 0 ?
+                snap.neutralAt + snap.neutralTimeoutMs + PHYSICS_TICK_MS : -1;
+        bool switchedByCheck = storedAt != takeoffModeAt && changedAt <= checkClock;
+        // Tire force does not decide: without a reset, a low force means a low
+        // target (light steering, low speed), not a delayed grip.
+        bool recovered = enoughIcing && !switchedByCheck &&
+            forceEligibleClock - takeoffModeAt >= recoveryDelayMs;
+        if (hasPreview && recovered && storedAt == takeoffModeAt && snap.force <= 1.001f)
+            forceDisagreedEvent = true;
         // A scrape in flight counts as ground contact and can store the new
         // direction before the real landing; name it instead of a generic miss.
         bool touchSwitched = landingTouchLifted && switchedByCheck;
@@ -1257,7 +1280,34 @@ with:
             ", stored mode " + next.mode);
 ```
 
-and in the `silentLandingEvent` line delete `            ", landing steer " + g_tracker.landingDirection +`.
+and in the `silentLandingEvent` line delete `            ", landing steer " + g_tracker.landingDirection +`. After the `silentLandingEvent` statement, add:
+
+```angelscript
+    if (g_tracker.forceDisagreedEvent)
+        DebugLog("Gorilla Grip Trainer force did not rise although the direction held at " + t +
+            "ms: force " + Text::Format("%.3f", next.force) + ", gate " + next.forceGateState +
+            ", steer " + Text::Format("%.3f", next.smoothedSteer));
+```
+
+In `plugin/Physics.as`, add to `PhysicsSnapshot` after `int physicsClock = -1;`:
+
+```angelscript
+    // Start of the current neutral-steering spell (vehicle+0x14e0), or -1.
+    int neutralAt = -1;
+    // Neutral time after which the game lets the stored direction lapse.
+    int neutralTimeoutMs = -1;
+```
+
+and in `ReadPhysics`, after `snap.physicsClock = …;` (and the Task 3 clock line, if present):
+
+```angelscript
+    snap.neutralAt = int(Dev::SafeReadUint32(vehicle + 0x14e0));
+    uint neutralTimeout = Dev::SafeReadUint32(model + 0x1198);
+    snap.neutralTimeoutMs = neutralTimeout >= 50 && neutralTimeout <= 5000 ?
+        int(neutralTimeout) : -1;
+```
+
+In `tests/test_debug_logging.py`, change `33` to `34` and the comment to `# 21 routine events, 12 problems, 1 state marker`.
 
 - [ ] **Step 8: Run the tests**
 
@@ -1318,7 +1368,7 @@ assert "const int YAW_RATE_OFFSET = " in physics
 print("Gap-safe cue and spins: PASS")
 ```
 
-In `tests/test_debug_logging.py`, change `33` to `32` and the comment to `# 19 routine events, 12 problems, 1 state marker`.
+In `tests/test_debug_logging.py`, change `34` to `33` and the comment to `# 20 routine events, 12 problems, 1 state marker`.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
@@ -1715,7 +1765,7 @@ In `docs/superpowers/specs/2026-09-25-gorilla-grip-trainer.md`:
 - Line 25: replace the last sentence ("If the exact mode transition was missed because sampling was too sparse …") with: "If the wheel timestamps at takeoff are inconsistent, the attempt is `UNRATED`, not a guessed grade."
 - Line 27: replace the paragraph with a description of the takeoff tick (the latest of the four wheel timestamps at `vehicle + 0x1820 + 0xb8·i` on the first all-air frame, valid only inside the frame interval), the exact lead `takeoffTick − modeAt`, and a pointer to `2026-09-27-tick-exact-timing-design.md`. Keep the +13 example as the evidence that the switch and the last lift-off can share a tick (lead 0 = S+).
 - Line 40: replace "S+ requires the fixed, confirmed `0–0 ms` lead interval" with "S+ requires a 0 ms lead", and drop the sentence "The 10 ms physics tick and display sampling do not justify sub-tick precision claims." Replace "a conservative timing grade requires a valid bounded interval" with "timing comes from the physics timestamps, not from display frames".
-- Line 42: rewrite the landing paragraph to the rules of the tick-exact spec's *Landing* section: landing tick, touches between frames, stored-mode direction, the check tick `max(landing + 80 ms, eligible + 30 ms)`, force corroboration only while the mode is held, the backwards-motion gate sampled per frame, the neutral-landing behaviour change, and the one remaining edge (mode cleared to neutral between the check tick and a late frame counts as not held).
+- Line 42: rewrite the landing paragraph to the rules of the tick-exact spec's *Landing* section: landing tick, touches between frames, stored-mode direction, the check tick `max(landing + 80 ms, eligible + 30 ms)`, tire force as a logged confirmation only (with the decompiled reset block as the reason), the lapse to neutral dated from `vehicle+0x14e0` plus the neutral timeout, the backwards-motion gate sampled per frame, and the neutral-landing behaviour change.
 
 - [ ] **Step 5: Research note and skill reference**
 
@@ -1726,6 +1776,7 @@ In `../.claude/skills/trainer-run-analysis/references/state-machine.md`:
 - Replace "grounded samples where raw steering flips sign" with "frames starting grounded where raw steering flips sign; the tick is estimated from the smoothed-steering travel (0.2 per tick)".
 - Replace `preview at … lead lo-hi ms` with `preview at … lead N ms`, and "a sample gap in flight makes it unreliable" with "unwrapped with the yaw rate; without it, a gap that could hide half a turn makes it unreliable".
 - In the no-preview MISSED rule, replace "the landing steer is opposite or the stored mode switched since takeoff" with "the stored mode switched between takeoff and the check tick".
+- In the previewed-landing rule, remove the force floor (`force > 1.001`) from the pass condition and add: "`force did not rise although the direction held` marks a pass whose force stayed ≤ 1.001×; look there first if a map rates differently than expected".
 
 - [ ] **Step 6: Run the tests**
 

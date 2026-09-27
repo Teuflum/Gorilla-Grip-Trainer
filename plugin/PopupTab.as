@@ -28,13 +28,6 @@ void RenderSettingsPopup() {
 
     UI::SeparatorText("Pictures");
     S_ShowPictures = UI::Checkbox("Show pictures", S_ShowPictures);
-    UI::SetNextItemWidth(260.0f);
-    if (UI::BeginCombo("Emoji set", EmojiSetLabel())) {
-        for (uint i = 0; i < g_emojiSets.Length; i++)
-            if (UI::Selectable(g_emojiSetLabels[i], g_emojiSets[i] == EmojiSet()))
-                S_EmojiSet = g_emojiSets[i];
-        UI::EndCombo();
-    }
     if (UI::Button("Open LocalImages folder")) {
         string folder = IO::FromStorageFolder("LocalImages");
         if (!IO::FolderExists(folder)) IO::CreateFolder(folder, true);
@@ -62,18 +55,44 @@ void RenderPictureRow(const string &in result) {
     UI::AlignTextToFramePadding();
     UI::Text(result == "MISSED" ? "Missed" : result);
     UI::SameLine(110.0f*UI::GetScale());
-    UI::SetNextItemWidth(240.0f);
-    if (UI::BeginCombo("##picture", PictureLabel(choice))) {
-        if (UI::Selectable("None", choice.Length == 0))
+    string source = PictureSource(choice);
+    array<string>@ parts = EmojiChoiceParts(choice);
+    // Switching between emoji sets keeps the same picture.
+    string keepName = "gorilla";
+    if (parts !is null) {
+        keepName = parts[1];
+    } else {
+        array<string>@ fallback = EmojiChoiceParts(DefaultPicture(result));
+        if (fallback !is null) keepName = fallback[1];
+    }
+    UI::SetNextItemWidth(170.0f);
+    if (UI::BeginCombo("##source", PictureSourceLabel(source))) {
+        if (UI::Selectable("None", source.Length == 0))
             SetPictureSetting(result, "");
-        for (uint i = 0; i < g_emojiNames.Length; i++)
-            if (UI::Selectable(g_emojiLabels[i], choice == "emoji:" + g_emojiNames[i]))
-                SetPictureSetting(result, "emoji:" + g_emojiNames[i]);
-        if (g_localImages.Length > 0) UI::Separator();
-        for (uint i = 0; i < g_localImages.Length; i++)
-            if (UI::Selectable(g_localImages[i], choice == "local:" + g_localImages[i]))
-                SetPictureSetting(result, "local:" + g_localImages[i]);
+        for (uint i = 0; i < g_emojiSets.Length; i++)
+            if (UI::Selectable(g_emojiSetLabels[i], source == g_emojiSets[i]))
+                SetPictureSetting(result, "emoji:" + g_emojiSets[i] + "/" + keepName);
+        if (UI::Selectable("Local file", source == "local") && source != "local")
+            SetPictureSetting(result, g_localImages.Length > 0 ?
+                "local:" + g_localImages[0] : "local:");
         UI::EndCombo();
+    }
+    if (source.Length > 0) {
+        UI::SameLine();
+        UI::SetNextItemWidth(200.0f);
+        if (UI::BeginCombo("##picture", PictureLabel(choice))) {
+            if (source == "local") {
+                if (g_localImages.Length == 0) UI::Text("No files in LocalImages");
+                for (uint i = 0; i < g_localImages.Length; i++)
+                    if (UI::Selectable(g_localImages[i], choice == "local:" + g_localImages[i]))
+                        SetPictureSetting(result, "local:" + g_localImages[i]);
+            } else {
+                for (uint i = 0; i < g_emojiNames.Length; i++)
+                    if (UI::Selectable(g_emojiLabels[i], parts !is null && parts[1] == g_emojiNames[i]))
+                        SetPictureSetting(result, "emoji:" + source + "/" + g_emojiNames[i]);
+            }
+            UI::EndCombo();
+        }
     }
     UI::SameLine();
     if (UI::Button("Preview")) StartPopupPreview(result);

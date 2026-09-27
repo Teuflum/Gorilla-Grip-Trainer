@@ -35,8 +35,7 @@ assert "RenderPictureRow(g_pictureResults[i]);" in render
 
 row = tab.split("void RenderPictureRow(const string &in result) {", 1)[1].split("\n}", 1)[0]
 assert 'if (UI::Button("Preview")) StartPopupPreview(result);' in row
-assert 'UI::Selectable("None", choice.Length == 0)' in row
-assert 'SetPictureSetting(result, "emoji:" + g_emojiNames[i]);' in row
+assert 'if (UI::Selectable("None", source.Length == 0))' in row
 assert 'SetPictureSetting(result, "local:" + g_localImages[i]);' in row
 assert "UI::Image(picture.thumbnail, vec2(thumb, thumb));" in row
 

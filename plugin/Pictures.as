@@ -1,16 +1,15 @@
 // Pictures beside the grade popup: shipped emoji art or the user's own PNG
 // and JPG files in LocalImages. Each result stores one choice string:
-// "emoji:<name>", "local:<file>", or "" for no picture. One emoji set decides
-// which art every "emoji:" choice is drawn with.
+// "emoji:<set>/<name>", "local:<file>", or "" for no picture, so every result
+// can mix its own emoji set.
 [Setting hidden] bool S_ShowPictures = true;
-[Setting hidden] string S_EmojiSet = "fluent-flat";
-[Setting hidden] string S_PictureSPlus = "emoji:gorilla";
-[Setting hidden] string S_PictureS = "emoji:gorilla";
-[Setting hidden] string S_PictureA = "emoji:flexed-biceps";
-[Setting hidden] string S_PictureB = "emoji:thumbs-up";
-[Setting hidden] string S_PictureC = "emoji:ok-hand";
-[Setting hidden] string S_PictureD = "emoji:slightly-smiling-face";
-[Setting hidden] string S_PictureMissed = "emoji:skull";
+[Setting hidden] string S_PictureSPlus = "emoji:noto/gorilla";
+[Setting hidden] string S_PictureS = "emoji:noto/gorilla";
+[Setting hidden] string S_PictureA = "emoji:twemoji/flexed-biceps";
+[Setting hidden] string S_PictureB = "emoji:twemoji/thumbs-up";
+[Setting hidden] string S_PictureC = "emoji:twemoji/ok-hand";
+[Setting hidden] string S_PictureD = "emoji:twemoji/slightly-smiling-face";
+[Setting hidden] string S_PictureMissed = "emoji:twemoji/skull";
 
 array<string> g_pictureResults = {"S+", "S", "A", "B", "C", "D", "MISSED"};
 array<string> g_emojiNames = {"gorilla", "oncoming-fist", "flexed-biceps",
@@ -22,27 +21,13 @@ array<string> g_emojiLabels = {"Gorilla", "Oncoming fist", "Flexed biceps",
 array<string> g_emojiSets = {"fluent-flat", "fluent-color", "fluent-3d", "twemoji", "noto", "openmoji"};
 array<string> g_emojiSetLabels = {"Fluent Flat", "Fluent Color", "Fluent 3D", "Twemoji", "Noto (Android)", "OpenMoji"};
 
-// The shipped folder for the chosen set; an unknown name falls back to the default.
-string EmojiSet() {
-    for (uint i = 0; i < g_emojiSets.Length; i++)
-        if (g_emojiSets[i] == S_EmojiSet) return S_EmojiSet;
-    return "fluent-flat";
-}
-
-string EmojiSetLabel() {
-    string set = EmojiSet();
-    for (uint i = 0; i < g_emojiSets.Length; i++)
-        if (g_emojiSets[i] == set) return g_emojiSetLabels[i];
-    return g_emojiSetLabels[0];
-}
-
 string DefaultPicture(const string &in result) {
-    if (result == "S+" || result == "S") return "emoji:gorilla";
-    if (result == "A") return "emoji:flexed-biceps";
-    if (result == "B") return "emoji:thumbs-up";
-    if (result == "C") return "emoji:ok-hand";
-    if (result == "D") return "emoji:slightly-smiling-face";
-    if (result == "MISSED") return "emoji:skull";
+    if (result == "S+" || result == "S") return "emoji:noto/gorilla";
+    if (result == "A") return "emoji:twemoji/flexed-biceps";
+    if (result == "B") return "emoji:twemoji/thumbs-up";
+    if (result == "C") return "emoji:twemoji/ok-hand";
+    if (result == "D") return "emoji:twemoji/slightly-smiling-face";
+    if (result == "MISSED") return "emoji:twemoji/skull";
     return "";
 }
 
@@ -69,7 +54,6 @@ void SetPictureSetting(const string &in result, const string &in choice) {
 
 void ResetPictureSettings() {
     S_ShowPictures = true;
-    S_EmojiSet = "fluent-flat";
     for (uint i = 0; i < g_pictureResults.Length; i++)
         SetPictureSetting(g_pictureResults[i], DefaultPicture(g_pictureResults[i]));
 }
@@ -86,18 +70,52 @@ bool IsSafeLocalName(const string &in name) {
         !name.Contains("..");
 }
 
+int EmojiSetIndex(const string &in emojiSet) {
+    for (uint i = 0; i < g_emojiSets.Length; i++)
+        if (g_emojiSets[i] == emojiSet) return int(i);
+    return -1;
+}
+
+// "emoji:<set>/<name>" -> {set, name}. The older "emoji:<name>" reads as
+// Twemoji, the first shipped set. Anything else, or an unknown set or
+// picture, gives null.
+array<string>@ EmojiChoiceParts(const string &in choice) {
+    if (!choice.StartsWith("emoji:")) return null;
+    string rest = choice.SubStr(6);
+    int slash = rest.IndexOf("/");
+    string emojiSet = slash < 0 ? "twemoji" : rest.SubStr(0, slash);
+    string emojiName = slash < 0 ? rest : rest.SubStr(slash + 1);
+    if (EmojiSetIndex(emojiSet) < 0 || EmojiIndex(emojiName) < 0) return null;
+    array<string>@ parts = array<string>();
+    parts.InsertLast(emojiSet);
+    parts.InsertLast(emojiName);
+    return parts;
+}
+
+// "" for none, "local" for a LocalImages file, otherwise the emoji set.
+string PictureSource(const string &in choice) {
+    if (choice.StartsWith("local:")) return "local";
+    array<string>@ parts = EmojiChoiceParts(choice);
+    if (parts !is null) return parts[0];
+    return "";
+}
+
+string PictureSourceLabel(const string &in source) {
+    if (source == "local") return "Local file";
+    int i = EmojiSetIndex(source);
+    return i >= 0 ? g_emojiSetLabels[i] : "None";
+}
+
+// The picture's own name; the source picker shows the set.
 string PictureLabel(const string &in choice) {
-    if (choice.StartsWith("emoji:")) {
-        int i = EmojiIndex(choice.SubStr(6));
-        if (i >= 0) return g_emojiLabels[i];
-    }
-    if (choice.StartsWith("local:") && IsSafeLocalName(choice.SubStr(6)))
-        return choice.SubStr(6);
+    array<string>@ parts = EmojiChoiceParts(choice);
+    if (parts !is null) return g_emojiLabels[EmojiIndex(parts[1])];
+    if (choice.StartsWith("local:"))
+        return IsSafeLocalName(choice.SubStr(6)) ? choice.SubStr(6) : "Choose a file";
     return "None";
 }
 
 class PictureTexture {
-    string key;
     string choice;
     nvg::Texture@ drawing;
     UI::Texture@ thumbnail;
@@ -124,7 +142,8 @@ bool TextureUsable(UI::Texture@ texture) {
 }
 
 PictureTexture@ LoadPicture(const string &in choice) {
-    bool isEmoji = choice.StartsWith("emoji:") && EmojiIndex(choice.SubStr(6)) >= 0;
+    array<string>@ parts = EmojiChoiceParts(choice);
+    bool isEmoji = parts !is null;
     bool isLocal = choice.StartsWith("local:") && IsSafeLocalName(choice.SubStr(6));
     if (!isEmoji && !isLocal) return null;
     PictureTexture@ picture = PictureTexture();
@@ -133,7 +152,7 @@ PictureTexture@ LoadPicture(const string &in choice) {
     // instead of retrying on every frame.
     try {
         if (isEmoji) {
-            string asset = "assets/emoji/" + EmojiSet() + "/" + choice.SubStr(6) + ".png";
+            string asset = "assets/emoji/" + parts[0] + "/" + parts[1] + ".png";
             @picture.drawing = nvg::LoadTexture(asset, nvg::TextureFlags::GenerateMipmaps);
             @picture.thumbnail = UI::LoadTexture(asset);
         } else {
@@ -150,25 +169,17 @@ PictureTexture@ LoadPicture(const string &in choice) {
     if (!TextureUsable(picture.drawing)) @picture.drawing = null;
     if (!TextureUsable(picture.thumbnail)) @picture.thumbnail = null;
     if (picture.drawing is null)
-        print("Gorilla Grip Trainer images: could not load " + PictureLabel(choice));
+        print("Gorilla Grip Trainer images: could not load " + choice);
     return picture;
-}
-
-// Emoji pictures are cached per set, so switching sets loads the new art.
-string PictureCacheKey(const string &in choice) {
-    return choice.StartsWith("emoji:") ? choice + "@" + EmojiSet() : choice;
 }
 
 // Loads each choice once; a failed load stays cached so it is logged once.
 PictureTexture@ GetPicture(const string &in choice) {
     if (choice.Length == 0) return null;
-    string key = PictureCacheKey(choice);
     for (uint i = 0; i < g_pictureCache.Length; i++)
-        if (g_pictureCache[i].key == key) return g_pictureCache[i];
+        if (g_pictureCache[i].choice == choice) return g_pictureCache[i];
     PictureTexture@ picture = LoadPicture(choice);
-    if (picture is null) return null;
-    picture.key = key;
-    g_pictureCache.InsertLast(picture);
+    if (picture !is null) g_pictureCache.InsertLast(picture);
     return picture;
 }
 

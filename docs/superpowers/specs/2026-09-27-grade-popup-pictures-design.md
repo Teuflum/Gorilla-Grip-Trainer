@@ -22,8 +22,8 @@ change.
 - Each result has **one** picture, drawn on both sides of the panel as the
   gorilla is today. Only S and S+ pictures bounce ("dance").
 - Shipped pictures come from open-source emoji sets only (Fluent Flat by
-  default, Fluent Color, Fluent 3D, Twemoji, Noto, OpenMoji); one **Emoji set**
-  choice restyles every picture. The AI-generated
+  Fluent Color, Fluent 3D, Twemoji, Noto, OpenMoji), and each result picks its
+  own set, so sets can be mixed. The AI-generated
   `plugin/assets/gorilla-emoji.png` leaves the repository and lives on as a
   user file in `LocalImages`.
 - Pictures can be turned off globally and per result.
@@ -146,19 +146,20 @@ intensity.
 
 Each result stores one choice string:
 
-- `emoji:<name>`: a shipped Twemoji picture;
+- `emoji:<set>/<name>`: a shipped picture from one emoji set; the older
+  `emoji:<name>` (no set) reads as Twemoji, the first shipped set;
 - `local:<file>`: a PNG or JPG in `LocalImages`;
 - empty: no picture.
 
 | Result | Setting | Default |
 | --- | --- | --- |
-| S+ | `S_PictureSPlus` | `emoji:gorilla` 🦍 |
-| S | `S_PictureS` | `emoji:gorilla` 🦍 |
-| A | `S_PictureA` | `emoji:flexed-biceps` 💪 |
-| B | `S_PictureB` | `emoji:thumbs-up` 👍 |
-| C | `S_PictureC` | `emoji:ok-hand` 👌 |
-| D | `S_PictureD` | `emoji:slightly-smiling-face` 🙂 |
-| MISSED | `S_PictureMissed` | `emoji:skull` 💀 |
+| S+ | `S_PictureSPlus` | `emoji:noto/gorilla` 🦍 |
+| S | `S_PictureS` | `emoji:noto/gorilla` 🦍 |
+| A | `S_PictureA` | `emoji:twemoji/flexed-biceps` 💪 |
+| B | `S_PictureB` | `emoji:twemoji/thumbs-up` 👍 |
+| C | `S_PictureC` | `emoji:twemoji/ok-hand` 👌 |
+| D | `S_PictureD` | `emoji:twemoji/slightly-smiling-face` 🙂 |
+| MISSED | `S_PictureMissed` | `emoji:twemoji/skull` 💀 |
 
 `S_ShowPictures` (default on) turns all pictures off. UNRATED never shows a
 picture.
@@ -171,12 +172,10 @@ enters depends on the style (see above).
 ### Shipped emoji sets
 
 Six sets ship the same twelve pictures, each stored as 256×256 transparent
-PNGs in `plugin/assets/emoji/<set>/` and named after the emoji. `S_EmojiSet`
-(default `fluent-flat`; an unknown value counts as `fluent-flat`) picks the
-set: `fluent-flat`, `fluent-color`, `fluent-3d`, `twemoji`, `noto`, or
-`openmoji`. An `emoji:<name>` choice is drawn from the chosen set, and the
-texture cache is keyed by set so a switch reloads the art. Local pictures
-are not affected.
+PNGs in `plugin/assets/emoji/<set>/` and named after the emoji. The sets are
+`fluent-flat`, `fluent-color`, `fluent-3d`, `twemoji`, `noto`, and
+`openmoji`. Each result's choice names its own set; a choice with an
+unknown set or picture counts as None.
 
 | File | Emoji | Codepoint |
 | --- | --- | --- |
@@ -218,12 +217,12 @@ mode only). Like the other custom tabs it has no tab icon.
   - **Intensity** slider, 0–200 %;
   - one checkbox per effect, in the order of the effects table.
 - **Pictures** section:
-  - **Show pictures**, the **Emoji set** dropdown, **Open LocalImages folder**,
-    and **Reload files**;
+  - **Show pictures**, **Open LocalImages folder**, and **Reload files**;
   - one row per result (S+, S, A, B, C, D, Missed) with a small thumbnail of
-    the current picture (blank for None), a picker listing *None*, the twelve
-    shipped emoji by readable name ("Gorilla", "Oncoming fist", …), then the
-    local files, and **Preview**.
+    the current picture (blank for None), a **source** picker (*None*, the
+    six emoji sets, *Local file*), a **picture** picker (the twelve emoji by
+    readable name, or the LocalImages files; hidden for None), and
+    **Preview**. Switching between emoji sets keeps the same picture.
 
 **Preview** plays that result's full popup with the current style, effects,
 intensity, and picture at the Grade widget's position. It runs on its own
@@ -248,7 +247,6 @@ preview replaces a running one; a real verdict replaces a preview.
 | `S_FxSheen` | bool | false |
 | `S_FxOutline` | bool | false |
 | `S_ShowPictures` | bool | true |
-| `S_EmojiSet` | string (see Shipped emoji sets) | `fluent-flat` |
 | `S_Picture…` | string (seven, see above) | see above |
 
 All are `[Setting hidden]` and edited only on the Popup tab. An unknown style

@@ -68,10 +68,10 @@ main = (ROOT / "plugin" / "Main.as").read_text(encoding="utf-8")
 # Seven hidden picture settings with the agreed defaults, plus the master switch.
 defaults = dict(re.findall(r'\[Setting hidden\] string (S_Picture\w+) = "([^"]*)";', pictures))
 assert defaults == {
-    "S_PictureSPlus": "emoji:gorilla", "S_PictureS": "emoji:gorilla",
-    "S_PictureA": "emoji:flexed-biceps", "S_PictureB": "emoji:thumbs-up",
-    "S_PictureC": "emoji:ok-hand", "S_PictureD": "emoji:slightly-smiling-face",
-    "S_PictureMissed": "emoji:skull",
+    "S_PictureSPlus": "emoji:noto/gorilla", "S_PictureS": "emoji:noto/gorilla",
+    "S_PictureA": "emoji:twemoji/flexed-biceps", "S_PictureB": "emoji:twemoji/thumbs-up",
+    "S_PictureC": "emoji:twemoji/ok-hand", "S_PictureD": "emoji:twemoji/slightly-smiling-face",
+    "S_PictureMissed": "emoji:twemoji/skull",
 }, defaults
 assert "[Setting hidden] bool S_ShowPictures = true;" in pictures
 assert 'array<string> g_pictureResults = {"S+", "S", "A", "B", "C", "D", "MISSED"};' in pictures
@@ -93,9 +93,9 @@ for part in ('!name.Contains("/")', '!name.Contains("\\\\")', '!name.Contains(".
 load = pictures.split("PictureTexture@ LoadPicture(const string &in choice) {", 1)[1].split("\n}", 1)[0]
 assert 'IsSafeLocalName(choice.SubStr(6))' in load
 assert 'IO::FromStorageFolder("LocalImages/" + choice.SubStr(6))' in load
-assert '"assets/emoji/" + EmojiSet() + "/" + choice.SubStr(6) + ".png"' in load
+assert '"assets/emoji/" + parts[0] + "/" + parts[1] + ".png"' in load
 # A failed load is logged once: the failed entry is cached, never retried.
-assert 'print("Gorilla Grip Trainer images: could not load " + PictureLabel(choice));' in load
+assert 'print("Gorilla Grip Trainer images: could not load " + choice);' in load
 get = pictures.split("PictureTexture@ GetPicture(const string &in choice) {", 1)[1].split("\n}", 1)[0]
 assert "g_pictureCache.InsertLast(picture);" in get
 assert "if (!S_ShowPictures) return null;" in pictures
@@ -129,22 +129,24 @@ assert "nvg::LoadTexture(asset, nvg::TextureFlags::GenerateMipmaps)" in load
 assert "nvg::LoadTexture(ReadLocalImage(path), nvg::TextureFlags::GenerateMipmaps)" in load
 print("Invalid pictures fail safely, with mipmaps: PASS")
 
-# The emoji set is one choice for all pictures; Fluent Flat is the default and
-# an unknown set falls back to it. The cache is keyed by set, so switching
-# sets reloads the pictures.
-assert '[Setting hidden] string S_EmojiSet = "fluent-flat";' in pictures
-assert 'array<string> g_emojiSets = {"fluent-flat", "fluent-color", "fluent-3d", "twemoji", "noto", "openmoji"};' in pictures
-assert 'array<string> g_emojiSetLabels = {"Fluent Flat", "Fluent Color", "Fluent 3D", "Twemoji", "Noto (Android)", "OpenMoji"};' in pictures
-emoji_set = pictures.split("string EmojiSet() {", 1)[1].split("\n}", 1)[0]
-assert "if (g_emojiSets[i] == S_EmojiSet) return S_EmojiSet;" in emoji_set
-assert 'return "fluent-flat";' in emoji_set
-key = pictures.split("string PictureCacheKey(const string &in choice) {", 1)[1].split("\n}", 1)[0]
-assert 'return choice.StartsWith("emoji:") ? choice + "@" + EmojiSet() : choice;' in key
-get = pictures.split("PictureTexture@ GetPicture(const string &in choice) {", 1)[1].split("\n}", 1)[0]
-assert "string key = PictureCacheKey(choice);" in get and "g_pictureCache[i].key == key" in get
-assert 'S_EmojiSet = "fluent-flat";' in pictures.split("void ResetPictureSettings() {", 1)[1].split("\n}", 1)[0]
+# Each picture picks its own source: an emoji set, a local file, or none.
+# "emoji:<set>/<name>" names the set; the older "emoji:<name>" reads as Twemoji,
+# and an unknown set or picture counts as none.
+assert "S_EmojiSet" not in pictures and "EmojiSet()" not in pictures
+parts = pictures.split("array<string>@ EmojiChoiceParts(const string &in choice) {", 1)[1].split("\n}", 1)[0]
+assert 'string emojiSet = slash < 0 ? "twemoji" : rest.SubStr(0, slash);' in parts
+assert "if (EmojiSetIndex(emojiSet) < 0 || EmojiIndex(emojiName) < 0) return null;" in parts
+source = pictures.split("string PictureSource(const string &in choice) {", 1)[1].split("\n}", 1)[0]
+assert 'if (choice.StartsWith("local:")) return "local";' in source
+assert "if (parts !is null) return parts[0];" in source
 tab = (ROOT / "plugin" / "PopupTab.as").read_text(encoding="utf-8")
-assert 'UI::BeginCombo("Emoji set", EmojiSetLabel())' in tab
-assert "S_EmojiSet = g_emojiSets[i];" in tab
-assert tab.index('UI::BeginCombo("Emoji set"') < tab.index("RenderPictureRow(g_pictureResults[i]);")
-print("One emoji set choice for all pictures: PASS")
+assert 'UI::BeginCombo("Emoji set"' not in tab
+row = tab.split("void RenderPictureRow(const string &in result) {", 1)[1].split("\n}", 1)[0]
+assert 'UI::BeginCombo("##source", PictureSourceLabel(source))' in row
+assert 'UI::BeginCombo("##picture", PictureLabel(choice))' in row
+# Switching sets keeps the same picture, so sets compare in one click.
+assert 'SetPictureSetting(result, "emoji:" + g_emojiSets[i] + "/" + keepName);' in row
+assert 'SetPictureSetting(result, "emoji:" + source + "/" + g_emojiNames[i]);' in row
+assert 'if (UI::Selectable("Local file", source == "local") && source != "local")' in row
+assert 'SetPictureSetting(result, "local:" + g_localImages[i]);' in row
+print("Each picture picks its own emoji set or local file: PASS")

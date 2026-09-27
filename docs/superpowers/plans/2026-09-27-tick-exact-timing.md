@@ -15,7 +15,7 @@
 - Work on branch `tick-exact-timing` in `Trainer/`. Plain `git` refuses the folder (other Windows owner): use `git -c safe.directory='*' …` per command; do not change the global Git config.
 - The Trainer stays read-only: `Dev::SafeRead*` only, no `Dev::Hook`, no writes to game memory.
 - Grade limits, points, combo rules, audio, popup and widgets do not change, except that `A+` and the lead range disappear.
-- Wheel timestamp: `vehicle + 0x17b4 + 0xb8·i + 0x6c` (= `0x1820 + 0xb8·i`), 32-bit game clock. Physics clock: `vehicle + 0x4f4`.
+- Wheel timestamp: `vehicle + 0x17b4 + 0xb8·i + 0x6c` (= `0x1820 + 0xb8·i`), 32-bit game clock. Physics clock: `vehicle + 0x4f4`. Car contact clock: `vehicle + 0x1414` (Stage 0 results in the spec). Yaw rate: `vehicle + 0x554`, scale +1.0.
 - History files keep `leadMinMs`, `leadMaxMs` and `timingEstimated` so older files load; new entries store the same lead in both fields.
 - Version 0.3.0.
 - Live game automation only after the user says yes, and only through the replay of the revision they loaded. Restore TICK game speed in a `finally`. Do not touch `PluginStorage`.
@@ -26,9 +26,9 @@
 
 ## Review Focus
 
-1. **Brief touch between two frames.** A wheel touches and lifts again between frames, so no frame shows contact. The touch must still count: re-take-off, or a landing with a touch that lifted. The landing time is then the lift-off tick, not the touchdown. Test: Task 4 asserts the touch branch in `Update` and `EarliestWheelChange` over all wheels.
+1. **Brief touch between two frames.** A wheel touches and lifts again between frames, so no frame shows contact. The touch must still count: re-take-off, or a landing with a touch that lifted, dated at the car's contact clock. Sub-tick grazes must not count. Test: Task 4 asserts the touch branch in `Update` uses `snap.contactClock > takeoffClock` and `Land` dates an airborne touch with `snap.contactClock`.
 2. **Late verdict frame.** At low fps the first frame after the check tick can be hundreds of ms late, and the player may have switched direction in between. The verdict must use `modeAt <= checkClock`. Test: Task 4 asserts `switchedByCheck` and the no-force-check path.
-3. **Unset or stale timestamps.** On a fresh car or after a respawn a timestamp can be `0xFFFFFFFF` (read as -1) or older than the previous frame. The takeoff must become `UNRATED` ("Contact timestamps were inconsistent at takeoff"), never a wrong grade. Test: Task 3 asserts `TakeoffStampsValid` rejects a takeoff outside `(before, after]` and a grounded wheel without a new timestamp.
+3. **Unset or stale contact clock.** On a fresh car or after a respawn the contact clock can be `0xFFFFFFFF` (read as -1) or older than the previous frame. The takeoff must become `UNRATED` ("Contact timestamps were inconsistent at takeoff"), never a wrong grade. Test: Task 3 asserts `TakeoffClockValid` rejects a contact clock outside `(before, after]`.
 4. **Frame skip left on.** `S_DebugFrameSkip` saved as 5 must have no effect outside developer mode. Test: Task 1 asserts `DebugFrameSkip()` returns 1 under `#else`.
 5. **Direction lapsed to neutral, or force low while it held.** A lapse writes `modeAt = -1`; a late frame must date it from the neutral timer, so a lapse after the check tick still counts as held. A low force without a reset (light steering, low speed) must confirm, with a debug line, not miss. Test: Task 4 asserts `changedAt` from `neutralAt + neutralTimeoutMs`, that force is absent from `recovered`, and the disagreement line.
 
@@ -494,8 +494,8 @@ git -c safe.directory='*' commit -m "Record stage 0 timestamp results"
 - Test: `tests/test_tick_timing.py`, `tests/test_timing_display.py`, `tests/test_slide_check.py`, `tests/test_grade_animation.py`, `tests/test_popup_tab.py`, `tests/test_trainer_in_game.py`
 
 **Interfaces:**
-- Consumes: `PhysicsSnapshot.wheelChangedAt`, `PhysicsSnapshot.physicsClock` (Task 1).
-- Produces: `const int PHYSICS_TICK_MS = 10;`, `string GradeLead(int leadMs)`, `JumpPreview.leadMs`, `JumpVerdict.leadMs`, `int LatestWheelChange(PhysicsSnapshot@ snap)`, `bool TakeoffStampsValid(PhysicsSnapshot@ before, PhysicsSnapshot@ after, int takeoff)`, `void RenderResult(const vec4 &in r, int age, const string &in label, uint seed)`, `string HistoryLead(HistoryJump@ jump)`.
+- Consumes: `PhysicsSnapshot.wheelChangedAt`, `physicsClock`, `contactClock` (Task 1).
+- Produces: `const int PHYSICS_TICK_MS = 10;`, `PhysicsSnapshot.frameClock`, `int PhysicsSnapshot::RaceAt(int tick) const`, `string GradeLead(int leadMs)`, `JumpPreview.leadMs`, `JumpVerdict.leadMs`, `bool TakeoffClockValid(PhysicsSnapshot@ before, PhysicsSnapshot@ after)`, `void RenderResult(const vec4 &in r, int age, const string &in label, uint seed)`, `string HistoryLead(HistoryJump@ jump)`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -503,23 +503,27 @@ Append to `tests/test_tick_timing.py`:
 
 ```python
 
-# Takeoff is the latest wheel lift-off; the lead is one exact number.
+# Everything is timed on the physics clock; ticks convert to race time
+# through the frame clock, which advances with race time.
+assert "snap.frameClock = snap.gameTime;" in read
+assert "snap.gameTime = snap.physicsClock;" in read
+assert "int RaceAt(int tick) const { return tick + raceTime - frameClock; }" in physics
+
+# Takeoff is the car's contact clock; the lead is one exact number.
 start = transitions.split("void StartFlight(", 1)[1].split("\n    }\n", 1)[0]
-valid = transitions.split("bool TakeoffStampsValid(", 1)[1].split("\n}", 1)[0]
+valid = transitions.split("bool TakeoffClockValid(", 1)[1].split("\n}", 1)[0]
 assert "const int PHYSICS_TICK_MS = 10;" in transitions
 assert "MAX_TIMING_SAMPLE_GAP" not in transitions
 assert "contact sample gap" not in transitions
-assert "takeoffClock = LatestWheelChange(snap);" in start
-assert "bool exactTakeoff = TakeoffStampsValid(previous, snap, takeoffClock);" in start
-assert "takeoffRace = snap.raceTime - (snap.gameTime - takeoffClock);" in start
+assert "takeoffClock = snap.contactClock;" in start
+assert "bool exactTakeoff = TakeoffClockValid(previous, snap);" in start
+assert "takeoffRace = snap.RaceAt(takeoffClock);" in start
 assert '"Contact timestamps were inconsistent at takeoff"' in start
 assert "int lead = takeoffClock - switchAt;" in start
 assert "string grade = GradeLead(lead);" in start
 assert "preview.leadMs = lead;" in start
-# A takeoff outside the frame interval, or a grounded wheel without a new
-# timestamp, is not exact (Review Focus 3).
-assert "if (takeoff <= before.gameTime || takeoff > after.gameTime) return false;" in valid
-assert "if (at <= before.gameTime || at > after.gameTime) return false;" in valid
+# A contact clock outside the frame interval is not exact (Review Focus 3).
+assert "return after.contactClock > before.gameTime && after.contactClock <= after.gameTime;" in valid
 grade = transitions.split("string GradeLead(int leadMs) {", 1)[1].split("\n}", 1)[0]
 assert "if (leadMs == 0) return \"S+\";" in grade
 assert "string GradeLead(int lo" not in transitions
@@ -605,16 +609,30 @@ In `tests/test_popup_tab.py`, replace `"RenderResult(grade.Pixels(), previewAge,
 Run: `python tests/test_tick_timing.py; python tests/test_timing_display.py; python tests/test_slide_check.py`
 Expected: FAIL on `PHYSICS_TICK_MS`, `ambiguous`, and the slide assertion respectively.
 
-- [ ] **Step 3: Apply the Stage 0 clock result**
+- [ ] **Step 3: Time everything on the physics clock**
 
-Only if Stage 0 recorded `clock source: physics clock`: in `ReadPhysics`, directly after `snap.physicsClock = …;`, add:
+Stage 0 found the frame clock 0–9 ms ahead of the physics clock. In `plugin/Physics.as`, add to `PhysicsSnapshot` after `int contactClock = -1;`:
 
 ```angelscript
-    // Stage 0: the frame clock differs from the physics step's clock.
-    snap.gameTime = snap.physicsClock;
+    // The frame clock (PlaygroundClientScriptAPI.GameTime); it runs ahead of
+    // the physics tick but advances with race time.
+    int frameClock = -1;
 ```
 
-Otherwise leave `ReadPhysics` unchanged.
+and after `string ContactBits() const { … }`:
+
+```angelscript
+    // Race time of a physics tick; race time and the frame clock advance together.
+    int RaceAt(int tick) const { return tick + raceTime - frameClock; }
+```
+
+In `ReadPhysics`, directly after `snap.contactClock = …;`, add:
+
+```angelscript
+    // Stage 0: time everything on the physics clock.
+    snap.frameClock = snap.gameTime;
+    snap.gameTime = snap.physicsClock;
+```
 
 - [ ] **Step 4: Constants, `GradeLead`, `JumpPreview`, helpers**
 
@@ -640,25 +658,11 @@ string GradeLead(int leadMs) {
     return "D";
 }
 
-// Each wheel's timestamp holds the game clock of its last contact change, so
-// once all wheels are airborne the latest one is the takeoff tick.
-int LatestWheelChange(PhysicsSnapshot@ snap) {
-    int latest = -1;
-    for (uint i = 0; i < 4; i++)
-        latest = Math::Max(latest, int(snap.wheelChangedAt[i]));
-    return latest;
-}
-
-// The takeoff must lie between the two frames, and every wheel that was
-// grounded on the first frame must have lifted in that interval.
-bool TakeoffStampsValid(PhysicsSnapshot@ before, PhysicsSnapshot@ after, int takeoff) {
-    if (takeoff <= before.gameTime || takeoff > after.gameTime) return false;
-    for (uint i = 0; i < 4; i++) {
-        if ((before.contactMask & (1 << i)) == 0) continue;
-        int at = int(after.wheelChangedAt[i]);
-        if (at <= before.gameTime || at > after.gameTime) return false;
-    }
-    return true;
+// The car's contact clock stops at the takeoff tick, the first tick whose
+// previous flags were all clear; sub-tick wheel grazes do not move it. It
+// must lie between the two frames.
+bool TakeoffClockValid(PhysicsSnapshot@ before, PhysicsSnapshot@ after) {
+    return after.contactClock > before.gameTime && after.contactClock <= after.gameTime;
 }
 ```
 
@@ -692,10 +696,10 @@ Replace the body of `void StartFlight(PhysicsSnapshot@ snap) { … }` with:
         cuePublished = false;
         @preview = null;
         unratedReason = "";
-        takeoffClock = LatestWheelChange(snap);
-        bool exactTakeoff = TakeoffStampsValid(previous, snap, takeoffClock);
+        takeoffClock = snap.contactClock;
+        bool exactTakeoff = TakeoffClockValid(previous, snap);
         if (!exactTakeoff) takeoffClock = snap.gameTime;
-        takeoffRace = snap.raceTime - (snap.gameTime - takeoffClock);
+        takeoffRace = snap.RaceAt(takeoffClock);
         takeoffMode = snap.mode;
         takeoffModeAt = int(snap.modeAt);
         int reversalLead = takeoffClock - rawReversalAt;
@@ -949,8 +953,8 @@ git -c safe.directory='*' commit -m "Grade the takeoff from wheel timestamps"
 - Test: `tests/test_tick_timing.py`, `tests/test_landing_confirmation.py`, `tests/test_touch_switch_reason.py`, `tests/test_late_switch_miss.py`, `tests/test_debug_logging.py:48`
 
 **Interfaces:**
-- Consumes: `PHYSICS_TICK_MS`, `LatestWheelChange`, `takeoffClock` (Task 3).
-- Produces: `int EarliestWheelChange(PhysicsSnapshot@ snap, int after)`, `int ContactStart(PhysicsSnapshot@ snap, uint mask, int after)`, `bool TouchedSince(PhysicsSnapshot@ snap, int after)`, `PhysicsSnapshot.neutralAt`, `PhysicsSnapshot.neutralTimeoutMs`, tracker fields `int checkClock`, `int gateSeenAt`, `bool forceDisagreedEvent`. `landingDirection` is removed.
+- Consumes: `PHYSICS_TICK_MS`, `PhysicsSnapshot.RaceAt`, `contactClock`, `takeoffClock` (Tasks 1 and 3).
+- Produces: `const uint ALL_WHEELS = 0xf;`, `int ContactStart(PhysicsSnapshot@ snap, uint mask, int after)`, `PhysicsSnapshot.neutralAt`, `PhysicsSnapshot.neutralTimeoutMs`, tracker fields `int checkClock`, `int gateSeenAt`, `bool forceDisagreedEvent`. `landingDirection` is removed.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -964,11 +968,15 @@ land = transitions.split("void Land(", 1)[1].split("\n    }\n", 1)[0]
 resolve = transitions.split("void ResolveLanding(", 1)[1].split("\n    }\n", 1)[0]
 pending = update_body.split("if (pendingLanding) {", 1)[1].split("\n        }\n", 1)[0]
 assert "landingDirection" not in transitions
-assert "landingClock = EarliestWheelChange(snap, takeoffClock);" in land
-assert "landingRace = snap.raceTime - (snap.gameTime - landingClock);" in land
+assert "ContactStart(snap, ALL_WHEELS, takeoffClock) : snap.contactClock;" in land
+assert "landingRace = snap.RaceAt(landingClock);" in land
 assert "landingTouchLifted = snap.contactMask == 0;" in land
-# Review Focus 1: a touch and lift between two all-air frames.
-assert "else if (inFlight && snap.contactMask == 0 && TouchedSince(snap, takeoffClock)) {" in update_body
+# A grounded wheel whose contact is not processed yet counts from the next tick.
+contact_start = transitions.split("int ContactStart(", 1)[1].split("\n}", 1)[0]
+assert "at = snap.gameTime + PHYSICS_TICK_MS;" in contact_start
+assert "TouchedSince" not in transitions and "EarliestWheelChange" not in transitions
+# Review Focus 1: a touch the game processed between two all-air frames.
+assert "else if (inFlight && snap.contactMask == 0 && snap.contactClock > takeoffClock) {" in update_body
 assert "if (!pendingLanding) StartFlight(snap);" in update_body
 assert "int frontSince = ContactStart(snap, FRONT_WHEELS, takeoffClock);" in pending
 assert "if (snap.forceGateState != 0) gateSeenAt = snap.gameTime;" in pending
@@ -1056,44 +1064,27 @@ In `Transitions.as`, after `const int FORCE_SETTLE_MS = 30;`, add:
 ```angelscript
 // The force check waits this long after touchdown.
 const int LANDING_CHECK_MS = 80;
+const uint ALL_WHEELS = 0xf;
 // The game stores an opposite landing steer within the first contact ticks.
 const int LANDING_STEER_MS = 30;
 ```
 
-After `bool TakeoffStampsValid(…) { … }`, add:
+After `bool TakeoffClockValid(…) { … }`, add:
 
 ```angelscript
-// Earliest contact change after `after` on any wheel: a touchdown, or the
-// lift-off of a touch that already ended. -1 when there is none.
-int EarliestWheelChange(PhysicsSnapshot@ snap, int after) {
-    int earliest = -1;
-    for (uint i = 0; i < 4; i++) {
-        int at = int(snap.wheelChangedAt[i]);
-        if (at <= after || at > snap.gameTime) continue;
-        if (earliest < 0 || at < earliest) earliest = at;
-    }
-    return earliest;
-}
-
-// When the current contact of the grounded wheels in `mask` began: the
-// earliest touchdown still in progress. -1 when none of them touches.
+// When the game began processing the current contact of the grounded wheels
+// in `mask`: the earliest timestamp newer than `after`. A flag set on the
+// frame's own tick is processed on the next one, before its timestamp is
+// written. -1 when none of them touches.
 int ContactStart(PhysicsSnapshot@ snap, uint mask, int after) {
     int start = -1;
     for (uint i = 0; i < 4; i++) {
         if ((snap.contactMask & mask & (1 << i)) == 0) continue;
         int at = int(snap.wheelChangedAt[i]);
-        if (at <= after || at > snap.gameTime) at = snap.gameTime;
+        if (at <= after || at > snap.gameTime) at = snap.gameTime + PHYSICS_TICK_MS;
         if (start < 0 || at < start) start = at;
     }
     return start;
-}
-
-// An airborne wheel whose timestamp is newer than `after` touched and lifted again.
-bool TouchedSince(PhysicsSnapshot@ snap, int after) {
-    for (uint i = 0; i < 4; i++)
-        if ((snap.contactMask & (1 << i)) == 0 && int(snap.wheelChangedAt[i]) > after)
-            return true;
-    return false;
 }
 ```
 
@@ -1131,11 +1122,11 @@ Replace the body of `void Land(PhysicsSnapshot@ snap) { … }` with:
         inFlight = false;
         flightSpinCount = spinReliable ? int(airSpinRadians / (2.0f * Math::PI)) : 0;
         landingEvent = true;
-        // The first contact change after takeoff dates the touchdown. A touch
-        // that already lifted again only leaves its lift-off tick.
-        landingClock = EarliestWheelChange(snap, takeoffClock);
-        if (landingClock < 0) landingClock = snap.gameTime;
-        landingRace = snap.raceTime - (snap.gameTime - landingClock);
+        // The grounded wheels date the touchdown; a touch that already lifted
+        // again is dated by the car's contact clock.
+        landingClock = snap.contactMask != 0 ?
+            ContactStart(snap, ALL_WHEELS, takeoffClock) : snap.contactClock;
+        landingRace = snap.RaceAt(landingClock);
         landingTouchLifted = snap.contactMask == 0;
         forceEligibleClock = -1;
         checkClock = -1;
@@ -1228,9 +1219,9 @@ with:
         if (crossingTakeoff) StartFlight(snap);
         else if (previous.contactMask == 0 && snap.contactMask != 0 && inFlight)
             Land(snap);
-        else if (inFlight && snap.contactMask == 0 && TouchedSince(snap, takeoffClock)) {
-            // A wheel touched and lifted again between two frames: land, then
-            // take off again unless this landing is being rated.
+        else if (inFlight && snap.contactMask == 0 && snap.contactClock > takeoffClock) {
+            // The game processed a touch between two frames: land, then take
+            // off again unless this landing is being rated.
             Land(snap);
             if (!pendingLanding) StartFlight(snap);
         }
@@ -1377,17 +1368,15 @@ Expected: FAIL on `stamp probe`.
 
 - [ ] **Step 3: Physics: remove the probe, add the yaw rate**
 
-In `plugin/Physics.as`, delete the `probe` field and its comment, and the `if (DebugForceTraceOn()) { … }` probe block in `ReadPhysics`. Above `class PhysicsSnapshot`, add the two Stage 0 values. Copy the offset and scale recorded in the spec's Stage 0 results; if it says `yaw rate offset: none`, use `-1` and `1.0f`:
+In `plugin/Physics.as`, delete the `probe` field and its comment, and the `if (DebugForceTraceOn()) { … }` probe block in `ReadPhysics`. Above `class PhysicsSnapshot`, add the two Stage 0 values:
 
 ```angelscript
-// Vertical angular velocity on this build (stage 0 of the tick-exact timing
-// spec); -1 when the field is unknown.
-const int YAW_RATE_OFFSET = 0x5a4;  // example: use the recorded value
+// Yaw rate on this build (stage 0 of the tick-exact timing spec: slope
+// +1.005, r2 0.997 against the frame-to-frame yaw change); -1 when unknown.
+const int YAW_RATE_OFFSET = 0x554;
 // Converts the stored value to rad/s with the sign of the yaw change.
-const float YAW_RATE_SCALE = -1.0f;  // example: use the recorded value
+const float YAW_RATE_SCALE = 1.0f;
 ```
-
-(The two example values above are illustrative only; the recorded ones replace them.)
 
 Add to `PhysicsSnapshot`, after `float yaw = 0.0f;`:
 
@@ -1417,7 +1406,7 @@ In `Transitions.as`, after `const int CUE_REVERSAL_WINDOW_MS = 250;`, add:
 const float SMOOTHED_STEER_STEP = 0.2f;
 ```
 
-After `bool TouchedSince(…) { … }`, add:
+After `int ContactStart(…) { … }`, add:
 
 ```angelscript
 // Dates a raw steering reversal inside a frame gap from how far the smoothed

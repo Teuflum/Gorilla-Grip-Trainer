@@ -29,6 +29,9 @@ class PhysicsSnapshot {
     array<uint> wheelChangedAt = array<uint>(4);
     // The physics step's own clock (vehicle+0x4f4).
     int physicsClock = -1;
+    // The car's last tick with ground contact (vehicle+0x1414). It stays at the
+    // takeoff tick through the flight; sub-tick wheel grazes do not move it.
+    int contactClock = -1;
     // Stage 0 only: 32 floats after the car position, to find the angular velocity.
     string probe = "";
 
@@ -145,6 +148,7 @@ PhysicsSnapshot@ ReadPhysics(CSceneVehicleVisState@ vis, int raceTime) {
         snap.wheelChangedAt[i] = Dev::SafeReadUint32(wheel + 0x6c);
     }
     snap.physicsClock = int(Dev::SafeReadUint32(vehicle + 0x4f4));
+    snap.contactClock = int(Dev::SafeReadUint32(vehicle + 0x1414));
     if (DebugForceTraceOn()) {
         for (uint i = 0; i < 32; i++)
             snap.probe += (i == 0 ? "" : ",") +

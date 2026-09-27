@@ -81,19 +81,62 @@ misbehave in flight or on landing, stop and research the hook. If no angular
 velocity is found, spins use the fallback in *Spins*. The trace is then
 removed or folded into the existing snapshot debug line.
 
+## Stage 0 results
+
+Measured on 27 September 2026 with TICK revision 53 on *ANGULAR MOMENTUM*
+(`xsBIINZa10KzKOtrSt_oxEAnHX5`), replayed to 40 s three times: 1× (about
+6,870 frames), 4× (about 1,710 frames), and 1× with the Trainer processing
+every 5th frame (about 1,370 frames). Script:
+`Analysis/work/probe_wheel_stamps.py`.
+
+1. **Per-wheel timestamps record more than touchdown and lift-off.** The
+   wheel's contact state (`+0x68`: 1 contact, 2 air) can flip and flip back
+   inside one 10 ms tick, and `+0x6c` dates every flip. Such sub-tick grazes
+   happen on grounded wheels while driving and right after lift-off. In the
+   `jump3` capture the last wheel's suspension compressed (`+0x70` 1.0 →
+   0.997) one tick after it lifted. Taking the latest wheel timestamp as the
+   takeoff therefore moved 2–3 of 12 takeoffs one tick late at 4× and at
+   every 5th frame (9460 → 9470, S+ read as S; 30650 → 30660).
+2. **The car's contact clock is exact.** `vehicle + 0x1414` equals the
+   current tick while the game processes wheel contact and stops at the
+   takeoff tick, the first tick whose previous flags were all clear. Grazes
+   do not move it. Takeoff minus `modeAt` gave the same 12 takeoffs and leads
+   in all three runs (for example 9460 at 0 ms and 30650 at 20 ms), and in all
+   eight research captures it equals the lead today's rule assigns. A real
+   touch between two all-air frames moves it: at 4× and every 5th frame it
+   jumped 28570 → 29250, the hop the 1× run saw directly.
+3. **Contact is processed one tick after the flag.** A wheel's contact flag
+   is set at the end of tick N; the game processes it on tick N + 10, writing
+   the wheel's timestamp and `0x1414`. Landing ticks taken from the grounded
+   wheels' timestamps agreed across the runs (6190, 10380, 20220, …). When a
+   frame falls between the flag and its processing, no grounded timestamp is
+   newer than the takeoff yet, and the landing is the next tick (1270 →
+   1280, 790 → 800, 920 → 930 in the 1× run).
+4. **Clocks.** The frame clock (`PlaygroundClientScriptAPI.GameTime`) runs
+   0–9 ms ahead of the physics clock (`vehicle + 0x4f4`), so all timing uses
+   the physics clock. Race time minus the frame clock is constant within a
+   run, so a tick's race time is `tick + (raceTime − frameClock)`.
+5. **Yaw rate.** `vehicle + 0x554` matches the frame-to-frame yaw change with
+   slope +1.005 and r² 0.997 (next best r² 0.22): scale `+1.0`.
+
+The timestamps are deterministic (the sparse runs never showed a value the
+1× run did not), so the design goes on with the changes below; the hook
+stays unneeded.
+
 ## Takeoff, switch, and grade
 
-`PhysicsSnapshot` gains `wheelChangedAt[4]`, read from the four timestamps.
+`PhysicsSnapshot` gains `wheelChangedAt[4]` (the four wheel timestamps),
+`contactClock` (`vehicle + 0x1414`), and `frameClock`; `gameTime` becomes the
+physics clock.
 
 - **Takeoff tick.** On the first frame with all four wheels airborne,
-  takeoff is the latest of the four timestamps. It is valid only if it lies
-  after the previous frame's clock and at or before the current one, and
-  every wheel that was grounded in the previous frame has a timestamp in
-  that interval. Otherwise the flight is uncertain, and a flight that would
-  have been rated becomes `UNRATED` with the reason "Contact timestamps were
-  inconsistent at takeoff".
-- **Race times.** Takeoff race time is `raceTime − (gameTime − takeoffTick)`
-  of the first all-air frame. It feeds the minimum flight time, popup, and
+  takeoff is the car's contact clock. It is valid only if it lies after the
+  previous frame's physics clock and at or before the current one. Otherwise
+  the flight is uncertain, and a flight that would have been rated becomes
+  `UNRATED` with the reason "Contact timestamps were inconsistent at
+  takeoff".
+- **Race times.** A tick's race time is `tick + (raceTime − frameClock)` of
+  the frame that dates it. It feeds the minimum flight time, popup, and
   history.
 - **Switch.** Still `modeAt`. The switch is recorded when a grounded frame's
   mode differs from the previous frame's and `modeAt` lies in
@@ -112,13 +155,17 @@ removed or folded into the existing snapshot debug line.
 
 - **Landing tick.** On the first grounded frame after a flight, landing is
   the earliest timestamp, newer than the takeoff tick, among the grounded
-  wheels. Landing race time is derived as for takeoff.
-- **Touches in flight.** A timestamp that changes after takeoff while every
-  wheel reads airborne means a wheel touched and lifted between frames. It
-  counts like today's brief touch before the landing (`landingTouchLifted`),
-  so a low frame rate cannot hide it. If stage 0 shows the one-tick update
-  above is such a touch, it is contact, and the takeoff tick is the last
-  lift-off after it.
+  wheels; a grounded wheel without one yet is processed on the next tick
+  (the frame's physics tick + 10). Airborne wheels' timestamps (grazes) do
+  not count. Landing race time is derived as for takeoff. A sub-tick bounce
+  of a grounded wheel before the frame can still move the landing one tick;
+  that shifts the check tick by 10 ms, never the lead.
+- **Touches in flight.** The car's contact clock moving past the takeoff
+  tick while every wheel reads airborne means the game processed a touch
+  between frames. It counts like today's brief touch before the landing
+  (`landingTouchLifted`), dated at the contact clock; if that landing is not
+  rated, the flight starts again from it. Sub-tick grazes do not move the
+  contact clock and are ignored, like the direction logic ignores them.
 - **Landing direction.** The engine's stored state decides:
   - *confirmed* when `modeAt` is unchanged as of the check tick and force was
     eligible;

@@ -16,6 +16,9 @@ assert "array<uint> wheelChangedAt = array<uint>(4);" in physics
 assert "uint64 wheel = vehicle + 0x17b4 + 0xb8 * i;" in read
 assert "snap.wheelChangedAt[i] = Dev::SafeReadUint32(wheel + 0x6c);" in read
 assert "snap.physicsClock = int(Dev::SafeReadUint32(vehicle + 0x4f4));" in read
+# The car's last tick with ground contact (vehicle+0x1414): frozen at the
+# takeoff tick in flight, and sub-tick wheel grazes do not move it.
+assert "snap.contactClock = int(Dev::SafeReadUint32(vehicle + 0x1414));" in read
 
 # Frame skipping simulates a low frame rate, only in developer mode.
 assert "[Setting hidden] int S_DebugFrameSkip = 1;" in settings
@@ -32,5 +35,6 @@ print("Wheel timestamps and frame skip: PASS")
 
 # Stage 0 probe (removed again in Task 5).
 assert 'DebugLog("Gorilla Grip Trainer stamp probe at " + t +' in update
+assert '", contact " + next.contactClock +' in update
 assert "vehicle + 0x538 + 4 * i" in read
 print("Stage 0 probe line: PASS")

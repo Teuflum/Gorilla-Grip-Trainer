@@ -165,7 +165,8 @@ void Update(float dt) {
     @g_snapshot = next;
     if (next.exact && DebugForceTraceOn())
         DebugLog("Gorilla Grip Trainer stamp probe at " + t + "ms: clock " + next.gameTime +
-            ", physics " + next.physicsClock + ", contacts " + next.ContactBits() +
+            ", physics " + next.physicsClock + ", contact " + next.contactClock +
+            ", contacts " + next.ContactBits() +
             ", stamps " + next.wheelChangedAt[0] + "/" + next.wheelChangedAt[1] + "/" +
             next.wheelChangedAt[2] + "/" + next.wheelChangedAt[3] +
             ", mode " + next.mode + ", modeAt " + next.modeAt +

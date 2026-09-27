@@ -3,6 +3,10 @@
 The first landing must yield a single grade even when fast playback spans a
 grade boundary. The historical 16.8 s bounce check is opt-in because the
 user's selected input revision can change independently of this script.
+The Trainer itself does not need GorillaGripLogger; this test uses the
+Logger and TICK's local client (work/tick_client.py) from a local clone of
+https://github.com/Teuflum/tm-gorilla-grip-reverse-engineering
+(pass it as --research-root) only to drive the replay.
 Needs Openplanet developer mode and Settings → Gorilla Grip Trainer → Debug →
 Log trainer events.
 """

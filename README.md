@@ -21,6 +21,21 @@ The **Stats** widget shows the score large, with the combo and best combo on the
 
 Use **Open LocalSounds folder** at the top of the Sounds tab to place WAV, OGG, or MP3 clips in the Trainer's local storage, then click **Reload files**. Alternatively, run `py -3 tools/install_local_audio.py --source-dir <folder-containing-your-clips>`; add `--file filename.wav` one or more times to copy only selected files. The plugin still works visually if a clip is missing.
 
+The plugin ships no audio. The default sound lists expect these file names in LocalSounds:
+
+| Cue | Default files (volume) |
+| --- | --- |
+| Takeoff | `SP2_SND_GROUP_00000006.wav` (0.35) |
+| S and S+ | `Sample_0064.wav`, `Sample_0061.wav` (0.40 each) |
+| A | `Sample_0065.wav` (0.40) |
+| B | `Sample_0063.wav` (0.40) |
+| C | `Sample_0058.wav` (0.40) |
+| D | `Sample_0053.wav` (0.40) |
+| Missed | `SP2_SND_GROUP_00000002.wav` (0.35) |
+| Finish | `WSR_Wakeboarding_Results.mp3` (0.25) |
+
+The master volume defaults to 0.50. If you have the Wakeboarding sounds from Wii Sports Resort under these names, they work without further setup. On first load the lists only include files that are already in LocalSounds, so a fresh install without them shows empty lists instead of errors; after adding the files, **Reset to default** on the Sounds tab fills in the full defaults. Every reset button in the settings asks for a second click (**Confirm reset** or **Cancel**).
+
 | Moment | Local file |
 | --- | --- |
 | Eligible reversal-attempt takeoff | `SP2_SND_GROUP_00000006.wav` |
@@ -30,7 +45,7 @@ Use **Open LocalSounds folder** at the top of the Sounds tab to place WAV, OGG, 
 
 The announcer speaks only on a confirmed landing. Takeoff, S–D, Missed, and Finish each have an editable list of local sounds with individual volumes. When a list has multiple loaded sounds, playback selects one at random without repeating the previous choice. An empty row stays editable but is ignored during playback. The old single-file settings seed the new lists on first use. The **Sounds** tab has collapsible Takeoff, Grades, and Finish sections; Grades contains its S–D and Missed lists. Each row lets you type a filename or choose one from LocalSounds, adjust its volume, preview it, insert a row below with `+`, or remove it with `-`. **Reload files** and **Stop preview** are at the top. The full-width master slider scales all sounds, while each category and grade list has an enable switch. There is no landing impact cue.
 
-The controlled in-game rating check is `py -3 tests/test_trainer_in_game.py --research-root <path-to-research-repo> --case all`. It requires Trackmania, TICK, the research repository's Gorilla Grip Logger, and **Log trainer events** enabled in developer mode; the in-game tests stop with a hint when it is off.
+The controlled in-game rating check is `py -3 tests/test_trainer_in_game.py --research-root <path-to-research-repo> --case all`. The in-game tests need a local clone of the [research repository](https://github.com/Teuflum/tm-gorilla-grip-reverse-engineering): they import TICK's local client from its `work/tick_client.py` and replay runs through its Gorilla Grip Logger plugin, which they use only as a test driver (the Trainer itself does not need it). They also require Trackmania, TICK, and **Log trainer events** enabled in developer mode; the in-game tests stop with a hint when it is off.
 
 ## Run history
 

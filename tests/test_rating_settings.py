@@ -14,7 +14,7 @@ for grade, default in (("S", 15), ("A", 35), ("B", 65),
 assert "NormalizeGradeThresholds" in settings
 assert '[SettingsTab name="Rating"' in settings
 rating_body = settings.split('void RenderSettingsRating() {', 1)[1].split('\n}', 1)[0]
-assert 'UI::Button("Reset to default")' in rating_body
+assert 'ConfirmedResetButton("Reset to default", "rating")' in rating_body
 # The explanation sits behind a hover hint instead of filling the tab.
 assert "UI::TextWrapped" not in rating_body
 assert "HelpMarker(" in rating_body

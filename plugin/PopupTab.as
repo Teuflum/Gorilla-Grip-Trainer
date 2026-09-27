@@ -1,7 +1,7 @@
 [SettingsTab name="Popup" icon="" order="3"]
 void RenderSettingsPopup() {
     if (!g_localImagesScanned) RefreshLocalImages();
-    if (UI::Button("Reset to default")) {
+    if (ConfirmedResetButton("Reset to default", "popup")) {
         ResetPopupSettings();
         ResetPictureSettings();
     }

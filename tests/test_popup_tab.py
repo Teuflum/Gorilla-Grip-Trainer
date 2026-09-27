@@ -17,7 +17,7 @@ assert sources.count("[SettingsTab") == 5
 
 render = tab.split("void RenderSettingsPopup() {", 1)[1].split("\n}", 1)[0]
 # One reset covers every popup and picture setting.
-reset = render.split('if (UI::Button("Reset to default")) {', 1)[1].split("}", 1)[0]
+reset = render.split('if (ConfirmedResetButton("Reset to default", "popup")) {', 1)[1].split("}", 1)[0]
 assert "ResetPopupSettings();" in reset and "ResetPictureSettings();" in reset
 assert render.index('UI::SeparatorText("Animation")') < render.index('UI::SeparatorText("Pictures")')
 assert 'UI::BeginCombo("Style", PopupStyleLabel())' in render

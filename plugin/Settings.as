@@ -29,6 +29,22 @@ void DebugLog(const string &in message) {
     if (DebugLoggingOn()) print(message);
 }
 
+// A reset asks for a second click: the button turns into Confirm reset and
+// Cancel, like the history window's clear. One reset is armed at a time.
+string g_armedReset = "";
+
+bool ConfirmedResetButton(const string &in label, const string &in id) {
+    if (g_armedReset != id) {
+        if (UI::Button(label + "##" + id)) g_armedReset = id;
+        return false;
+    }
+    bool confirmed = UI::Button("Confirm reset##" + id);
+    UI::SameLine();
+    if (UI::Button("Cancel##" + id)) g_armedReset = "";
+    if (confirmed) g_armedReset = "";
+    return confirmed;
+}
+
 // A dimmed question mark that shows the text as a tooltip on hover.
 void HelpMarker(const string &in text) {
     UI::SameLine();
@@ -44,7 +60,7 @@ void HelpMarker(const string &in text) {
 #if SIG_DEVELOPER
 [SettingsTab name="Debug" icon="" order="99"]
 void RenderSettingsDebug() {
-    if (UI::Button("Reset to default")) {
+    if (ConfirmedResetButton("Reset to default", "debug")) {
         S_DebugLogging = false;
         S_DebugForceTrace = false;
     }
@@ -79,7 +95,7 @@ void NormalizeGradeThresholds() {
 
 [SettingsTab name="Rating" icon="" order="1"]
 void RenderSettingsRating() {
-    if (UI::Button("Reset to default")) {
+    if (ConfirmedResetButton("Reset to default", "rating")) {
         S_SMaxLeadMs = 15; S_AMaxLeadMs = 35; S_BMaxLeadMs = 65;
         S_CMaxLeadMs = 110; S_DMaxLeadMs = 250;
         S_MinIcing = 0.65f; S_MinSpeed = 50; S_MinFlight = 100;
@@ -103,7 +119,7 @@ void RenderSettingsRating() {
 
 [Setting hidden]
 bool S_EnableAudio = true;
-[Setting hidden] float S_MasterVolume = 1.0f;
+[Setting hidden] float S_MasterVolume = 0.5f;
 [Setting hidden] bool S_SoundTakeoff = true;
 [Setting hidden] bool S_SoundFailure = true;
 [Setting hidden] bool S_SoundVoices = true;
@@ -113,35 +129,36 @@ bool S_EnableAudio = true;
 [Setting hidden] bool S_GradeBEnabled = true;
 [Setting hidden] bool S_GradeCEnabled = true;
 [Setting hidden] bool S_GradeDEnabled = true;
+// True once the sound lists were set up; a fresh install then gets the
+// default sounds whose files are in LocalSounds.
 [Setting hidden] bool S_GradePoolsMigrated = false;
 [Setting hidden] string S_GradeSList = "";
 [Setting hidden] string S_GradeAList = "";
 [Setting hidden] string S_GradeBList = "";
 [Setting hidden] string S_GradeCList = "";
 [Setting hidden] string S_GradeDList = "";
-[Setting hidden] bool S_FixedPoolsMigrated = false;
 [Setting hidden] string S_JumpList = "";
 [Setting hidden] string S_FailureList = "";
 [Setting hidden] string S_ResultsList = "";
-[Setting hidden] string S_JumpFile = "SP2_SND_GROUP_00000006.wav";
-[Setting hidden] float S_JumpVolume = 0.65f;
-[Setting hidden] string S_FailureFile = "SP2_SND_GROUP_00000002.wav";
-[Setting hidden] float S_FailureVolume = 0.70f;
 
-// Legacy single-clip settings are retained only to migrate existing users.
-[Setting hidden] string S_LandSFile = "Sample_0064.wav";
-[Setting hidden] float S_LandSVolume = 0.82f;
-[Setting hidden] string S_LandAFile = "Sample_0065.wav";
-[Setting hidden] float S_LandAVolume = 0.82f;
-[Setting hidden] string S_LandBFile = "Sample_0063.wav";
-[Setting hidden] float S_LandBVolume = 0.82f;
-[Setting hidden] string S_LandCFile = "Sample_0058.wav";
-[Setting hidden] float S_LandCVolume = 0.82f;
-[Setting hidden] string S_LandDFile = "Sample_0053.wav";
-[Setting hidden] float S_LandDVolume = 0.82f;
-
-[Setting hidden] string S_ResultsFile = "WSR_Wakeboarding_Results.mp3";
-[Setting hidden] float S_ResultsVolume = 0.60f;
+// Restores every sound setting, including default files that are not in
+// LocalSounds yet, then rebuilds the lists and reloads the audio.
+void ResetSoundSettings() {
+    S_EnableAudio = true;
+    S_MasterVolume = 0.5f;
+    S_SoundTakeoff = true;
+    S_SoundFailure = true;
+    S_SoundVoices = true;
+    S_SoundResults = true;
+    S_GradeSEnabled = true;
+    S_GradeAEnabled = true;
+    S_GradeBEnabled = true;
+    S_GradeCEnabled = true;
+    S_GradeDEnabled = true;
+    ApplyDefaultSounds(false);
+    ReloadVoicePools();
+    if (g_audio !is null) g_audio.Load();
+}
 
 class SoundSlotChoice {
     string file;
@@ -211,6 +228,7 @@ SoundSlotChoice RenderSoundSlot(const string &in file, float volume) {
 void RenderSettingsSounds() {
     InitVoicePools();
     if (!g_soundFilesScanned) RefreshSoundFiles();
+    if (ConfirmedResetButton("Reset to default", "sounds")) ResetSoundSettings();
     if (UI::Button("Open LocalSounds folder")) {
         string folder = IO::FromStorageFolder("LocalSounds");
         if (!IO::FolderExists(folder)) IO::CreateFolder(folder, true);

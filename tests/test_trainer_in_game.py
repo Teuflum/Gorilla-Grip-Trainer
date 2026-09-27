@@ -1,6 +1,10 @@
 """Exercise Gorilla Grip Trainer against the controlled ANGULAR MOMENTUM replay.
 
-This integration check needs Trackmania, TICK, and GorillaGripLogger running.
+This integration check needs Trackmania and TICK running.
+The Trainer itself does not need GorillaGripLogger; this test uses the
+Logger and TICK's local client (work/tick_client.py) from a local clone of
+https://github.com/Teuflum/tm-gorilla-grip-reverse-engineering
+(pass it as --research-root) only to drive the replay.
 It reads only fresh Openplanet log lines produced by its own TICK replay.
 Needs Openplanet developer mode and Settings → Gorilla Grip Trainer → Debug →
 Log trainer events.

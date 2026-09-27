@@ -38,9 +38,9 @@ widgets_source = (Path(__file__).resolve().parents[1] / "plugin" / "Widgets.as")
 assert 'S_EnableWidgets' in widgets_source
 assert 'S_ShowWhenGameHudOff' in widgets_source
 assert 'UI::CollapsingHeader(widget.title)' in SOURCE
-assert 'UI::SameLine();\n        if (UI::Button("Reset widget"))' in SOURCE
+assert 'UI::SameLine();\n        if (ConfirmedResetButton("Reset widget", "widget-" + widget.id))' in SOURCE
 layout_body = SOURCE.split('void RenderSettingsLayout() {', 1)[1]
-assert layout_body.index('UI::Button("Reset all widgets")') < layout_body.index('UI::CollapsingHeader(')
+assert layout_body.index('ConfirmedResetButton("Reset all widgets", "layout")') < layout_body.index('UI::CollapsingHeader(')
 # The on-screen move boxes explain themselves; the tab has no drag hint.
 assert 'Drag the boxes' not in SOURCE
 for width, height in ((2048, 1151), (1280, 720)):

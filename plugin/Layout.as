@@ -182,7 +182,7 @@ void SaveLayoutSettings() {
 [SettingsTab name="Layout" icon="" order="4"]
 void RenderSettingsLayout() {
     g_layoutEditing = true;
-    if (UI::Button("Reset all widgets")) {
+    if (ConfirmedResetButton("Reset all widgets", "layout")) {
         for (uint i = 0; i < g_layouts.Length; i++) g_layouts[i].Reset();
         g_forceLayoutPosition = true;
     }
@@ -196,7 +196,7 @@ void RenderSettingsLayout() {
         UI::Indent(12.0f);
         widget.visible = UI::Checkbox("Show", widget.visible);
         UI::SameLine();
-        if (UI::Button("Reset widget")) {
+        if (ConfirmedResetButton("Reset widget", "widget-" + widget.id)) {
             widget.Reset();
             g_forceLayoutPosition = true;
         }

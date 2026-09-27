@@ -63,18 +63,18 @@ The finish summary appears once when the local player's game state enters a conf
 
 All user-supplied WAV/MP3 files are local test assets. The public repository contains source, asset-name documentation, and tests, with no game audio or landing impact bundled. A local install step copies any selected WAV/OGG/MP3 files from a user-selected source folder to the Trainer's Openplanet storage folder. The Sounds tab can open that folder through Openplanet's `OpenExplorerPath` API and offers an in-app picker listing its compatible files. Missing files disable only their own cue; the plugin remains usable and logs a clear load warning. Sounds owns all audio controls; there is no duplicate Audio tab. Master, takeoff, failure, grade voices, each grade pool, and finish music have independent enable switches. Every fixed cue and grade-list item has a filename, volume, and preview control in a compact row inside a collapsible category.
 
-| Cue | Grade or timing | Local file |
+| Cue | Grade or timing | Default local file (volume) |
 | --- | --- | --- |
-| Jump cue | All eligible reversal-attempt takeoffs | `SP2_SND_GROUP_00000006.wav` |
-| Failed landing | MISSED only | `SP2_SND_GROUP_00000002.wav` |
-| Initial S voice list | `Incredible` | `Sample_0064.wav` |
-| Initial A voice list | `Amazing` | `Sample_0065.wav` |
-| Initial B voice list | `Excellent` | `Sample_0063.wav` |
-| Initial C voice list | `Nice` | `Sample_0058.wav` |
-| Initial D voice list | `Good` | `Sample_0053.wav` |
-| Results | Confirmed finish only | `WSR_Wakeboarding_Results.mp3` |
+| Jump cue | All eligible reversal-attempt takeoffs | `SP2_SND_GROUP_00000006.wav` (0.35) |
+| Failed landing | MISSED only | `SP2_SND_GROUP_00000002.wav` (0.35) |
+| Default S voice list | `Incredible` and a second S clip | `Sample_0064.wav`, `Sample_0061.wav` (0.40 each) |
+| Default A voice list | `Amazing` | `Sample_0065.wav` (0.40) |
+| Default B voice list | `Excellent` | `Sample_0063.wav` (0.40) |
+| Default C voice list | `Nice` | `Sample_0058.wav` (0.40) |
+| Default D voice list | `Good` | `Sample_0053.wav` (0.40) |
+| Results | Confirmed finish only | `WSR_Wakeboarding_Results.mp3` (0.25) |
 
-The original fixed landing filenames and volumes migrate into the new editable lists on first load. A voice may be added to any grade list; the old airborne clips remain optional local files but are never played in air. All supplied announcer WAVs are mono 16-bit at 22,050 Hz. The result track is approximately 30 seconds. Do not copy or redistribute Nintendo game extracts in either Git repository.
+The master volume defaults to 0.50. On a fresh install each default list keeps only the files already in LocalSounds, so missing clips do not show up as errors; the Sounds tab's **Reset to default** (confirmed with a second click, like every reset) restores the full default lists. A voice may be added to any grade list; the old airborne clips remain optional local files but are never played in air. All supplied announcer WAVs are mono 16-bit at 22,050 Hz. The result track is approximately 30 seconds. Do not copy or redistribute Nintendo game extracts in either Git repository.
 
 ## Architecture and verification
 

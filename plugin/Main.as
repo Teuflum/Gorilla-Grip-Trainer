@@ -80,6 +80,7 @@ void Main() {
     g_audio.Load();
     InitLayout();
     InitWidgets();
+    InitPictures();
     DebugLog("Gorilla Grip Trainer build supported: " + g_supportedBuild);
 }
 

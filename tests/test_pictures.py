@@ -38,3 +38,52 @@ assert 'VERSION = "v16.0.1"' in tool
 for name, code in EMOJI.items():
     assert f'"{name}": "{code}"' in tool, name
 print("Shipped Twemoji pictures: PASS")
+
+import re
+
+pictures = (ROOT / "plugin" / "Pictures.as").read_text(encoding="utf-8")
+main = (ROOT / "plugin" / "Main.as").read_text(encoding="utf-8")
+
+# Seven hidden picture settings with the agreed defaults, plus the master switch.
+defaults = dict(re.findall(r'\[Setting hidden\] string (S_Picture\w+) = "([^"]*)";', pictures))
+assert defaults == {
+    "S_PictureSPlus": "emoji:gorilla", "S_PictureS": "emoji:gorilla",
+    "S_PictureA": "emoji:flexed-biceps", "S_PictureB": "emoji:thumbs-up",
+    "S_PictureC": "emoji:ok-hand", "S_PictureD": "emoji:slightly-smiling-face",
+    "S_PictureMissed": "emoji:skull",
+}, defaults
+assert "[Setting hidden] bool S_ShowPictures = true;" in pictures
+assert 'array<string> g_pictureResults = {"S+", "S", "A", "B", "C", "D", "MISSED"};' in pictures
+
+# The catalogue lists the Task 1 files in the same order as their labels.
+names = re.search(r"array<string> g_emojiNames = \{([^}]*)\};", pictures).group(1)
+labels = re.search(r"array<string> g_emojiLabels = \{([^}]*)\};", pictures).group(1)
+assert re.findall(r'"([^"]+)"', names) == list(EMOJI)
+assert re.findall(r'"([^"]+)"', labels) == [
+    "Gorilla", "Oncoming fist", "Flexed biceps", "Fire", "Thumbs up", "OK hand",
+    "Slightly smiling face", "Skull", "Ice", "Snowflake", "Trophy", "Star"]
+for result, setting in (("S+", "S_PictureSPlus"), ("MISSED", "S_PictureMissed")):
+    assert f'if (result == "{result}") return {setting};' in pictures, result
+
+# A local choice can never leave LocalImages.
+safe = pictures.split("bool IsSafeLocalName(const string &in name) {", 1)[1].split("\n}", 1)[0]
+for part in ('!name.Contains("/")', '!name.Contains("\\\\")', '!name.Contains("..")'):
+    assert part in safe, part
+load = pictures.split("PictureTexture@ LoadPicture(const string &in choice) {", 1)[1].split("\n}", 1)[0]
+assert 'IsSafeLocalName(choice.SubStr(6))' in load
+assert 'IO::FromStorageFolder("LocalImages/" + choice.SubStr(6))' in load
+assert '"assets/twemoji/" + choice.SubStr(6) + ".png"' in load
+# A failed load is logged once: the failed entry is cached, never retried.
+assert 'print("Gorilla Grip Trainer images: could not load " + PictureLabel(choice));' in load
+get = pictures.split("PictureTexture@ GetPicture(const string &in choice) {", 1)[1].split("\n}", 1)[0]
+assert "g_pictureCache.InsertLast(picture);" in get
+assert "if (!S_ShowPictures) return null;" in pictures
+
+# LocalImages lists PNG and JPG files and tolerates a missing folder.
+scan = pictures.split("void RefreshLocalImages() {", 1)[1].split("\n}", 1)[0]
+assert "if (!IO::FolderExists(folder)) return;" in scan
+for ext in ('".png"', '".jpg"', '".jpeg"'):
+    assert ext in scan, ext
+init = main.split("void Main() {", 1)[1].split("\n}", 1)[0]
+assert init.index("InitWidgets();") < init.index("InitPictures();")
+print("Picture choices and LocalImages: PASS")

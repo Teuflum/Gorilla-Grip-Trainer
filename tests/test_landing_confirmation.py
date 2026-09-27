@@ -36,4 +36,15 @@ assert "Math::Max(landingClock, takeoffModeAt + recoveryDelayMs);" in pending_bo
 assert "bool recovered = enoughIcing && !switchedByCheck &&" in resolve_body
 assert "forceEligibleClock - takeoffModeAt >= recoveryDelayMs" in resolve_body
 assert "snap.force > 1.001f" not in resolve_body
+# The minimum icing is a takeoff filter. Tires lose icing in flight (a
+# 2.75 s jump landed at 54% with full force on RoadIce and was once marked
+# MISSED), so the landing only needs some icing left.
+assert "bool enoughIcing = snap.meanIcing > 0.0f;" in resolve_body
+assert "S_MinIcing" not in resolve_body
+
+# The force disagreement line needs a front wheel down since eligibility; a
+# front bounce after the delay (landing at 13.54 s, force 1.0 at the check,
+# then +0.05 per tick) is not a disagreement.
+assert "int frontSince = ContactStart(snap, FRONT_WHEELS, landingClock - 1);" in resolve_body
+assert "frontSince >= 0 && frontSince <= forceEligibleClock" in resolve_body
 print("Landing confirmation waits for the delay, not the cutoff: PASS")

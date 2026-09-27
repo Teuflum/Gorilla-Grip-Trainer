@@ -359,7 +359,10 @@ class TransitionTracker {
     void ResolveLanding(PhysicsSnapshot@ snap) {
         pendingLanding = false;
         bool hasPreview = preview !is null && previewPublished;
-        bool enoughIcing = snap.meanIcing >= S_MinIcing;
+        // The minimum icing applies at takeoff. Tires lose icing in the air
+        // (a 2.75 s flight took them from 100% to 54%) while the icy-force
+        // branch keeps running, so the landing only needs some icing left.
+        bool enoughIcing = snap.meanIcing > 0.0f;
         // The verdict uses the stored direction as of the check tick: the first
         // change seen since takeoff (every tire-force reset writes modeAt), and
         // only if it was stored by then. A later frame may already show a
@@ -369,7 +372,11 @@ class TransitionTracker {
         // target (light steering, low speed), not a delayed grip.
         bool recovered = enoughIcing && !switchedByCheck &&
             forceEligibleClock - takeoffModeAt >= recoveryDelayMs;
-        if (hasPreview && recovered && !firstChangeSeen && snap.force <= 1.001f)
+        // Only a front wheel down since eligibility ramps the force; one that
+        // bounced and came back later has not ramped it yet.
+        int frontSince = ContactStart(snap, FRONT_WHEELS, landingClock - 1);
+        if (hasPreview && recovered && !firstChangeSeen && snap.force <= 1.001f &&
+            frontSince >= 0 && frontSince <= forceEligibleClock)
             forceDisagreedEvent = true;
         // A scrape in flight counts as ground contact and can store the new
         // direction before the real landing; name it instead of a generic miss.
@@ -387,7 +394,7 @@ class TransitionTracker {
                 "Pre-takeoff mode held through force-eligible contact" :
                 (enoughIcing ? (touchSwitched ? touchReason :
                 "Direction or tire force did not recover on force-eligible contact") :
-                "Landing icing fell below the rating threshold");
+                "The tires had no icing left at landing");
             verdict.leadMs = preview.leadMs;
         } else if (enoughIcing && takeoffMode != 0 && storedSwitched &&
             // The switch reset the force and holds it for the recovery delay.

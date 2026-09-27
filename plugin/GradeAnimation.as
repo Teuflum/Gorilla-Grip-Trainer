@@ -214,11 +214,11 @@ bool HasFx(PopupFrame@ f, int effect) {
 }
 
 void RenderResult(const vec4 &in r, int age, const string &in label,
-    bool estimated, uint seed) {
+    uint seed) {
     if (label.Length == 0) return;
     PopupFrame@ f = PopupFrame();
     f.label = label;
-    f.shown = estimated && GradeBasePoints(label) > 0 ? label + "+" : label;
+    f.shown = label;
     f.style = PopupStyle();
     f.age = age;
     f.seed = seed;

@@ -38,3 +38,38 @@ assert 'DebugLog("Gorilla Grip Trainer stamp probe at " + t +' in update
 assert '", contact " + next.contactClock +' in update
 assert "vehicle + 0x538 + 4 * i" in read
 print("Stage 0 probe line: PASS")
+
+# Everything is timed on the physics clock; ticks convert to race time
+# through the frame clock, which advances with race time.
+assert "snap.frameClock = snap.gameTime;" in read
+assert "snap.gameTime = snap.physicsClock;" in read
+assert "int RaceAt(int tick) const { return tick + raceTime - frameClock; }" in physics
+
+# Takeoff is the car's contact clock; the lead is one exact number.
+start = transitions.split("void StartFlight(", 1)[1].split("\n    }\n", 1)[0]
+valid = transitions.split("bool TakeoffClockValid(", 1)[1].split("\n}", 1)[0]
+assert "const int PHYSICS_TICK_MS = 10;" in transitions
+assert "MAX_TIMING_SAMPLE_GAP" not in transitions
+assert "contact sample gap" not in transitions
+assert "takeoffClock = snap.contactClock;" in start
+assert "bool exactTakeoff = TakeoffClockValid(previous, snap);" in start
+assert "takeoffRace = snap.RaceAt(takeoffClock);" in start
+assert '"Contact timestamps were inconsistent at takeoff"' in start
+assert "int lead = takeoffClock - switchAt;" in start
+assert "string grade = GradeLead(lead);" in start
+assert "preview.leadMs = lead;" in start
+# A contact clock outside the frame interval is not exact (Review Focus 3).
+assert "return after.contactClock > before.gameTime && after.contactClock <= after.gameTime;" in valid
+grade = transitions.split("string GradeLead(int leadMs) {", 1)[1].split("\n}", 1)[0]
+assert "if (leadMs == 0) return \"S+\";" in grade
+assert "string GradeLead(int lo" not in transitions
+preview_class = transitions.split("class JumpPreview {", 1)[1].split("\n}", 1)[0]
+assert "int leadMs = -1;" in preview_class and "ambiguous" not in preview_class
+session = (root / "Session.as").read_text(encoding="utf-8")
+verdict_class = session.split("class JumpVerdict {", 1)[1].split("\n}", 1)[0]
+assert "int leadMs = -1;" in verdict_class
+assert "timingEstimated" not in verdict_class and "leadMinMs" not in verdict_class
+# The switch is noticed at any frame gap.
+update_body = transitions.split("void Update(PhysicsSnapshot@ snap) {", 1)[1]
+assert "\n        ObserveSteeringAndMode(snap);" in update_body
+print("Exact takeoff lead: PASS")

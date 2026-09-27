@@ -29,10 +29,13 @@ assert "S_MinSlideSlip = 20.0f;" in rating
 # the last 500 ms.
 assert "const int SLIDE_WINDOW_MS = 500;" in transitions
 update = transitions.split("void Update(", 1)[1]
-assert "snap.contactMask != 0 && snap.slipDeg >= S_MinSlideSlip" in update
+# A slide lasts until the next frame that shows none, so a low frame rate
+# never drops a real slide; the window ends at the exact takeoff tick.
+assert "(snap.contactMask != 0 && snap.slipDeg >= S_MinSlideSlip) ||" in update
+assert "(previous.contactMask != 0 && previous.slipDeg >= S_MinSlideSlip))" in update
 assert "lastSlideClock = snap.gameTime;" in update
 start = transitions.split("void StartFlight(", 1)[1].split("\n    }\n", 1)[0]
-assert "lastSlideClock >= 0 && snap.gameTime - lastSlideClock <= SLIDE_WINDOW_MS" in start
+assert "lastSlideClock >= 0 && takeoffClock - lastSlideClock <= SLIDE_WINDOW_MS" in start
 reset = transitions.split("void Reset() {", 1)[1].split("\n    }\n", 1)[0]
 assert "lastSlideClock = -1;" in reset
 print("Only jumps out of an ice slide are rated: PASS")

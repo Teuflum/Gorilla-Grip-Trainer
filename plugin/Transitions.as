@@ -1,5 +1,6 @@
 const float STEER_GATE = 0.1f;
-const int MAX_TIMING_SAMPLE_GAP = 50;
+// The physics step runs in fixed 10 ms ticks.
+const int PHYSICS_TICK_MS = 10;
 const int FORCE_SETTLE_MS = 30;
 // A takeoff is rated only if the car slid within this time before it.
 const int SLIDE_WINDOW_MS = 500;
@@ -23,24 +24,28 @@ int RawDirection(float steer) {
     return 0;
 }
 
-string GradeLead(int lo, int hi) {
+string GradeLead(int leadMs) {
     NormalizeGradeThresholds();
-    if (lo < 0 || hi < lo || hi > S_DMaxLeadMs) return "";
-    // Both contact samples bound the switch to the exact takeoff millisecond.
-    if (lo == 0 && hi == 0) return "S+";
-    if (hi <= S_SMaxLeadMs) return "S";
-    if (lo > S_SMaxLeadMs && hi <= S_AMaxLeadMs) return "A";
-    if (lo > S_AMaxLeadMs && hi <= S_BMaxLeadMs) return "B";
-    if (lo > S_BMaxLeadMs && hi <= S_CMaxLeadMs) return "C";
-    if (lo > S_CMaxLeadMs && hi <= S_DMaxLeadMs) return "D";
-    return "";
+    if (leadMs < 0 || leadMs > S_DMaxLeadMs) return "";
+    // The switch happened on the tick the last wheel left.
+    if (leadMs == 0) return "S+";
+    if (leadMs <= S_SMaxLeadMs) return "S";
+    if (leadMs <= S_AMaxLeadMs) return "A";
+    if (leadMs <= S_BMaxLeadMs) return "B";
+    if (leadMs <= S_CMaxLeadMs) return "C";
+    return "D";
+}
+
+// The car's contact clock stops at the takeoff tick, the first tick whose
+// previous flags were all clear; sub-tick wheel grazes do not move it. It
+// must lie between the two frames.
+bool TakeoffClockValid(PhysicsSnapshot@ before, PhysicsSnapshot@ after) {
+    return after.contactClock > before.gameTime && after.contactClock <= after.gameTime;
 }
 
 class JumpPreview {
     string label;
-    bool ambiguous = false;
-    int leadMinMs = -1;
-    int leadMaxMs = -1;
+    int leadMs = -1;
     int takeoffTime = -1;
     int oldMode = 0;
     int newMode = 0;
@@ -158,8 +163,10 @@ class TransitionTracker {
         cuePublished = false;
         @preview = null;
         unratedReason = "";
-        takeoffRace = snap.raceTime;
-        takeoffClock = snap.gameTime;
+        takeoffClock = snap.contactClock;
+        bool exactTakeoff = TakeoffClockValid(previous, snap);
+        if (!exactTakeoff) takeoffClock = snap.gameTime;
+        takeoffRace = snap.RaceAt(takeoffClock);
         takeoffMode = snap.mode;
         takeoffModeAt = int(snap.modeAt);
         int reversalLead = takeoffClock - rawReversalAt;
@@ -168,40 +175,29 @@ class TransitionTracker {
         recoveryDelayMs = snap.recoveryDelayMs;
         // Only a jump out of an ice slide is a gorilla-grip attempt.
         flightEligible = takeoffMode != 0 &&
-            lastSlideClock >= 0 && snap.gameTime - lastSlideClock <= SLIDE_WINDOW_MS &&
+            lastSlideClock >= 0 && takeoffClock - lastSlideClock <= SLIDE_WINDOW_MS &&
             previous.meanIcing >= S_MinIcing &&
             previous.speedKmh >= float(S_MinSpeed);
-        if (!flightEligible || previous.gameTime < 0 ||
-            snap.gameTime - previous.gameTime > MAX_TIMING_SAMPLE_GAP) {
-            if (snap.gameTime - previous.gameTime > MAX_TIMING_SAMPLE_GAP) {
-                flightUncertain = true;
-                if (flightEligible && switchAt >= 0 &&
-                    switchNewMode == takeoffMode &&
-                    snap.gameTime - switchAt <= S_DMaxLeadMs) {
-                    unratedReason = "contact sample gap exceeded 50 ms";
-                    unratedEvent = true;
-                }
+        if (!flightEligible) return;
+        bool attempted = switchAt >= 0 && switchNewMode == takeoffMode &&
+            takeoffClock - switchAt <= S_DMaxLeadMs;
+        if (!exactTakeoff) {
+            flightUncertain = true;
+            if (attempted) {
+                unratedReason = "Contact timestamps were inconsistent at takeoff";
+                unratedEvent = true;
             }
             return;
         }
-        if (switchAt < 0 || switchNewMode != takeoffMode ||
-            switchOldMode == 0 || switchOldMode == takeoffMode ||
-            switchAt > snap.gameTime || snap.gameTime - switchAt > S_DMaxLeadMs) return;
-        int lo = Math::Max(0, previous.gameTime - switchAt);
-        int hi = snap.gameTime - switchAt;
-        string grade = GradeLead(lo, hi);
+        if (!attempted || switchOldMode == 0 || switchOldMode == takeoffMode ||
+            switchAt > takeoffClock) return;
+        int lead = takeoffClock - switchAt;
+        string grade = GradeLead(lead);
+        if (grade.Length == 0) return;
         @preview = JumpPreview();
-        if (grade.Length == 0) {
-            preview.label = GradeLead(hi, hi);
-            preview.ambiguous = true;
-            if (preview.label.Length == 0) {
-                @preview = null;
-                return;
-            }
-        } else preview.label = grade;
-        preview.leadMinMs = lo;
-        preview.leadMaxMs = hi;
-        preview.takeoffTime = snap.raceTime;
+        preview.label = grade;
+        preview.leadMs = lead;
+        preview.takeoffTime = takeoffRace;
         preview.oldMode = switchOldMode;
         preview.newMode = switchNewMode;
         preview.modeAt = switchAt;
@@ -236,9 +232,7 @@ class TransitionTracker {
         verdict.reason = reason;
         verdict.takeoffTime = takeoffRace;
         verdict.landingTime = Math::Max(takeoffRace, raceTime);
-        verdict.leadMinMs = preview is null ? -1 : preview.leadMinMs;
-        verdict.leadMaxMs = preview is null ? -1 : preview.leadMaxMs;
-        verdict.timingEstimated = preview !is null && preview.ambiguous;
+        verdict.leadMs = preview is null ? -1 : preview.leadMs;
         verdict.spinCount = 0;
         verdict.exact = false;
         verdictEvent = true;
@@ -267,15 +261,12 @@ class TransitionTracker {
         if (hasPreview) {
             @verdict = JumpVerdict();
             verdict.label = recovered ? preview.label : "MISSED";
-            verdict.reason = recovered ? (preview.ambiguous ?
-                "Grip recovered; takeoff fell within samples that crossed a grade limit" :
-                "Pre-takeoff mode held through force-eligible contact") :
+            verdict.reason = recovered ?
+                "Pre-takeoff mode held through force-eligible contact" :
                 (enoughIcing ? (touchSwitched ? touchReason :
                 "Direction or tire force did not recover on force-eligible contact") :
                 "Landing icing fell below the rating threshold");
-            verdict.leadMinMs = preview.leadMinMs;
-            verdict.leadMaxMs = preview.leadMaxMs;
-            verdict.timingEstimated = preview.ambiguous;
+            verdict.leadMs = preview.leadMs;
         } else if (enoughIcing && takeoffMode != 0 &&
             (oppositeLanding || storedSwitched) && snap.force <= 1.1f) {
             @verdict = JumpVerdict();
@@ -326,16 +317,6 @@ class TransitionTracker {
         int sampleGap = snap.gameTime - previous.gameTime;
         bool crossingTakeoff = previous.contactMask != 0 &&
             snap.contactMask == 0 && !pendingLanding;
-        if (sampleGap > MAX_TIMING_SAMPLE_GAP) {
-            // Keep a recent grounded switch until StartFlight can report the
-            // uncertain takeoff. It cannot receive a timing grade from this gap.
-            if (!crossingTakeoff) switchAt = -1;
-            rawReversalAt = -1;
-            if (previous.contactMask != snap.contactMask)
-                flightUncertain = true;
-            if (pendingLanding) flightUncertain = true;
-            if (inFlight) spinReliable = false;
-        }
 
         if (inFlight && previous.contactMask == 0) {
             float turn = snap.yaw - previous.yaw;
@@ -344,13 +325,12 @@ class TransitionTracker {
             airSpinRadians += Math::Abs(turn);
         }
 
-        if (snap.contactMask != 0 && snap.slipDeg >= S_MinSlideSlip)
+        // A slide lasts at least until the next frame that shows none.
+        if ((snap.contactMask != 0 && snap.slipDeg >= S_MinSlideSlip) ||
+            (previous.contactMask != 0 && previous.slipDeg >= S_MinSlideSlip))
             lastSlideClock = snap.gameTime;
-        if (sampleGap <= MAX_TIMING_SAMPLE_GAP) ObserveSteeringAndMode(snap);
-        if (crossingTakeoff) {
-            StartFlight(snap);
-            if (sampleGap > MAX_TIMING_SAMPLE_GAP) switchAt = -1;
-        }
+        ObserveSteeringAndMode(snap);
+        if (crossingTakeoff) StartFlight(snap);
         else if (previous.contactMask == 0 && snap.contactMask != 0 && inFlight)
             Land(snap);
 

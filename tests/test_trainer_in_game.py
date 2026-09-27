@@ -31,7 +31,7 @@ SNAPSHOT = re.compile(
     r"mode ([012]), steer ([+-]?[0-9.]+), contacts ([01]{4}), "
     r"modeAt (\d+), clock (\d+), delay (\d+)"
 )
-PREVIEW = re.compile(r"Gorilla Grip Trainer preview at (\d+)ms: (S\+|[SABCD]) lead (\d+)-(\d+)ms")
+PREVIEW = re.compile(r"Gorilla Grip Trainer preview at (\d+)ms: (S\+|[SABCD]) lead (\d+)ms")
 VERDICT = re.compile(r"Gorilla Grip Trainer verdict at (\d+)ms: (S\+|[SABCD]|MISSED)")
 LANDING = re.compile(r"Gorilla Grip Trainer landing at (\d+)ms:")
 UNRATED = re.compile(r"Gorilla Grip Trainer timing unrated at (\d+)ms: (.+)")
@@ -265,10 +265,10 @@ def main() -> None:
         previews, verdicts = target_events(log)
         if case == "plus13":
             assert len(previews) == 1, f"Expected one +13 preview, found {len(previews)}"
-            lead_min, lead_max = previews[0].group(3, 4)
-            expected_grade = "S+" if (lead_min, lead_max) == ("0", "0") else "S"
+            lead = previews[0].group(3)
+            expected_grade = "S+" if lead == "0" else "S"
             assert previews[0].group(2) == expected_grade, (
-                f"Expected {expected_grade} for {lead_min}-{lead_max}ms, got {previews[0].group(2)}"
+                f"Expected {expected_grade} for {lead}ms, got {previews[0].group(2)}"
             )
             assert len(verdicts) == 1 and verdicts[0].group(2) == expected_grade, (
                 f"Expected one {expected_grade} landing verdict for +13, "

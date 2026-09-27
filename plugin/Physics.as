@@ -32,6 +32,9 @@ class PhysicsSnapshot {
     // The car's last tick with ground contact (vehicle+0x1414). It stays at the
     // takeoff tick through the flight; sub-tick wheel grazes do not move it.
     int contactClock = -1;
+    // The frame clock (PlaygroundClientScriptAPI.GameTime); it runs ahead of
+    // the physics tick but advances with race time.
+    int frameClock = -1;
     // Stage 0 only: 32 floats after the car position, to find the angular velocity.
     string probe = "";
 
@@ -56,6 +59,9 @@ class PhysicsSnapshot {
             bits += (contactMask & (1 << i)) != 0 ? "1" : "0";
         return bits;
     }
+
+    // Race time of a physics tick; race time and the frame clock advance together.
+    int RaceAt(int tick) const { return tick + raceTime - frameClock; }
 }
 
 bool IsSupportedBuild() {
@@ -149,6 +155,9 @@ PhysicsSnapshot@ ReadPhysics(CSceneVehicleVisState@ vis, int raceTime) {
     }
     snap.physicsClock = int(Dev::SafeReadUint32(vehicle + 0x4f4));
     snap.contactClock = int(Dev::SafeReadUint32(vehicle + 0x1414));
+    // Stage 0: time everything on the physics clock.
+    snap.frameClock = snap.gameTime;
+    snap.gameTime = snap.physicsClock;
     if (DebugForceTraceOn()) {
         for (uint i = 0; i < 32; i++)
             snap.probe += (i == 0 ? "" : ",") +

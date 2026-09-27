@@ -189,8 +189,7 @@ void Update(float dt) {
     if (g_tracker.previewEvent) {
         JumpPreview@ p = g_tracker.preview;
         DebugLog("Gorilla Grip Trainer preview at " + t + "ms: " + p.label +
-            " lead " + p.leadMinMs + "-" + p.leadMaxMs + "ms" +
-            (p.ambiguous ? " conservative" : ""));
+            " lead " + p.leadMs + "ms");
     }
     if (g_tracker.takeoffCueEvent)
         g_audio.OnTakeoffCue();

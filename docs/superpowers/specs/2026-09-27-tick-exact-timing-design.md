@@ -1,5 +1,7 @@
 # Tick-exact timing
 
+> **Status:** shipped in version 0.3.0. Changed since: spin counting was removed, and the default grade limits moved to the 10 ms tick grid (S 10, A 30, B 60, C 110, D 250 ms). The trainer's [design specification](2026-09-25-gorilla-grip-trainer.md) describes the current rules.
+
 ## Purpose
 
 Trackmania's physics is deterministic, but the Trainer samples it once per

@@ -96,7 +96,10 @@ assert "TouchedSince" not in transitions and "EarliestWheelChange" not in transi
 # Review Focus 1: a touch the game processed between two all-air frames.
 assert "else if (inFlight && snap.contactMask == 0 && snap.contactClock > takeoffClock) {" in update_body
 assert "if (!pendingLanding) StartFlight(snap);" in update_body
-assert "int frontSince = ContactStart(snap, FRONT_WHEELS, landingClock - 1);" in pending
+# Final review 3: the earliest front touchdown since the landing sets the
+# check tick, so a later bounce seen on a late frame cannot move it.
+assert "int front = ContactStart(snap, FRONT_WHEELS, landingClock - 1);" in pending
+assert "if (front >= 0 && (frontTouchAt < 0 || front < frontTouchAt)) frontTouchAt = front;" in pending
 assert "if (snap.forceGateState != 0) gateSeenAt = snap.gameTime;" in pending
 assert "Math::Max(landingClock + LANDING_CHECK_MS, eligibleAt + FORCE_SETTLE_MS)" in pending
 assert "snap.gameTime >= checkAt" in pending
@@ -104,27 +107,42 @@ assert "snap.gameTime >= checkAt" in pending
 # tick; a lapse to neutral is dated from the neutral timer; force only confirms.
 assert "snap.neutralAt = int(Dev::SafeReadUint32(vehicle + 0x14e0));" in physics
 assert "Dev::SafeReadUint32(model + 0x1198)" in physics
-assert "bool switchedByCheck = storedAt != takeoffModeAt && changedAt <= checkClock;" in resolve
-assert "snap.neutralAt + snap.neutralTimeoutMs + PHYSICS_TICK_MS" in resolve
+# Final review 1: the first stored-direction change seen since takeoff is
+# recorded on every pending frame, so a second change before a late frame
+# cannot hide it.
+assert "if (!firstChangeSeen && int(snap.modeAt) != takeoffModeAt) {" in pending
+assert "firstChangeAt = StoredChangeTick(snap);" in pending
+assert "bool switchedByCheck = firstChangeSeen && firstChangeAt <= checkClock;" in resolve
+stored_change = transitions.split("int StoredChangeTick(", 1)[1].split("\n}", 1)[0]
+assert "snap.neutralAt + snap.neutralTimeoutMs + PHYSICS_TICK_MS" in stored_change
 assert "bool recovered = enoughIcing && !switchedByCheck &&" in resolve
 assert "snap.force > 1.001f" not in resolve
 assert "forceDisagreedEvent = true;" in resolve
 assert "forceDisagreedEvent = false;" in update_body.split("if (snap is null", 1)[0]
 assert 'DebugLog("Gorilla Grip Trainer force did not rise although the direction held at "' in main
-assert "storedAt <= landingClock + LANDING_STEER_MS" in resolve
+assert "firstChangeAt <= landingClock + LANDING_STEER_MS" in resolve
+# Final review 2: no-preview misses use the tick rule, not a late force read.
+assert "snap.force <= 1.1f" not in resolve
+assert "checkClock - firstChangeAt < recoveryDelayMs" in resolve
 print("Landing from timestamps and stored mode: PASS")
 
 # Estimates that never decide a grade.
 observe = transitions.split("void ObserveSteeringAndMode(", 1)[1].split("\n    }\n", 1)[0]
 estimate = transitions.split("int EstimateReversal(", 1)[1].split("\n}", 1)[0]
+turn = transitions.split("float TurnBetween(", 1)[1].split("\n    }\n", 1)[0]
 spin = transitions.split("void CountSpin(", 1)[1].split("\n    }\n", 1)[0]
 assert "const float SMOOTHED_STEER_STEP = 0.2f;" in transitions
 assert "rawReversalAt = EstimateReversal(previous, snap);" in observe
 assert "if (previousGround && beforeRaw != 0" in observe
 assert "Math::Clamp(after.gameTime - (ticks - 1) * PHYSICS_TICK_MS," in estimate
-assert "if (snap.hasYawRate && previous.hasYawRate) {" in spin
-assert "else if (gap > 0.0f && maxYawRate * gap > Math::PI) spinReliable = false;" in spin
-assert "if (inFlight && previous.contactMask == 0) CountSpin(snap, sampleGap);" in update_body
+assert "if (after.hasYawRate && before.hasYawRate) {" in turn
+assert "else if (gap > 0.0f && maxYawRate * gap > Math::PI) spinReliable = false;" in turn
+# Final review 4: only the airborne share of the takeoff and landing frame
+# gaps counts toward spins.
+assert "airSpinRadians += Math::Abs(TurnBetween(before, after)) * share;" in spin
+assert "CountSpin(previous, snap, previous.gameTime, snap.gameTime);" in update_body
+assert "CountSpin(previous, snap, takeoffClock, snap.gameTime);" in start
+assert "CountSpin(previous, snap, previous.gameTime, landingClock);" in land
 assert "const int YAW_RATE_OFFSET = " in physics
 print("Gap-safe cue and spins: PASS")
 

@@ -21,8 +21,8 @@ assert "2 * recoveryDelayMs" not in transitions
 # multiplier only for front wheels), the delay has run out, and the
 # backwards-motion gate is clear. Eligibility starts at the exact touchdown.
 assert "const uint FRONT_WHEELS = 0x3;" in transitions
-assert "int frontSince = ContactStart(snap, FRONT_WHEELS, landingClock - 1);" in pending_body
-assert "Math::Max(frontSince, takeoffModeAt + recoveryDelayMs)" in pending_body
+assert "int front = ContactStart(snap, FRONT_WHEELS, landingClock - 1);" in pending_body
+assert "Math::Max(frontTouchAt, takeoffModeAt + recoveryDelayMs)" in pending_body
 assert "snap.forceGateState == 0" in pending_body
 
 # Deliberate gas-off spins can hold the gate longer; the wait counts from

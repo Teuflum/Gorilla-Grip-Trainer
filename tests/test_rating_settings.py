@@ -26,4 +26,10 @@ for grade in "SABCD":
     default = int(settings.split(f"int S_{grade}MaxLeadMs = ", 1)[1].split(";", 1)[0])
     assert default % 10 == 0, (grade, default)
     assert f'S_{grade}MaxLeadMs, PHYSICS_TICK_MS)' in rating_body
+# The icing slider says it is checked at takeoff, and names the fixed
+# landing minimum from Transitions.as.
+icing_help = rating_body.split('"Minimum average tire icing"', 1)[1].split("HelpMarker(", 1)[1].split(");", 1)[0]
+assert "takeoff only" in icing_help
+landing_min = transitions.split("LANDING_MIN_ICING = ", 1)[1].split("f;", 1)[0]
+assert landing_min in icing_help, landing_min
 print("Editable ordered grade timing bounds: PASS")

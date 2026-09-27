@@ -133,6 +133,7 @@ void RenderSettingsRating() {
     NormalizeGradeThresholds();
     UI::SeparatorText("Eligible transitions");
     S_MinIcing = UI::SliderFloat("Minimum average tire icing", S_MinIcing, 0.0f, 1.0f, "%.2f");
+    HelpMarker("Checked at takeoff only: the jump counts if the four tires average at least this much icing as the last wheel leaves.\n\nLandings only need 0.34, because tires lose icing in the air. That value is fixed and not changed here.");
     S_MinSpeed = UI::InputInt("Minimum speed (km/h)", S_MinSpeed);
     S_MinFlight = UI::InputInt("Minimum flight (ms)", S_MinFlight);
     S_MinSpeed = Math::Clamp(S_MinSpeed, 0, 300);

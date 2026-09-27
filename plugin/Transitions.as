@@ -3,6 +3,8 @@ const int MAX_TIMING_SAMPLE_GAP = 50;
 const int FORCE_SETTLE_MS = 30;
 // A takeoff is rated only if the car slid within this time before it.
 const int SLIDE_WINDOW_MS = 500;
+// A grounded steering reversal this soon before takeoff plays the takeoff cue.
+const int CUE_REVERSAL_WINDOW_MS = 250;
 // Contact bits of the front wheels (0 and 1); only they update the tire-force multiplier.
 const uint FRONT_WHEELS = 0x3;
 // Counted from touchdown or the end of the recovery delay, whichever is later;
@@ -53,6 +55,8 @@ class TransitionTracker {
     bool verdictEvent = false;
     bool takeoffCueEvent = false;
     bool landingEvent = false;
+    // A pending landing ended without a verdict (same-direction landing).
+    bool silentLandingEvent = false;
     bool unratedEvent = false;
     string unratedReason = "";
 
@@ -74,6 +78,8 @@ class TransitionTracker {
     int takeoffClock = -1;
     int takeoffMode = 0;
     int takeoffModeAt = -1;
+    // Lead of the steering reversal that played the takeoff cue, or -1.
+    int takeoffReversalLeadMs = -1;
     int landingRace = -1;
     int landingClock = -1;
     int landingDirection = 0;
@@ -91,6 +97,7 @@ class TransitionTracker {
         verdictEvent = false;
         takeoffCueEvent = false;
         landingEvent = false;
+        silentLandingEvent = false;
         unratedEvent = false;
         unratedReason = "";
         switchAt = -1;
@@ -109,6 +116,7 @@ class TransitionTracker {
         takeoffClock = -1;
         takeoffMode = 0;
         takeoffModeAt = -1;
+        takeoffReversalLeadMs = -1;
         landingRace = -1;
         landingClock = -1;
         landingDirection = 0;
@@ -154,6 +162,9 @@ class TransitionTracker {
         takeoffClock = snap.gameTime;
         takeoffMode = snap.mode;
         takeoffModeAt = int(snap.modeAt);
+        int reversalLead = takeoffClock - rawReversalAt;
+        takeoffReversalLeadMs = rawReversalAt >= 0 && reversalLead >= 0 &&
+            reversalLead <= CUE_REVERSAL_WINDOW_MS ? reversalLead : -1;
         recoveryDelayMs = snap.recoveryDelayMs;
         // Only a jump out of an ice slide is a gorilla-grip attempt.
         flightEligible = takeoffMode != 0 &&
@@ -248,6 +259,11 @@ class TransitionTracker {
         // direction before the real landing; name it instead of a generic miss.
         bool touchSwitched = landingTouchLifted && int(snap.modeAt) != takeoffModeAt;
         const string touchReason = "Direction switched on a brief touch before the landing";
+        // The stored direction changes only on the ground: after a neutral
+        // landing, steering the other way switches it and delays the force.
+        bool storedSwitched = snap.mode != 0 && snap.mode != takeoffMode &&
+            int(snap.modeAt) != takeoffModeAt;
+        bool oppositeLanding = landingDirection != 0 && landingDirection != takeoffMode;
         if (hasPreview) {
             @verdict = JumpVerdict();
             verdict.label = recovered ? preview.label : "MISSED";
@@ -260,13 +276,20 @@ class TransitionTracker {
             verdict.leadMinMs = preview.leadMinMs;
             verdict.leadMaxMs = preview.leadMaxMs;
             verdict.timingEstimated = preview.ambiguous;
-        } else if (enoughIcing && landingDirection != 0 && takeoffMode != 0 &&
-            landingDirection != takeoffMode && snap.force <= 1.1f) {
+        } else if (enoughIcing && takeoffMode != 0 &&
+            (oppositeLanding || storedSwitched) && snap.force <= 1.1f) {
             @verdict = JumpVerdict();
             verdict.label = "MISSED";
             verdict.reason = touchSwitched ? touchReason :
-                "Opposite landing direction with delayed tire force";
-        } else return;
+                storedSwitched && takeoffReversalLeadMs >= 0 ?
+                "Steering reversed " + takeoffReversalLeadMs +
+                " ms before takeoff, too late to store the direction; it switched after the landing" :
+                oppositeLanding ? "Opposite landing direction with delayed tire force" :
+                "Direction switched after the landing with delayed tire force";
+        } else {
+            silentLandingEvent = true;
+            return;
+        }
         verdict.takeoffTime = takeoffRace;
         verdict.landingTime = landingRace;
         verdict.spinCount = flightSpinCount;
@@ -279,6 +302,7 @@ class TransitionTracker {
         verdictEvent = false;
         takeoffCueEvent = false;
         landingEvent = false;
+        silentLandingEvent = false;
         unratedEvent = false;
         if (snap is null || !snap.exact || snap.gameTime < 0) {
             if (pendingLanding)
@@ -335,7 +359,7 @@ class TransitionTracker {
             if (!cuePublished && (preview !is null ||
                 (rawReversalAt >= 0 &&
                 0 <= takeoffClock - rawReversalAt &&
-                takeoffClock - rawReversalAt <= 250))) {
+                takeoffClock - rawReversalAt <= CUE_REVERSAL_WINDOW_MS))) {
                 cuePublished = true;
                 takeoffCueEvent = true;
             }

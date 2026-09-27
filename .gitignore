@@ -1,6 +1,7 @@
 # Supplied local-only audio and generated recordings.
 local_audio/
 LocalSounds/
+LocalImages/
 SP2_*.wav
 Sample_*.wav
 WSR_*.mp3

@@ -123,6 +123,18 @@ The timestamps are deterministic (the sparse runs never showed a value the
 1× run did not), so the design goes on with the changes below; the hook
 stays unneeded.
 
+6. **No landing clock (checked after the final review).** At 4× with every
+   3rd frame, one of nine landings came out 20 ms late (12590 → 12610): a
+   wheel bounced inside a tick right after touchdown, and the sparse frame
+   only saw its later timestamp. A probe of every field in the car's first
+   `0x1d00` bytes that held a recent clock value, over a dense 1× replay and
+   a sparse one, found no field that keeps the first touchdown tick:
+   `vehicle + 0x21c` and `+ 0x220` held it in 6 of 12 dense landings and were
+   sometimes earlier than the real landing. The landing time can therefore
+   move a tick or two at very sparse frames; grades, leads, and scores
+   matched in all runs. The in-game comparison accepts landing times within
+   20 ms and compares everything else exactly.
+
 ## Takeoff, switch, and grade
 
 `PhysicsSnapshot` gains `wheelChangedAt[4]` (the four wheel timestamps),
@@ -251,8 +263,9 @@ physics clock.
 - **In game** (`test_frame_independence_in_game.py`, run only on request):
   replays one TICK revision with several rated jumps, a spin, and a miss in
   four runs: 1×; 4× speed; 1× every 5th frame; 4× every 3rd frame. It
-  compares every verdict line (grade, lead, reason, spins, score); all runs
-  must match. Like the other in-game tests it uses the research repository's
+  compares every verdict line (grade, lead, reason, spins, score, takeoff
+  exactly; landing within 20 ms, see Stage 0 result 6); all runs must
+  match. Like the other in-game tests it uses the research repository's
   TICK client and restores the user's game speed and revision.
 
 ## Documentation

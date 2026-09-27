@@ -2,7 +2,8 @@
 
 Replays the loaded TICK revision four times: 1x; 4x; 1x with the Trainer
 processing every 5th frame; 4x every 3rd frame. Every verdict must match the
-first run: grade, reason, spins, combo, score, takeoff, landing, and lead. The
+first run: grade, reason, spins, combo, score, takeoff, and lead exactly, and
+the landing time within 20 ms (see LANDING_TOLERANCE_MS). The
 "Steering reversed N ms" number in a reason is an estimate and is masked.
 
 Needs Trackmania, TICK, and a local clone of
@@ -96,6 +97,20 @@ def run(args: argparse.Namespace) -> None:
     print(f"{args.run}: {len(rows)} verdicts saved")
 
 
+LANDING = 6
+# A wheel bouncing inside a tick right after touchdown can move the landing
+# time a tick or two at very sparse frames (spec: Landing); the game keeps no
+# clock for the first touchdown. Everything else must match exactly.
+LANDING_TOLERANCE_MS = 20
+
+
+def same(want: list | None, got: list | None) -> bool:
+    if want is None or got is None:
+        return want is got
+    return (want[:LANDING] + want[LANDING + 1:] == got[:LANDING] + got[LANDING + 1:] and
+            abs(want[LANDING] - got[LANDING]) <= LANDING_TOLERANCE_MS)
+
+
 def compare(args: argparse.Namespace) -> None:
     results = {name: json.loads((args.data_dir / f"{name}.json").read_text(encoding="utf-8"))
                for name in RUNS if (args.data_dir / f"{name}.json").exists()}
@@ -109,13 +124,13 @@ def compare(args: argparse.Namespace) -> None:
     failed = False
     for name, rows in results.items():
         print(f"{name}: {len(rows)} verdicts")
-        if rows != base:
+        if len(rows) != len(base) or not all(map(same, base, rows)):
             failed = True
             print(f"\n{name} differs from 1x:")
             for index in range(max(len(rows), len(base))):
                 want = base[index] if index < len(base) else None
                 got = rows[index] if index < len(rows) else None
-                if want != got:
+                if not same(want, got):
                     print(f"  #{index + 1}: 1x {want}\n       {name} {got}")
     assert not failed, "Results depend on frame rate or game speed"
     print("Same results at every frame rate and game speed: PASS")

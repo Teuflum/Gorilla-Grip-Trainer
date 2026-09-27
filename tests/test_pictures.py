@@ -12,7 +12,7 @@ EMOJI = {
     "slightly-smiling-face": "1f642", "skull": "1f480", "ice": "1f9ca",
     "snowflake": "2744", "trophy": "1f3c6", "star": "2b50",
 }
-SETS = ["fluent-flat", "fluent-color", "fluent-3d", "twemoji", "noto", "openmoji"]
+SETS = ["fluent-flat", "fluent-3d", "twemoji", "noto", "openmoji"]
 
 # Each set ships the same twelve 256x256 RGBA PNGs, and nothing else.
 emoji = ASSETS / "emoji"
@@ -152,3 +152,13 @@ assert 'SetPictureSetting(result, "emoji:" + source + "/" + g_emojiNames[i]);' i
 assert 'if (UI::Selectable("Local file", source == "local") && source != "local")' in row
 assert 'SetPictureSetting(result, "local:" + g_localImages[i]);' in row
 print("Each picture picks its own emoji set or local file: PASS")
+
+# Fluent Color was dropped (too close to Fluent 3D); saved choices that used
+# it switch to Fluent 3D with the same picture.
+assert 'array<string> g_emojiSets = {"fluent-flat", "fluent-3d", "twemoji", "noto", "openmoji"};' in pictures
+assert 'array<string> g_emojiSetLabels = {"Fluent Flat", "Fluent 3D", "Twemoji", "Noto (Android)", "OpenMoji"};' in pictures
+assert 'if (emojiSet == "fluent-color") emojiSet = "fluent-3d";' in parts
+assert parts.index('if (emojiSet == "fluent-color")') < parts.index("if (EmojiSetIndex(emojiSet) < 0")
+assert "fluent-color" not in (ROOT / "tools" / "render_emoji.py").read_text(encoding="utf-8")
+assert "fluent-color/" not in attribution
+print("Fluent Color replaced by Fluent 3D: PASS")

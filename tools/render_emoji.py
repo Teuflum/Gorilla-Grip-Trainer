@@ -73,7 +73,6 @@ SETS = {
     "twemoji": lambda name, code:
         f"https://cdn.jsdelivr.net/gh/jdecked/twemoji@{TWEMOJI}/assets/svg/{code}.svg",
     "fluent-flat": lambda name, code: fluent_url(name, "Flat", "svg"),
-    "fluent-color": lambda name, code: fluent_url(name, "Color", "svg"),
     "fluent-3d": lambda name, code: fluent_url(name, "3D", "png"),
     "noto": lambda name, code:
         f"https://raw.githubusercontent.com/googlefonts/noto-emoji/{NOTO}/2D/svg/emoji_u{code}.svg",

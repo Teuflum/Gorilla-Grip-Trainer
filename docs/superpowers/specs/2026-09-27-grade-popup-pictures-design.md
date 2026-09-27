@@ -22,7 +22,7 @@ change.
 - Each result has **one** picture, drawn on both sides of the panel as the
   gorilla is today. Only S and S+ pictures bounce ("dance").
 - Shipped pictures come from open-source emoji sets only (Fluent Flat by
-  Fluent Color, Fluent 3D, Twemoji, Noto, OpenMoji), and each result picks its
+  Fluent 3D, Twemoji, Noto, OpenMoji), and each result picks its
   own set, so sets can be mixed. The AI-generated
   `plugin/assets/gorilla-emoji.png` leaves the repository and lives on as a
   user file in `LocalImages`.
@@ -171,9 +171,9 @@ enters depends on the style (see above).
 
 ### Shipped emoji sets
 
-Six sets ship the same twelve pictures, each stored as 256×256 transparent
+Five sets ship the same twelve pictures, each stored as 256×256 transparent
 PNGs in `plugin/assets/emoji/<set>/` and named after the emoji. The sets are
-`fluent-flat`, `fluent-color`, `fluent-3d`, `twemoji`, `noto`, and
+`fluent-flat`, `fluent-3d`, `twemoji`, `noto`, and
 `openmoji`. Each result's choice names its own set; a choice with an
 unknown set or picture counts as None.
 
@@ -220,7 +220,7 @@ mode only). Like the other custom tabs it has no tab icon.
   - **Show pictures**, **Open LocalImages folder**, and **Reload files**;
   - one row per result (S+, S, A, B, C, D, Missed) with a small thumbnail of
     the current picture (blank for None), a **source** picker (*None*, the
-    six emoji sets, *Local file*), a **picture** picker (the twelve emoji by
+    five emoji sets, *Local file*), a **picture** picker (the twelve emoji by
     readable name, or the LocalImages files; hidden for None), and
     **Preview**. Switching between emoji sets keeps the same picture.
 

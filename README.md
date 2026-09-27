@@ -1,56 +1,107 @@
 # Gorilla Grip Trainer
 
-Standalone Openplanet trainer for the timing of a Trackmania ice-slide direction switch before takeoff. The current implementation reads the physics direction, previews a validated S+–D switch in the air, and confirms the landing before changing score or combo.
+An [Openplanet](https://openplanet.dev) plugin for Trackmania that trains the "gorilla grip": switching the ice-slide direction just before the car leaves the ground, so the tires grip again when it lands. The plugin reads the game's physics, grades how early you switched (S+ to D), and confirms on landing that the tire force actually recovered.
 
-- [Design specification](docs/superpowers/specs/2026-09-25-gorilla-grip-trainer.md)
-- [Implementation plan](docs/superpowers/plans/2026-09-25-gorilla-grip-trainer.md)
-- [Player guide to the gorilla grip mechanic](https://github.com/Teuflum/tm-gorilla-grip-reverse-engineering/blob/main/outputs/gorilla_grip_player_guide.md)
-- [Physics research](https://github.com/Teuflum/tm-gorilla-grip-reverse-engineering)
+New to the mechanic? The [player guide](https://github.com/Teuflum/tm-gorilla-grip-reverse-engineering/blob/main/outputs/gorilla_grip_player_guide.md) explains it.
 
-The supplied jump, announcer, failure, and results audio files are for local testing only. They are excluded from this repository. No game audio or impact sound is bundled.
+## Install
 
-## Development install
+1. Install [Openplanet](https://openplanet.dev). The plugin also needs VehicleState, which ships with Openplanet.
+2. Copy the `plugin` folder to `OpenplanetNext/Plugins/GorillaGripTrainer`.
+3. Load or reload the plugin in Openplanet.
 
-Copy the `plugin` folder to `OpenplanetNext/Plugins/GorillaGripTrainer` and load it through Openplanet. It requires VehicleState. On the tested Trackmania build, the physics widget labels smoothed steering and the separate stored slide mode, shows each wheel's ground contact (gold for the front wheels, which alone raise tire force) and icing, and displays the contacted tire-force multiplier. An unset mode timestamp shows no timer; in air, the widget distinguishes the 400 ms delay from the possible recovery window through 800 ms and checks actual force on landing. The sampler reads memory only after checking the executable signature and active vehicle. On an unsupported executable signature, Openplanet shows an amber warning that the offsets need manual review, then the plugin unloads before initializing its trainer features.
+The physics reads are tied to one Trackmania build. On any other build, Openplanet shows an amber warning that the offsets need checking, and the plugin unloads itself.
 
-The settings tabs are Display, Rating, Sounds, Popup, and Layout, followed by Debug in Openplanet's developer mode. Open Openplanet Settings → Gorilla Grip Trainer → Layout to drag or resize the five HUD widgets, including the finish summary. Expand a widget to enter its position and size as screen percentages or toggle it. Display has the overall widget enable switch and the option to show widgets when the game HUD is hidden. Debug appears only in developer mode, and its options have no effect outside it. It keeps `Openplanet.log` quiet by default: **Log trainer events** turns on the routine lines (contact snapshots, previews, verdicts, audio, history saves), and **Log every tire-force change** adds a line for each tire-force and force-gate change for research traces. Problems such as missing sounds or a damaged history file are always logged. The Rating tab lets you change the maximum lead time for each S–D grade; the limits stay ordered, and **Reset to default** restores the timing and eligibility values. Hover the question mark next to the S limit for how the limits, `S+`, and the `+` marker work. `S+` has no setting: it requires a confirmed switch-lead interval of exactly `0–0 ms`, uses S points and sounds, and appears separately in history and the finish summary. The single Grade widget shows a small provisional timing grade only for a newly committed opposite physics direction before takeoff, and only when the car was in an ice slide: its slip angle (heading against direction of travel) must reach 20° within the last 500 ms on the ground. Steering through a bobsleigh turn stays far below that and is not rated. A normal same-direction transition has no grade. On landing it becomes a larger animated grade after the contacted tire force confirms the result. The recovery timer starts at the pre-takeoff switch, so a landing before the 400 ms delay has run out still counts: confirmation waits on the ground until the delay ends and the tire force starts rising. It does not need the full recovered value, which the game reaches by 800 ms at the latest. If gas was released while the car slid backwards, the game holds tire force at its base value until gas returns, and confirmation waits up to 1 s for that. The landing popup has three styles on the **Popup** tab: Ice shatter (default), Arcade slam, and Broadcast sheen. A style switches on its own effects (screen shake, shockwave ring, sparks, cracks, ice shards, snowflakes, light rays, light sheen, glowing outline), and each effect can be turned on or off with any style; **Intensity** (0–200 %) scales them, and better grades get bigger effects. Each result can show one picture on both sides of the panel: shipped emoji art from any of six sets (Fluent Flat, Fluent Color, Fluent 3D, Twemoji, Noto, OpenMoji), chosen per result so sets can be mixed, or your own PNG/JPG files in `LocalImages` (use **Open LocalImages folder**). Only S and S+ pictures bounce. **Preview** plays any result's popup with the current settings. A failed confirmation (the landing changed the stored direction, landing steering pointed the other way, or force did not rise once it could) shows `MISSED`. If the last wheel leaves between sampled frames that cross a grade boundary, the HUD shows the lower possible rank with a `+` marker, such as `A+`. The underlying score and sound remain A; the actual timing may have qualified higher. The measured timing range is saved in history. `UNRATED` is reserved for lost physics reads or contact timing.
+## How a jump is rated
 
-The **Stats** widget shows the score large, with the combo and best combo on the line below. **Combo** counts consecutive successful landings. It starts at x0, and after each successful landing it shows the multiplier that landing scored with; a miss returns it to x0 and briefly shows `BROKEN`. The scoring multiplier caps at x8, while the displayed streak keeps counting. **Best** shows the longest streak and flashes `NEW BEST` when it grows, while the score counts up and briefly shows the exact points earned by each grade, including combo and spin bonuses. On first load, Stats takes the place of the older separate Combo, Score and Best combo widgets. **Last Run** shows the most recent attempt on the current map that had rated jumps, read from the run history with its start time, so it is filled as soon as you enter a map you have driven before.
+1. **Takeoff.** When you commit the opposite slide direction while a wheel still touches the ground, a small preview grade appears in the air. Only jumps out of an ice slide count: the car's slip angle must reach 20° in the last 500 ms on the ground, so steering through a bobsleigh turn is never rated.
+2. **Landing.** The grade becomes final once the tire force starts rising again. If the landing changes the stored direction, you steer the other way, or the force never rises, the result is `MISSED`.
 
-## Local sounds
+The grade depends only on how early the direction switched before the last wheel left the ground:
 
-Use **Open LocalSounds folder** at the top of the Sounds tab to place WAV, OGG, or MP3 clips in the Trainer's local storage, then click **Reload files**. Alternatively, run `py -3 tools/install_local_audio.py --source-dir <folder-containing-your-clips>`; add `--file filename.wav` one or more times to copy only selected files. The plugin still works visually if a clip is missing.
+| Grade | Switch lead (default) | Base points |
+| --- | --- | --- |
+| S+ | exactly 0 ms | 150 |
+| S | up to 15 ms | 150 |
+| A | up to 35 ms | 120 |
+| B | up to 65 ms | 90 |
+| C | up to 110 ms | 60 |
+| D | up to 250 ms | 30 |
 
-The plugin ships no audio. The default sound lists expect these file names in LocalSounds:
+- **Score:** base points × combo multiplier (up to ×8), plus 50 per full spin.
+- **`A+`:** takeoff happened between two sampled frames that cross a grade limit. It scores as A, but the true timing may have been better.
+- **`UNRATED`:** the plugin lost the physics read or the contact timing, so it doesn't guess a grade.
 
-| Cue | Default files (volume) |
+## HUD widgets
+
+| Widget | Shows |
 | --- | --- |
-| Takeoff | `SP2_SND_GROUP_00000006.wav` (0.35) |
-| S and S+ | `Sample_0064.wav`, `Sample_0061.wav` (0.40 each) |
-| A | `Sample_0065.wav` (0.40) |
-| B | `Sample_0063.wav` (0.40) |
-| C | `Sample_0058.wav` (0.40) |
-| D | `Sample_0053.wav` (0.40) |
-| Missed | `SP2_SND_GROUP_00000002.wav` (0.35) |
-| Finish | `WSR_Wakeboarding_Results.mp3` (0.25) |
+| Physics | Steering, stored slide direction, each wheel's contact and icing, tire force, recovery timer |
+| Grade | The takeoff preview, then the animated landing result |
+| Stats | Score, combo and best combo |
+| Last run | Your latest rated attempt on this map |
+| Finish summary | After a finish: time, score, best combo, grade counts, misses, best and median switch lead |
 
-The master volume defaults to 0.50. If you have the Wakeboarding sounds from Wii Sports Resort under these names, they work without further setup. On first load the lists only include files that are already in LocalSounds, so a fresh install without them shows empty lists instead of errors; after adding the files, **Reset to default** on the Sounds tab fills in the full defaults. Every reset button in the settings asks for a second click (**Confirm reset** or **Cancel**).
+Open **Settings → Gorilla Grip Trainer → Layout** to drag and resize them.
 
-| Moment | Local file |
+## Settings
+
+| Tab | Contents |
 | --- | --- |
-| Eligible reversal-attempt takeoff | `SP2_SND_GROUP_00000006.wav` |
-| Failed landing | `SP2_SND_GROUP_00000002.wav` |
-| Landing S/A/B/C/D defaults | `Sample_0064.wav` (Incredible), `Sample_0065.wav` (Amazing), `Sample_0063.wav` (Excellent), `Sample_0058.wav` (Nice), `Sample_0053.wav` (Good) |
-| Confirmed finish | `WSR_Wakeboarding_Results.mp3` |
+| Display | Turn widgets on or off, show them with the game HUD hidden, open the finish summary automatically |
+| Rating | Grade limits and which jumps count (icing, speed, flight time) |
+| Sounds | Sound lists and volumes per cue |
+| Popup | Animation style, effects, intensity and pictures for the landing popup |
+| Layout | Widget positions and sizes |
+| Debug | Event logging; only shown in Openplanet's developer mode |
 
-The announcer speaks only on a confirmed landing. Takeoff, S–D, Missed, and Finish each have an editable list of local sounds with individual volumes. When a list has multiple loaded sounds, playback selects one at random without repeating the previous choice. An empty row stays editable but is ignored during playback. The old single-file settings seed the new lists on first use. The **Sounds** tab has collapsible Takeoff, Grades, and Finish sections; Grades contains its S–D and Missed lists. Each row lets you type a filename or choose one from LocalSounds, adjust its volume, preview it, insert a row below with `+`, or remove it with `-`. **Reload files** and **Stop preview** are at the top. The full-width master slider scales all sounds, while each category and grade list has an enable switch. There is no landing impact cue.
+Every reset button asks for a second click (**Confirm reset** or **Cancel**).
 
-The controlled in-game rating check is `py -3 tests/test_trainer_in_game.py --research-root <path-to-research-repo> --case all`. The in-game tests need a local clone of the [research repository](https://github.com/Teuflum/tm-gorilla-grip-reverse-engineering): they import TICK's local client from its `work/tick_client.py` and replay runs through its Gorilla Grip Logger plugin, which they use only as a test driver (the Trainer itself does not need it). They also require Trackmania, TICK, and **Log trainer events** enabled in developer mode; the in-game tests stop with a hint when it is off.
+## Landing popup
+
+- **Styles:** Ice shatter (default), Arcade slam or Broadcast sheen. Each style comes with its own effects, and any effect can be turned on or off with any style.
+- **Intensity:** 0–200 %. Better grades always get bigger effects.
+- **Pictures:** one per result, shown on both sides of the grade. Pick from five emoji sets (Fluent Flat, Fluent 3D, Twemoji, Noto, OpenMoji), mixed per result, or use your own PNG or JPG files from the `LocalImages` folder. Only S and S+ pictures bounce.
+- **Preview** plays any result's popup with your current settings.
+
+## Sounds
+
+The plugin ships no audio. Put WAV, OGG or MP3 files into the `LocalSounds` folder (**Open LocalSounds folder** on the Sounds tab), then click **Reload files**. The default lists expect these names:
+
+| Cue | Default file | Volume |
+| --- | --- | --- |
+| Takeoff | `SP2_SND_GROUP_00000006.wav` | 0.35 |
+| S and S+ | `Sample_0064.wav` (Incredible), `Sample_0061.wav` (Great Air) | 0.40 |
+| A | `Sample_0065.wav` (Amazing) | 0.40 |
+| B | `Sample_0063.wav` (Excellent) | 0.40 |
+| C | `Sample_0058.wav` (Nice) | 0.40 |
+| D | `Sample_0053.wav` (Good) | 0.40 |
+| Missed | `SP2_SND_GROUP_00000002.wav` | 0.35 |
+| Finish | `WSR_Wakeboarding_Results.mp3` | 0.25 |
+
+If you have the Wakeboarding sounds from Wii Sports Resort under these names, they work right away. Master volume starts at 0.50.
+
+- On a fresh install, the lists only contain the files you already have. After adding more, **Reset to default** on the Sounds tab fills in the rest.
+- Each cue can hold several clips; the plugin picks one at random and never the same one twice in a row.
+- The announcer only speaks on a confirmed landing. The finish music loops until you restart or leave the map.
 
 ## Run history
 
-Open **Plugins → Gorilla Grip Trainer → Run history** or use **VIEW HISTORY** on a finish summary. The same submenu has **Enable widgets**, which controls the Display setting, and **Finish summary** when one is available. The history window lists finished runs, even if they have no rated jumps, and resets with verdicts. It has filters for map and status. Its compact attempt and jump tables show the essential results; selecting a jump reveals its timing, preview, spins, score, and reason. Data stays only in `PluginStorage/GorillaGripTrainer/history.json`; a previous valid file is kept as `history.backup.json` for recovery. At most 500 attempts are retained. Clear local history requires two clicks inside the window.
+**Plugins → Gorilla Grip Trainer → Run history** (or **VIEW HISTORY** on the finish summary) lists your attempts with their jumps, filtered by map and status. Selecting a jump shows its timing, preview, spins, score and reason. The last 500 attempts are kept locally in `PluginStorage/GorillaGripTrainer/history.json`, with `history.backup.json` as a fallback.
 
-A true map finish opens a movable summary with finish time, score, best combo, separate colored S+–D grade counts, misses, and best/median successful switch lead. Its automatic appearance can be disabled in Display settings, and the summary can be hidden or reopened from the plugin menu. The local results track starts once on finish, loops while the finished run remains active, and stops on restart, map exit, or audio disable. Its row's **Play** button previews it once. The controlled TICK finish test temporarily turns off TICK's **Disable Finish** setting and restores it afterward; it requires `--case finish --finish-revision-id <known-finishing-revision>`.
+## Development
 
-Emoji pictures: [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) by Microsoft (MIT), [Twemoji](https://github.com/jdecked/twemoji) by Twitter, Inc. and other contributors (CC-BY 4.0), [Noto Emoji](https://github.com/googlefonts/noto-emoji) by Google (Apache 2.0), and [OpenMoji](https://openmoji.org) (CC BY-SA 4.0); see `plugin/assets/emoji/ATTRIBUTION.md`.
+- **Offline tests** check the plugin source and need no game: `python tests/<name>.py`, for example `python tests/test_rating_settings.py`. [AGENTS.md](AGENTS.md) has the full workflow.
+- **In-game tests** (`test_trainer_in_game.py`, `test_current_input.py`, `test_finish_reset_in_game.py`, `test_improve_reset_in_game.py`) drive a real run. They need:
+  - Trackmania and TICK;
+  - **Log trainer events** turned on (Debug tab, developer mode);
+  - for all but `test_improve_reset_in_game.py`, a local clone of the [research repository](https://github.com/Teuflum/tm-gorilla-grip-reverse-engineering), passed as `--research-root` where the script asks for it. The tests import TICK's local client from its `work/tick_client.py` and replay runs through its Gorilla Grip Logger plugin. The Trainer itself does not need the Logger.
+
+  Example: `py -3 tests/test_trainer_in_game.py --research-root <path-to-research-repo> --case all`. The finish case also needs `--finish-revision-id <known-finishing-revision>`.
+- **Tools:** `tools/install_local_audio.py` copies your clips into `LocalSounds`; `tools/render_emoji.py` rebuilds the shipped emoji pictures from their pinned sources.
+
+## More
+
+- [Design specification](docs/superpowers/specs/2026-09-25-gorilla-grip-trainer.md) and [landing popup design](docs/superpowers/specs/2026-09-27-grade-popup-pictures-design.md)
+- [Physics research and reverse engineering](https://github.com/Teuflum/tm-gorilla-grip-reverse-engineering)
+- Emoji pictures: [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) by Microsoft (MIT), [Twemoji](https://github.com/jdecked/twemoji) by Twitter, Inc. and other contributors (CC-BY 4.0), [Noto Emoji](https://github.com/googlefonts/noto-emoji) by Google (Apache 2.0) and [OpenMoji](https://openmoji.org) (CC BY-SA 4.0); details in `plugin/assets/emoji/ATTRIBUTION.md`.

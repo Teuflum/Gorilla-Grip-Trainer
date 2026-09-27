@@ -13,6 +13,11 @@ for name in ("SP2_SND_GROUP_00000006.wav", "Sample_0064.wav", "Sample_0061.wav",
              "WSR_Wakeboarding_Results.mp3"):
     assert f"`{name}`" in readme, name
 assert "Wii Sports Resort" in readme
+assert "`Sample_0061.wav` (Great Air)" in readme and "`Sample_0064.wav` (Incredible)" in readme
+# The most important information comes first; links and credits close it.
+sections = [line[3:] for line in readme.splitlines() if line.startswith("## ")]
+assert sections[:2] == ["Install", "How a jump is rated"], sections
+assert sections[-2:] == ["Development", "More"], sections
 assert "The plugin ships no audio" in readme
 
 # The in-game tests need the research repository's tools.

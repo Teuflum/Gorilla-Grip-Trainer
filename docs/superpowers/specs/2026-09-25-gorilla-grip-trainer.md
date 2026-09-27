@@ -67,7 +67,7 @@ All user-supplied WAV/MP3 files are local test assets. The public repository con
 | --- | --- | --- |
 | Jump cue | All eligible reversal-attempt takeoffs | `SP2_SND_GROUP_00000006.wav` (0.35) |
 | Failed landing | MISSED only | `SP2_SND_GROUP_00000002.wav` (0.35) |
-| Default S voice list | `Incredible` and a second S clip | `Sample_0064.wav`, `Sample_0061.wav` (0.40 each) |
+| Default S voice list | `Incredible`, `Great Air` | `Sample_0064.wav`, `Sample_0061.wav` (0.40 each) |
 | Default A voice list | `Amazing` | `Sample_0065.wav` (0.40) |
 | Default B voice list | `Excellent` | `Sample_0063.wav` (0.40) |
 | Default C voice list | `Nice` | `Sample_0058.wav` (0.40) |

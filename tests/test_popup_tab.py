@@ -56,5 +56,8 @@ assert "StopPopupPreview();" in show
 print("Popup tab and previews: PASS")
 
 readme = (ROOT.parent / "README.md").read_text(encoding="utf-8")
-assert "The settings tabs are Display, Rating, Sounds, Popup, and Layout, followed by Debug" in readme
+# The README settings table lists every tab in order.
+rows = [line.split("|")[1].strip() for line in readme.split("## Settings", 1)[1].split("\n## ", 1)[0].splitlines()
+        if line.startswith("| ") and not line.startswith("| Tab") and not line.startswith("| ---")]
+assert rows == ["Display", "Rating", "Sounds", "Popup", "Layout", "Debug"], rows
 print("Thumbnails, preview order and README tab list: PASS")

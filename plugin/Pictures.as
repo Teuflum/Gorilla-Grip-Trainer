@@ -18,8 +18,8 @@ array<string> g_emojiNames = {"gorilla", "oncoming-fist", "flexed-biceps",
 array<string> g_emojiLabels = {"Gorilla", "Oncoming fist", "Flexed biceps",
     "Fire", "Thumbs up", "OK hand", "Slightly smiling face", "Skull", "Ice",
     "Snowflake", "Trophy", "Star"};
-array<string> g_emojiSets = {"fluent-flat", "fluent-color", "fluent-3d", "twemoji", "noto", "openmoji"};
-array<string> g_emojiSetLabels = {"Fluent Flat", "Fluent Color", "Fluent 3D", "Twemoji", "Noto (Android)", "OpenMoji"};
+array<string> g_emojiSets = {"fluent-flat", "fluent-3d", "twemoji", "noto", "openmoji"};
+array<string> g_emojiSetLabels = {"Fluent Flat", "Fluent 3D", "Twemoji", "Noto (Android)", "OpenMoji"};
 
 string DefaultPicture(const string &in result) {
     if (result == "S+" || result == "S") return "emoji:noto/gorilla";
@@ -85,6 +85,8 @@ array<string>@ EmojiChoiceParts(const string &in choice) {
     int slash = rest.IndexOf("/");
     string emojiSet = slash < 0 ? "twemoji" : rest.SubStr(0, slash);
     string emojiName = slash < 0 ? rest : rest.SubStr(slash + 1);
+    // Fluent Color was dropped as too close to Fluent 3D.
+    if (emojiSet == "fluent-color") emojiSet = "fluent-3d";
     if (EmojiSetIndex(emojiSet) < 0 || EmojiIndex(emojiName) < 0) return null;
     array<string>@ parts = array<string>();
     parts.InsertLast(emojiSet);

@@ -136,3 +136,10 @@ assert "nvg::StrokeColor(HudColor(a.x, a.y, a.z, 0.45f*f.fade));" in panel
 assert "float captionW = nvg::TextBounds(ResultCaption(f.label)).x;" in panel
 assert "120*s" not in panel
 print("Panel border follows the corners; underline fits the caption: PASS")
+
+# In-game feedback: near-white shards at 85 % competed with the ice-white
+# letter. They are a lighter-weight ice blue at 55 % so the grade stays readable.
+shards = body("void DrawPopupShards(PopupFrame@ f)")
+assert "float alpha = 0.55f*(1.0f - t/0.8f)*f.fade;" in shards
+assert "HudColor(0.62f, 0.85f, 1.0f, alpha)" in shards
+print("Ice shards stay behind the grade visually: PASS")

@@ -510,10 +510,10 @@ void DrawPopupSparks(PopupFrame@ f) {
 void DrawPopupShards(PopupFrame@ f) {
     float t = float(f.age) / 1000.0f;
     if (t >= 0.8f) return;
-    float alpha = 0.85f*(1.0f - t/0.8f)*f.fade;
+    float alpha = 0.55f*(1.0f - t/0.8f)*f.fade;
     float gravity = f.miss ? 300.0f : 120.0f;
     vec4 colour = f.miss ? HudColor(0.55f, 0.6f, 0.66f, alpha) :
-        HudColor(0.86f, 0.96f, 1.0f, alpha);
+        HudColor(0.62f, 0.85f, 1.0f, alpha);
     PopupRandom@ rng = PopupRandom(f.seed + 13);
     int count = ParticleCount(f.power, f.k);
     for (int i = 0; i < count; i++) {

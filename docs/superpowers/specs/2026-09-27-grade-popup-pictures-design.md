@@ -111,7 +111,7 @@ after the verdict.
 | Shockwave ring | ✓ | | | A grade-coloured ellipse (height 0.42 × width) expands from radius 30 to 290 over 0–480; line width `2 + 7 × power` → 2, alpha 0.8 → 0. Not on MISSED. |
 | Sparks | ✓ | | | Particle-count dots fly outward from the letter and fall (gravity 156 units/s²), fading by 750. On S+ half of them are spinning confetti rectangles in gold, cyan, pink, and green. MISSED sparks are grey and fall with 260 units/s². |
 | Cracks | | | ✓ | Crack lines grow from the letter over 0–220 as jagged 4-segment polylines 60–150 units long, then fade over 350–750. |
-| Ice shards | | | ✓ | Particle-count small ice-white triangles fly outward, spin, and fall (gravity 120 units/s²), fading by 800. MISSED shards are grey with 300 units/s². |
+| Ice shards | | | ✓ | Particle-count small light ice-blue triangles (up to 55 % opacity, so the grade stays readable) fly outward, spin, and fall (gravity 120 units/s²), fading by 800. MISSED shards are grey with 300 units/s². |
 | Snowflakes | | | ✓ | S and S+ only: 6 (S) or 10 (S+) six-armed stroked snowflakes drift outward from the panel over 80–680 and fade by 800. |
 | Light rays | ✓ | | ✓ | S+ only: 12 gold wedges, 320 units long, rotate slowly behind the panel at alpha 0.12, fading in over 150–450. |
 | Light sheen | | ✓ | | A white band sweeps across the letter over 340 ms: once from 300 for S, A, and B; twice (from 260 and 520) for S+. It is the letter redrawn in white inside a moving scissor band, drawn as three nested bands of falling alpha for soft edges, so it stays on the glyph shape. |

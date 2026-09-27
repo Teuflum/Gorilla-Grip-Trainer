@@ -143,3 +143,9 @@ shards = body("void DrawPopupShards(PopupFrame@ f)")
 assert "float alpha = 0.55f*(1.0f - t/0.8f)*f.fade;" in shards
 assert "HudColor(0.62f, 0.85f, 1.0f, alpha)" in shards
 print("Ice shards stay behind the grade visually: PASS")
+
+# In-game feedback: cracks started at the letter's centre and crossed it.
+# They start 40 units out (squashed vertically like the cracks themselves).
+cracks = body("void DrawPopupCracks(PopupFrame@ f)")
+assert "vec2 p = vec2(f.cx + f.ox + Math::Cos(angle)*40.0f*f.s,\n            f.cy + f.oy - 8.0f*f.s + Math::Sin(angle)*40.0f*f.s*0.55f);" in cracks
+print("Cracks start outside the grade letter: PASS")

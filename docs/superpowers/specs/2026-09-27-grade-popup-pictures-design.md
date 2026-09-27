@@ -110,7 +110,7 @@ after the verdict.
 | Screen shake | ✓ | | | Over 0–300 the panel, letter, and pictures jolt randomly up to ±9 × power units horizontally and ±6 × power vertically, decaying to zero. Not on MISSED with Arcade slam, which has its own sideways shake. |
 | Shockwave ring | ✓ | | | A grade-coloured ellipse (height 0.42 × width) expands from radius 30 to 290 over 0–480; line width `2 + 7 × power` → 2, alpha 0.8 → 0. Not on MISSED. |
 | Sparks | ✓ | | | Particle-count dots fly outward from the letter and fall (gravity 156 units/s²), fading by 750. On S+ half of them are spinning confetti rectangles in gold, cyan, pink, and green. MISSED sparks are grey and fall with 260 units/s². |
-| Cracks | | | ✓ | Crack lines grow from the letter over 0–220 as jagged 4-segment polylines 60–150 units long, then fade over 350–750. |
+| Cracks | | | ✓ | Crack lines start 40 units out from the letter (so they never cross it) and grow outward over 0–220 as jagged 4-segment polylines 60–150 units long, then fade over 350–750. |
 | Ice shards | | | ✓ | Particle-count small light ice-blue triangles (up to 55 % opacity, so the grade stays readable) fly outward, spin, and fall (gravity 120 units/s²), fading by 800. MISSED shards are grey with 300 units/s². |
 | Snowflakes | | | ✓ | S and S+ only: 6 (S) or 10 (S+) six-armed stroked snowflakes drift outward from the panel over 80–680 and fade by 800. |
 | Light rays | ✓ | | ✓ | S+ only: 12 gold wedges, 320 units long, rotate slowly behind the panel at alpha 0.12, fading in over 150–450. |

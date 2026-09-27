@@ -460,7 +460,9 @@ void DrawPopupCracks(PopupFrame@ f) {
     for (int i = 0; i < count; i++) {
         float angle = rng.Next()*Math::PI*2.0f;
         float step = grow*(60.0f + 90.0f*rng.Next())*f.s/4.0f;
-        vec2 p = vec2(f.cx + f.ox, f.cy + f.oy - 8.0f*f.s);
+        // Start outside the letter so the grade stays readable.
+        vec2 p = vec2(f.cx + f.ox + Math::Cos(angle)*40.0f*f.s,
+            f.cy + f.oy - 8.0f*f.s + Math::Sin(angle)*40.0f*f.s*0.55f);
         nvg::BeginPath();
         nvg::MoveTo(p);
         for (int j = 0; j < 4; j++) {

@@ -50,7 +50,7 @@ Each result has a **power** that scales its effects:
 
 Particle effects (sparks, shards) use a **particle count** of
 `round(6 + 34 × power)` (S+ 40, S 33, A 25, B 20, C 16, D 13, MISSED 23) and a
-speed of `120 + 320 × power` units/s. Cracks use `round(4 + 8 × power)` lines
+speed of `120 + 320 × power` units/s. Cracks use `floor(4 + 8 × power)` lines
 (S+ 12, S 10, A 8, B 7, C 6, D 5, MISSED 8).
 
 UNRATED and other non-results are always **calm**: the style's panel, letter

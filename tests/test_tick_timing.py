@@ -129,22 +129,14 @@ print("Landing from timestamps and stored mode: PASS")
 # Estimates that never decide a grade.
 observe = transitions.split("void ObserveSteeringAndMode(", 1)[1].split("\n    }\n", 1)[0]
 estimate = transitions.split("int EstimateReversal(", 1)[1].split("\n}", 1)[0]
-turn = transitions.split("float TurnBetween(", 1)[1].split("\n    }\n", 1)[0]
-spin = transitions.split("void CountSpin(", 1)[1].split("\n    }\n", 1)[0]
 assert "const float SMOOTHED_STEER_STEP = 0.2f;" in transitions
 assert "rawReversalAt = EstimateReversal(previous, snap);" in observe
 assert "if (previousGround && beforeRaw != 0" in observe
 assert "Math::Clamp(after.gameTime - (ticks - 1) * PHYSICS_TICK_MS," in estimate
-assert "if (after.hasYawRate && before.hasYawRate) {" in turn
-assert "else if (gap > 0.0f && maxYawRate * gap > Math::PI) spinReliable = false;" in turn
-# Final review 4: only the airborne share of the takeoff and landing frame
-# gaps counts toward spins.
-assert "airSpinRadians += Math::Abs(TurnBetween(before, after)) * share;" in spin
-assert "CountSpin(previous, snap, previous.gameTime, snap.gameTime);" in update_body
-assert "CountSpin(previous, snap, takeoffClock, snap.gameTime);" in start
-assert "CountSpin(previous, snap, previous.gameTime, landingClock);" in land
-assert "const int YAW_RATE_OFFSET = " in physics
-print("Gap-safe cue and spins: PASS")
+# Spins are not counted or scored.
+assert "Spin" not in transitions and "spinCount" not in session
+assert "yaw" not in physics.lower()
+print("Gap-safe cue, no spins: PASS")
 
 # Verdict lines carry the exact takeoff, landing and lead for comparison runs.
 verdict_log = main.split('DebugLog("Gorilla Grip Trainer verdict at', 1)[1].split(";", 1)[0]

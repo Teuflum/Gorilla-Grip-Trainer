@@ -4,7 +4,6 @@ class JumpVerdict {
     int leadMs = -1;
     int takeoffTime = -1;
     int landingTime = -1;
-    int spinCount = 0;
     int points = 0;
     bool exact = false;
 }
@@ -51,7 +50,7 @@ class SessionState {
         combo++;
         hits++;
         bestCombo = Math::Max(bestCombo, combo);
-        verdict.points = basePoints * multiplier + 50 * verdict.spinCount;
+        verdict.points = basePoints * multiplier;
         score += verdict.points;
     }
 }

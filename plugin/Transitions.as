@@ -148,11 +148,6 @@ class TransitionTracker {
     int firstChangeAt = -1;
     int firstChangeMode = 0;
     int recoveryDelayMs = 400;
-    float airSpinRadians = 0.0f;
-    int flightSpinCount = 0;
-    bool spinReliable = true;
-    // Fastest yaw rate seen in this flight, for the no-yaw-rate fallback.
-    float maxYawRate = 0.0f;
 
     void Reset() {
         @previous = null;
@@ -192,10 +187,6 @@ class TransitionTracker {
         firstChangeSeen = false;
         firstChangeAt = -1;
         firstChangeMode = 0;
-        airSpinRadians = 0.0f;
-        flightSpinCount = 0;
-        spinReliable = true;
-        maxYawRate = 0.0f;
     }
 
     void ObserveSteeringAndMode(PhysicsSnapshot@ snap) {
@@ -224,10 +215,6 @@ class TransitionTracker {
         inFlight = true;
         pendingLanding = false;
         flightUncertain = false;
-        airSpinRadians = 0.0f;
-        flightSpinCount = 0;
-        spinReliable = true;
-        maxYawRate = 0.0f;
         previewPublished = false;
         cuePublished = false;
         @preview = null;
@@ -236,7 +223,6 @@ class TransitionTracker {
         bool exactTakeoff = TakeoffClockValid(previous, snap);
         if (!exactTakeoff) takeoffClock = snap.gameTime;
         takeoffRace = snap.RaceAt(takeoffClock);
-        CountSpin(previous, snap, takeoffClock, snap.gameTime);
         takeoffMode = snap.mode;
         takeoffModeAt = int(snap.modeAt);
         int reversalLead = takeoffClock - rawReversalAt;
@@ -284,9 +270,6 @@ class TransitionTracker {
         landingClock = snap.contactMask != 0 ?
             ContactStart(snap, ALL_WHEELS, after) : snap.contactClock;
         landingRace = snap.RaceAt(landingClock);
-        if (previous !is null && previous.contactMask == 0 && snap.contactMask != 0)
-            CountSpin(previous, snap, previous.gameTime, landingClock);
-        flightSpinCount = spinReliable ? int(airSpinRadians / (2.0f * Math::PI)) : 0;
         landingTouchLifted = snap.contactMask == 0;
         forceEligibleClock = -1;
         checkClock = -1;
@@ -316,7 +299,6 @@ class TransitionTracker {
         verdict.takeoffTime = takeoffRace;
         verdict.landingTime = Math::Max(takeoffRace, raceTime);
         verdict.leadMs = preview is null ? -1 : preview.leadMs;
-        verdict.spinCount = 0;
         verdict.exact = false;
         verdictEvent = true;
     }
@@ -371,36 +353,8 @@ class TransitionTracker {
         }
         verdict.takeoffTime = takeoffRace;
         verdict.landingTime = landingRace;
-        verdict.spinCount = flightSpinCount;
         verdict.exact = true;
         verdictEvent = true;
-    }
-
-    // Signed yaw turned between two frames. With the yaw rate known, the turn
-    // is unwrapped to the whole-turn count the rate predicts, so a long frame
-    // gap cannot lose or add a turn. Without it, a gap long enough to hide
-    // half a turn makes the count unreliable.
-    float TurnBetween(PhysicsSnapshot@ before, PhysicsSnapshot@ after) {
-        float turn = after.yaw - before.yaw;
-        if (turn > Math::PI) turn -= 2.0f * Math::PI;
-        if (turn < -Math::PI) turn += 2.0f * Math::PI;
-        float gap = float(after.gameTime - before.gameTime) / 1000.0f;
-        if (after.hasYawRate && before.hasYawRate) {
-            float expected = 0.5f * (after.yawRate + before.yawRate) * gap;
-            float turns = (expected - turn) / (2.0f * Math::PI);
-            int whole = int(turns >= 0.0f ? turns + 0.5f : turns - 0.5f);
-            turn += 2.0f * Math::PI * float(whole);
-        } else if (gap > 0.0f && maxYawRate * gap > Math::PI) spinReliable = false;
-        if (gap > 0.0f) maxYawRate = Math::Max(maxYawRate, Math::Abs(turn) / gap);
-        return turn;
-    }
-
-    // Adds the airborne share, the ticks from `from` to `to`, of the yaw turned
-    // between two frames, assuming a steady turn across the gap.
-    void CountSpin(PhysicsSnapshot@ before, PhysicsSnapshot@ after, int from, int to) {
-        int gap = after.gameTime - before.gameTime;
-        float share = gap > 0 ? float(Math::Clamp(to - from, 0, gap)) / float(gap) : 1.0f;
-        airSpinRadians += Math::Abs(TurnBetween(before, after)) * share;
     }
 
     void Update(PhysicsSnapshot@ snap) {
@@ -432,9 +386,6 @@ class TransitionTracker {
 
         bool crossingTakeoff = previous.contactMask != 0 &&
             snap.contactMask == 0 && !pendingLanding;
-
-        if (inFlight && previous.contactMask == 0 && snap.contactMask == 0)
-            CountSpin(previous, snap, previous.gameTime, snap.gameTime);
 
         // A slide lasts at least until the next frame that shows none.
         if ((snap.contactMask != 0 && snap.slipDeg >= S_MinSlideSlip) ||

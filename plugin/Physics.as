@@ -1,9 +1,3 @@
-// Yaw rate on this build (stage 0 of the tick-exact timing spec: slope
-// +1.005, r2 0.997 against the frame-to-frame yaw change); -1 when unknown.
-const int YAW_RATE_OFFSET = 0x554;
-// Converts the stored value to rad/s with the sign of the yaw change.
-const float YAW_RATE_SCALE = 1.0f;
-
 // Read-only snapshots of the active physics car on the validated game build.
 class PhysicsSnapshot {
     bool exact = false;
@@ -28,10 +22,6 @@ class PhysicsSnapshot {
     float speedKmh = 0.0f;
     // Angle between the car's heading and its horizontal velocity.
     float slipDeg = 0.0f;
-    float yaw = 0.0f;
-    // Yaw rate in rad/s, from the physics state; false when unknown.
-    bool hasYawRate = false;
-    float yawRate = 0.0f;
     // Game clock of each wheel's last contact change (touchdown or lift-off),
     // in the contact-bit order. The physics step writes it, so it dates a
     // change that happened between two rendered frames.
@@ -119,7 +109,6 @@ PhysicsSnapshot@ ReadPhysics(CSceneVehicleVisState@ vis, int raceTime) {
         tostring(vis.RRGroundContactMaterial) + "/" +
         tostring(vis.RLGroundContactMaterial);
     snap.speedKmh = vis.WorldVel.Length() * 3.6f;
-    snap.yaw = Math::Atan2(vis.Dir.x, vis.Dir.z);
     float forward = vis.WorldVel.x * vis.Dir.x + vis.WorldVel.z * vis.Dir.z;
     float side = vis.WorldVel.x * vis.Dir.z - vis.WorldVel.z * vis.Dir.x;
     snap.slipDeg = Math::ToDeg(Math::Atan2(Math::Abs(side), forward));
@@ -169,10 +158,6 @@ PhysicsSnapshot@ ReadPhysics(CSceneVehicleVisState@ vis, int raceTime) {
     // Stage 0: time everything on the physics clock.
     snap.frameClock = snap.gameTime;
     snap.gameTime = snap.physicsClock;
-    if (YAW_RATE_OFFSET >= 0) {
-        snap.yawRate = YAW_RATE_SCALE * Dev::SafeReadFloat(vehicle + uint64(YAW_RATE_OFFSET));
-        snap.hasYawRate = Math::Abs(snap.yawRate) < 100.0f;
-    }
     snap.neutralAt = int(Dev::SafeReadUint32(vehicle + 0x14e0));
     uint neutralTimeout = Dev::SafeReadUint32(model + 0x1198);
     snap.neutralTimeoutMs = neutralTimeout >= 50 && neutralTimeout <= 5000 ?

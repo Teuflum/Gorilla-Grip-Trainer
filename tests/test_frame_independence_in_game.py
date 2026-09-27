@@ -2,7 +2,7 @@
 
 Replays the loaded TICK revision four times: 1x; 4x; 1x with the Trainer
 processing every 5th frame; 4x every 3rd frame. Every verdict must match the
-first run: grade, reason, spins, combo, score, takeoff, and lead exactly, and
+first run: grade, reason, combo, score, takeoff, and lead exactly, and
 the landing time within 20 ms (see LANDING_TOLERANCE_MS). The
 "Steering reversed N ms" number in a reason is an estimate and is masked.
 
@@ -38,7 +38,7 @@ from trainer_log import LOG, require_event_logging
 
 VERDICT = re.compile(
     r"Gorilla Grip Trainer verdict at (-?\d+)ms: (\S+) \| (.*?) \| force .*?"
-    r"\| spins (\d+) \| combo (\d+) \| score (\d+) \| takeoff (-?\d+)ms \| "
+    r"\| combo (\d+) \| score (\d+) \| takeoff (-?\d+)ms \| "
     r"landing (-?\d+)ms \| lead (-?\d+)ms")
 SKIP = re.compile(r"Gorilla Grip Trainer frame skip (\d+)")
 # Run name -> (game speed, Trainer frame skip).
@@ -66,7 +66,7 @@ def verdicts(text: str) -> list[list]:
     for m in VERDICT.finditer(text):
         reason = re.sub(r"reversed \d+ ms", "reversed N ms", m[3])
         rows.append([m[2], reason, int(m[4]), int(m[5]), int(m[6]),
-                     int(m[7]), int(m[8]), int(m[9])])
+                     int(m[7]), int(m[8])])
     return rows
 
 
@@ -97,7 +97,7 @@ def run(args: argparse.Namespace) -> None:
     print(f"{args.run}: {len(rows)} verdicts saved")
 
 
-LANDING = 6
+LANDING = 5
 # A wheel bouncing inside a tick right after touchdown can move the landing
 # time a tick or two at very sparse frames (spec: Landing); the game keeps no
 # clock for the first touchdown. Everything else must match exactly.
@@ -117,8 +117,6 @@ def compare(args: argparse.Namespace) -> None:
     assert set(results) == set(RUNS), f"Missing runs: {sorted(set(RUNS) - set(results))}"
     base = results["1x"]
     assert len(base) >= 3, "Pick a revision with at least three rated jumps"
-    if not any(row[2] > 0 for row in base):
-        print("Note: no spin in this revision; spin counting was not compared.")
     if not any(row[0] == "MISSED" for row in base):
         print("Note: no MISSED in this revision; the miss path was not compared.")
     failed = False

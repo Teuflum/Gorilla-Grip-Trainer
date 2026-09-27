@@ -9,7 +9,6 @@ class HistoryJump {
     int landingMs;
     int leadMinMs;
     int leadMaxMs;
-    int spins;
     int combo;
     int points;
     int scoreAfter = -1;
@@ -27,7 +26,6 @@ class HistoryJump {
         // New entries store the exact lead in both fields.
         leadMinMs = verdict.leadMs;
         leadMaxMs = verdict.leadMs;
-        spins = verdict.spinCount;
         combo = currentCombo;
         points = verdict.points;
         scoreAfter = currentScore;
@@ -42,7 +40,6 @@ class HistoryJump {
         value["landingMs"] = landingMs;
         value["leadMinMs"] = leadMinMs;
         value["leadMaxMs"] = leadMaxMs;
-        value["spins"] = spins;
         value["combo"] = combo;
         value["points"] = points;
         if (scoreAfter >= 0) value["scoreAfter"] = scoreAfter;
@@ -58,7 +55,6 @@ class HistoryJump {
         landingMs = int(value["landingMs"]);
         leadMinMs = int(value["leadMinMs"]);
         leadMaxMs = int(value["leadMaxMs"]);
-        spins = int(value["spins"]);
         combo = int(value["combo"]);
         points = int(value["points"]);
         scoreAfter = value.HasKey("scoreAfter") ? int(value["scoreAfter"]) : -1;
@@ -171,7 +167,6 @@ bool ValidHistory(Json::Value@ root) {
                 !HistoryField(jump, "landingMs", Json::Type::Number) ||
                 !HistoryField(jump, "leadMinMs", Json::Type::Number) ||
                 !HistoryField(jump, "leadMaxMs", Json::Type::Number) ||
-                !HistoryField(jump, "spins", Json::Type::Number) ||
                 !HistoryField(jump, "combo", Json::Type::Number) ||
                 !HistoryField(jump, "points", Json::Type::Number)) return false;
             string label = string(jump["label"]);

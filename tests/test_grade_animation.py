@@ -68,3 +68,45 @@ age = body("int PopupPreviewAge()")
 assert "if (elapsed >= 1000) {" in age and "StopPopupPreview();" in age
 assert "g_popupPreviewStart = Time::Now;" in body("void StartPopupPreview(const string &in label)")
 print("Popup styles, effects, and intensity model: PASS")
+
+widgets = (ROOT / "Widgets.as").read_text(encoding="utf-8")
+
+# One RenderResult, in GradeAnimation.as, with a seed.
+assert "void RenderResult(const vec4 &in r, int age, const string &in label,\n    bool estimated, uint seed) {" in anim
+assert "void RenderResult(" not in widgets
+for gone in ("g_gorillaTexture", "RenderSGorillas", "DrawGorillaEmoji", "DrawFallbackFlame", "GorillaDot"):
+    assert gone not in widgets, gone
+assert "RenderResult(layout.Pixels(), active ? age : 450," in widgets
+assert "active ? uint(g_resultShownAt) + 1 : 1" in widgets
+
+render = body("void RenderResult(const vec4 &in r, int age, const string &in label,\n    bool estimated, uint seed)")
+# Calm results get no intensity, effects, flash, or picture.
+assert "f.calm = f.power <= 0.0f;" in render
+assert "f.k = f.calm ? 0.0f : PopupIntensity();" in render
+assert "f.fx = f.k > 0.0f ? CurrentEffects() : 0;" in render
+assert "if (!f.calm) DrawPopupPictures(f);" in render
+assert "if (!f.calm) DrawPopupFlash(f);" in render
+assert 'f.shown = estimated && GradeBasePoints(label) > 0 ? label + "+" : label;' in render
+assert "f.fade = 1.0f - Clamp01(float(age - 700) / 300.0f);" in render
+assert "f.s = Math::Min(r.z / 500.0f, r.w / 125.0f);" in render
+# Grade-only effects.
+assert 'if (HasFx(f, FX_RAYS) && label == "S+") DrawPopupRays(f);' in render
+assert 'if (HasFx(f, FX_OUTLINE) && label == "S+") DrawPopupOutline(f);' in render
+assert 'if (HasFx(f, FX_SNOWFLAKES) && (label == "S" || label == "S+")) DrawPopupSnowflakes(f);' in render
+assert "if (HasFx(f, FX_SHOCKWAVE) && !f.miss) DrawPopupShockwave(f);" in render
+
+# Only S and S+ pictures dance; non-square pictures keep their shape (Review Focus 5).
+pics = body("void DrawPopupPictures(PopupFrame@ f)")
+assert 'bool dance = f.label == "S" || f.label == "S+";' in pics
+draw = body("void DrawPictureTexture(nvg::Texture@ texture, float x, float y, float size,\n    float angle, float alpha)")
+assert "vec2 dims = texture.GetSize();" in draw
+assert "float w = size*Math::Min(1.0f, aspect);" in draw
+
+# Random layouts are seeded per popup; per-frame jitter adds the frame index.
+assert "PopupRandom(f.seed + 7)" in body("void DrawPopupSparks(PopupFrame@ f)")
+assert "PopupRandom(f.seed + 13)" in body("void DrawPopupShards(PopupFrame@ f)")
+assert "PopupRandom(f.seed + 99)" in body("void DrawPopupCracks(PopupFrame@ f)")
+assert "PopupRandom(f.seed + uint(f.age / 16))" in body("void ApplyPopupMotion(PopupFrame@ f)")
+# Broadcast's panel never collapses below a sliver on tiny or early frames.
+assert "Math::Max(6.0f, 480.0f*EaseOutCubic(float(f.age) / 230.0f))*f.s" in body("float PopupPanelWidth(PopupFrame@ f)")
+print("Popup rendering contract: PASS")

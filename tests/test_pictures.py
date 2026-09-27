@@ -87,3 +87,8 @@ for ext in ('".png"', '".jpg"', '".jpeg"'):
 init = main.split("void Main() {", 1)[1].split("\n}", 1)[0]
 assert init.index("InitWidgets();") < init.index("InitPictures();")
 print("Picture choices and LocalImages: PASS")
+
+# The AI-generated gorilla left the repository.
+assert not (ASSETS / "gorilla-emoji.png").exists()
+assert not (ASSETS / "GORILLA_ASSET.md").exists()
+print("AI gorilla removed from shipped assets: PASS")

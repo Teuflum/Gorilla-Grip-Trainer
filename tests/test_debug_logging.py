@@ -39,14 +39,13 @@ PROBLEMS = (
     "Gorilla Grip Trainer history: backup invalid",
     "Gorilla Grip Trainer history: preserved corrupt file",
     "Gorilla Grip Trainer images: could not load",
-    "Gorilla Grip Trainer: gorilla emoji texture could not load",
 )
 
 calls = []
 for name, text in sources.items():
     for call, message in re.findall(r'\b(print|DebugLog)\("(Gorilla Grip Trainer[^"]*)"', text):
         calls.append((name, call, message))
-assert len(calls) == 31, len(calls)  # 17 routine events, 13 problems, 1 state marker
+assert len(calls) == 30, len(calls)  # 17 routine events, 12 problems, 1 state marker
 
 for name, call, message in calls:
     problem = message.startswith(PROBLEMS)

@@ -16,8 +16,8 @@ assert 'WidgetLayout("result"' not in layout
 assert 'GetLayout("grade")' in widgets
 assert 'GetLayout("timing")' not in widgets
 assert 'GetLayout("result")' not in widgets
-assert 'nvg::LoadTexture("assets/gorilla-emoji.png")' in widgets
-assert (ROOT / "assets" / "gorilla-emoji.png").is_file()
+assert "gorilla-emoji" not in widgets
+assert (ROOT / "assets" / "twemoji" / "gorilla.png").is_file()
 
 # Layout and Sounds use compact collapsible sections.
 assert 'UI::CollapsingHeader(widget.title)' in layout

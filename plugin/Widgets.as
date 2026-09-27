@@ -1,5 +1,4 @@
 int g_hudFont = -1;
-nvg::Texture@ g_gorillaTexture;
 string g_resultLabel = "";
 string g_resultReason = "";
 bool g_resultTimingEstimated = false;
@@ -12,9 +11,6 @@ int g_statEarned = 0;
 
 void InitWidgets() {
     g_hudFont = nvg::LoadFont("DroidSans-Bold.ttf");
-    @g_gorillaTexture = nvg::LoadTexture("assets/gorilla-emoji.png");
-    if (g_gorillaTexture is null)
-        print("Gorilla Grip Trainer: gorilla emoji texture could not load");
 }
 
 void ShowResult(JumpVerdict@ verdict, int raceTime) {
@@ -261,103 +257,6 @@ string ResultCaption(const string &in label) {
     return "GRIP MISSED";
 }
 
-void GorillaDot(float x, float y, float radius, const vec4 &in color) {
-    nvg::BeginPath();
-    nvg::Circle(vec2(x, y), radius);
-    nvg::FillColor(color);
-    nvg::Fill();
-}
-
-void DrawGorillaEmoji(float x, float y, float size, float alpha) {
-    if (g_gorillaTexture is null) return;
-    float left = x - size*0.5f;
-    float top = y - size*0.5f;
-    nvg::BeginPath();
-    nvg::Rect(left, top, size, size);
-    nvg::FillPaint(nvg::TexturePattern(vec2(left, top),
-        vec2(size, size), 0.0f, g_gorillaTexture, alpha));
-    nvg::Fill();
-}
-
-void DrawFallbackFlame(float x, float baseY, float height, float alpha) {
-    nvg::BeginPath();
-    nvg::MoveTo(vec2(x-height*0.24f, baseY));
-    nvg::BezierTo(vec2(x-height*0.30f, baseY-height*0.35f),
-        vec2(x-height*0.10f, baseY-height*0.72f),
-        vec2(x, baseY-height));
-    nvg::BezierTo(vec2(x+height*0.12f, baseY-height*0.64f),
-        vec2(x+height*0.30f, baseY-height*0.32f),
-        vec2(x+height*0.24f, baseY));
-    nvg::ClosePath();
-    nvg::FillColor(HudColor(1.0f, 0.70f, 0.16f, alpha));
-    nvg::Fill();
-}
-
-void RenderSGorillas(float cx, float cy, float s, int age, float fade) {
-    float appear = Math::Clamp(float(age) / 160.0f, 0.0f, 1.0f);
-    if (g_gorillaTexture is null) {
-        for (int i = 0; i < 5; i++)
-            DrawFallbackFlame(cx + (float(i)-2.0f)*29.0f*s,
-                cy + 25.0f*s, 43.0f*s, fade*appear);
-        return;
-    }
-    float phase = float(age)*0.020f;
-    for (int i = 0; i < 2; i++) {
-        float side = i == 0 ? -1.0f : 1.0f;
-        float x = cx + side*(150.0f + 18.0f*(1.0f-appear))*s;
-        float y = cy - Math::Abs(Math::Sin(phase + float(i)*1.8f))*9.0f*s;
-        float size = 72.0f*s*appear;
-        GorillaDot(x, y, size*0.46f,
-            HudColor(1.0f, 0.77f, 0.22f, 0.15f*fade*appear));
-        if (size > 1.0f) DrawGorillaEmoji(x, y, size, fade*appear);
-    }
-}
-
-void RenderResult(const vec4 &in r, int age, const string &in label,
-    bool estimated) {
-    if (label.Length == 0) return;
-    bool showPlus = estimated && GradeBasePoints(label) > 0;
-    string shownLabel = showPlus ? label + "+" : label;
-    float s = Math::Min(r.z / 500.0f, r.w / 125.0f);
-    float fade = 1.0f - Math::Clamp(float(age - 700) / 300.0f, 0.0f, 1.0f);
-    float p = Math::Clamp(float(age) / 190.0f, 0.0f, 1.0f);
-    float remaining = 1.0f - p;
-    float reveal = 1.0f - remaining * remaining * remaining;
-    float impact = 1.0f - Math::Clamp(float(age) / 280.0f, 0.0f, 1.0f);
-    vec4 accent = GradeColor(label, fade);
-    float cx = r.x + r.z*0.5f;
-    float cy = r.y + r.w*0.5f;
-    float panelW = (170.0f + 290.0f*reveal)*s;
-    HudBox(cx - panelW*0.5f, cy - 52*s + 5*s, panelW, 105*s,
-        16*s, HudColor(0, 0, 0, 0.35f*fade));
-    HudBox(cx - panelW*0.5f, cy - 52*s, panelW, 105*s,
-        16*s, HudColor(0.025f, 0.035f, 0.09f, 0.93f*fade));
-    HudBox(cx - panelW*0.5f, cy - 50*s, panelW, 3*s, 1*s,
-        HudColor(accent.x, accent.y, accent.z, 0.75f*fade));
-    HudBox(cx - panelW*0.5f, cy + 49*s, panelW, 2*s, 1*s,
-        HudColor(accent.x, accent.y, accent.z, 0.28f*fade));
-    if (label == "S+" || label == "S") RenderSGorillas(cx, cy, s, age, fade);
-    HudBox(cx - 74*s, cy - 30*s, 148*s, 58*s, 24*s,
-        HudColor(accent.x, accent.y, accent.z, 0.13f*impact*fade));
-    for (int i = 0; i < 5; i++) {
-        float distance = (54.0f + float(i)*27.0f + (1.0f-impact)*43.0f)*s;
-        float sy = cy - 26*s + float(i%3)*20*s;
-        float sw = (12.0f - float(i))*s;
-        vec4 shard = HudColor(accent.x, accent.y, accent.z,
-            impact*fade*(0.8f - float(i)*0.08f));
-        HudBox(cx - distance - sw, sy, sw, 3*s, 1*s, shard);
-        HudBox(cx + distance, sy, sw, 3*s, 1*s, shard);
-    }
-    int centered = nvg::Align::Center | nvg::Align::Middle;
-    float gradeSize = (label == "MISSED" ? 43.0f : 54.0f) +
-        28.0f*remaining*remaining;
-    HudText(cx, cy - 8*s + 13*s*remaining, shownLabel, gradeSize*s,
-        accent, centered);
-    HudText(cx, cy + 28*s, ResultCaption(label), 13*s,
-        HudColor(0.88f, 0.96f, 1, fade *
-            Math::Clamp(float(age - 75) / 150.0f, 0.0f, 1.0f)), centered);
-}
-
 // Score leads the card; combo and best combo share the line below it. Each
 // value pulses and shows its own badge when a landing changes it.
 void RenderStats(const vec4 &in r, int statAge) {
@@ -515,9 +414,10 @@ void RenderWidgets() {
         if (p !is null && !g_layoutEditing)
             RenderGradePreview(layout.Pixels(), p, false);
         else if (active || g_layoutEditing)
-            RenderResult(layout.Pixels(), active ? age : 240,
+            RenderResult(layout.Pixels(), active ? age : 450,
                 active ? g_resultLabel : "S",
-                active && g_resultTimingEstimated);
+                active && g_resultTimingEstimated,
+                active ? uint(g_resultShownAt) + 1 : 1);
     }
     @layout = GetLayout("stats");
     if (ShouldRenderWidget(layout)) {

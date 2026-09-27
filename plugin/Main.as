@@ -181,6 +181,9 @@ void Update(float dt) {
     if (g_tracker.unratedEvent)
         DebugLog("Gorilla Grip Trainer timing unrated at " + t + "ms: " +
             g_tracker.unratedReason);
+    if (g_tracker.skippedEvent)
+        DebugLog("Gorilla Grip Trainer jump skipped by the rating filters: " +
+            g_tracker.skippedReason);
     if (g_tracker.previewEvent) {
         JumpPreview@ p = g_tracker.preview;
         DebugLog("Gorilla Grip Trainer preview at " + t + "ms: " + p.label +

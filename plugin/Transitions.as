@@ -112,6 +112,9 @@ class TransitionTracker {
     bool forceDisagreedEvent = false;
     bool unratedEvent = false;
     string unratedReason = "";
+    // A switch or late reversal before takeoff that a rating filter dropped.
+    bool skippedEvent = false;
+    string skippedReason = "";
 
     int switchAt = -1;
     int switchOldMode = 0;
@@ -161,6 +164,8 @@ class TransitionTracker {
         forceDisagreedEvent = false;
         unratedEvent = false;
         unratedReason = "";
+        skippedEvent = false;
+        skippedReason = "";
         switchAt = -1;
         switchOldMode = 0;
         switchNewMode = 0;
@@ -229,14 +234,21 @@ class TransitionTracker {
         takeoffReversalLeadMs = rawReversalAt >= 0 && reversalLead >= 0 &&
             reversalLead <= CUE_REVERSAL_WINDOW_MS ? reversalLead : -1;
         recoveryDelayMs = snap.recoveryDelayMs;
+        bool attempted = switchAt >= 0 && switchNewMode == takeoffMode &&
+            takeoffClock - switchAt <= S_DMaxLeadMs;
         // Only a jump out of an ice slide is a gorilla-grip attempt.
         flightEligible = takeoffMode != 0 &&
             lastSlideClock >= 0 && takeoffClock - lastSlideClock <= SLIDE_WINDOW_MS &&
             previous.meanIcing >= S_MinIcing &&
             previous.speedKmh >= float(S_MinSpeed);
-        if (!flightEligible) return;
-        bool attempted = switchAt >= 0 && switchNewMode == takeoffMode &&
-            takeoffClock - switchAt <= S_DMaxLeadMs;
+        if (!flightEligible) {
+            // Name the filters that dropped a switch or a late reversal, so
+            // their limits can be checked against real jumps.
+            bool switched = attempted && switchOldMode != 0 && switchOldMode != takeoffMode;
+            if (switched || takeoffReversalLeadMs >= 0)
+                NoteSkipped(EligibilityMisses(switched ? takeoffClock - switchAt : -1));
+            return;
+        }
         if (!exactTakeoff) {
             flightUncertain = true;
             if (attempted) {
@@ -280,9 +292,37 @@ class TransitionTracker {
         firstChangeMode = 0;
         pendingLanding = flightEligible && !flightUncertain &&
             landingRace - takeoffRace >= S_MinFlight;
+        if (flightEligible && !flightUncertain && !pendingLanding && preview !is null)
+            NoteSkipped("lead " + preview.leadMs + "ms | flight " +
+                (landingRace - takeoffRace) + "ms below " + S_MinFlight + "ms");
         if (flightUncertain && (previewPublished || unratedReason.Length > 0))
             PublishUnrated(unratedReason.Length > 0 ? unratedReason :
                 "Exact contact timing was lost during flight", landingRace);
+    }
+
+    // The rating filters this takeoff failed, with the values they saw.
+    string EligibilityMisses(int leadMs) {
+        string misses = leadMs >= 0 ? "lead " + leadMs + "ms" :
+            "steering reversed " + takeoffReversalLeadMs + "ms before takeoff";
+        if (takeoffMode == 0) misses += " | no stored direction";
+        if (lastSlideClock < 0 || takeoffClock - lastSlideClock > SLIDE_WINDOW_MS)
+            misses += " | no slip of " + Text::Format("%.0f", S_MinSlideSlip) +
+                " deg in the last " + SLIDE_WINDOW_MS + "ms (" +
+                Text::Format("%.0f", previous.slipDeg) + " deg at takeoff)";
+        if (previous.meanIcing < S_MinIcing)
+            misses += " | icing " + Text::Format("%.2f", previous.meanIcing) +
+                " below " + Text::Format("%.2f", S_MinIcing);
+        if (previous.speedKmh < float(S_MinSpeed))
+            misses += " | speed " + Text::Format("%.0f", previous.speedKmh) +
+                " below " + S_MinSpeed + " km/h";
+        return misses;
+    }
+
+    // Takeoff and landing can both skip in one frame (a brief touch).
+    void NoteSkipped(const string &in reason) {
+        if (skippedReason.Length > 0) skippedReason += "; ";
+        skippedReason += "takeoff " + takeoffRace + "ms | " + reason;
+        skippedEvent = true;
     }
 
     void PublishUnrated(const string &in reason, int raceTime) {
@@ -365,6 +405,8 @@ class TransitionTracker {
         silentLandingEvent = false;
         forceDisagreedEvent = false;
         unratedEvent = false;
+        skippedEvent = false;
+        skippedReason = "";
         if (snap is null || !snap.exact || snap.gameTime < 0) {
             if (pendingLanding)
                 PublishUnrated("Exact physics read was lost after landing", landingRace);

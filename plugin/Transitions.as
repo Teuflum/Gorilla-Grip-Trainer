@@ -18,6 +18,10 @@ const uint FRONT_WHEELS = 0x3;
 // Counted from touchdown or the end of the recovery delay, whichever is later;
 // gas-off spins can hold the force gate for a while.
 const int FORCE_GATE_TIMEOUT_MS = 1000;
+// Landing icing needed to confirm a grade, about what still starts an ice
+// slide. The configured minimum applies at takeoff: tires lose icing in the
+// air (a 2.75 s flight took them from 100% to 54%).
+const float LANDING_MIN_ICING = 0.34f;
 
 int SteeringDirection(float steer) {
     if (steer > STEER_GATE) return 2;
@@ -112,6 +116,14 @@ class TransitionTracker {
     bool forceDisagreedEvent = false;
     bool unratedEvent = false;
     string unratedReason = "";
+    // A switch or late reversal before takeoff that a rating filter dropped.
+    bool skippedEvent = false;
+    string skippedReason = "";
+    // Filters an ineligible takeoff failed; logged only if the flight is long
+    // enough to be a jump, not a wheel flickering on the ground.
+    string pendingSkip = "";
+    // Switch already logged as a too-short flight, so a hop is named once.
+    int shortSkipSwitchAt = -1;
 
     int switchAt = -1;
     int switchOldMode = 0;
@@ -161,6 +173,10 @@ class TransitionTracker {
         forceDisagreedEvent = false;
         unratedEvent = false;
         unratedReason = "";
+        skippedEvent = false;
+        skippedReason = "";
+        pendingSkip = "";
+        shortSkipSwitchAt = -1;
         switchAt = -1;
         switchOldMode = 0;
         switchNewMode = 0;
@@ -219,6 +235,7 @@ class TransitionTracker {
         cuePublished = false;
         @preview = null;
         unratedReason = "";
+        pendingSkip = "";
         takeoffClock = snap.contactClock;
         bool exactTakeoff = TakeoffClockValid(previous, snap);
         if (!exactTakeoff) takeoffClock = snap.gameTime;
@@ -229,14 +246,21 @@ class TransitionTracker {
         takeoffReversalLeadMs = rawReversalAt >= 0 && reversalLead >= 0 &&
             reversalLead <= CUE_REVERSAL_WINDOW_MS ? reversalLead : -1;
         recoveryDelayMs = snap.recoveryDelayMs;
+        bool attempted = switchAt >= 0 && switchNewMode == takeoffMode &&
+            takeoffClock - switchAt <= S_DMaxLeadMs;
         // Only a jump out of an ice slide is a gorilla-grip attempt.
         flightEligible = takeoffMode != 0 &&
             lastSlideClock >= 0 && takeoffClock - lastSlideClock <= SLIDE_WINDOW_MS &&
             previous.meanIcing >= S_MinIcing &&
             previous.speedKmh >= float(S_MinSpeed);
-        if (!flightEligible) return;
-        bool attempted = switchAt >= 0 && switchNewMode == takeoffMode &&
-            takeoffClock - switchAt <= S_DMaxLeadMs;
+        if (!flightEligible) {
+            // Name the filters that dropped a switch or a late reversal, so
+            // their limits can be checked against real jumps.
+            bool switched = attempted && switchOldMode != 0 && switchOldMode != takeoffMode;
+            if (switched || takeoffReversalLeadMs >= 0)
+                pendingSkip = EligibilityMisses(switched ? takeoffClock - switchAt : -1);
+            return;
+        }
         if (!exactTakeoff) {
             flightUncertain = true;
             if (attempted) {
@@ -278,11 +302,44 @@ class TransitionTracker {
         firstChangeSeen = false;
         firstChangeAt = -1;
         firstChangeMode = 0;
-        pendingLanding = flightEligible && !flightUncertain &&
-            landingRace - takeoffRace >= S_MinFlight;
+        bool longFlight = landingRace - takeoffRace >= S_MinFlight;
+        pendingLanding = flightEligible && !flightUncertain && longFlight;
+        if (pendingSkip.Length > 0 && longFlight) NoteSkipped(pendingSkip);
+        pendingSkip = "";
+        if (flightEligible && !flightUncertain && !longFlight && preview !is null &&
+            preview.modeAt != shortSkipSwitchAt) {
+            shortSkipSwitchAt = preview.modeAt;
+            NoteSkipped("lead " + preview.leadMs + "ms | flight " +
+                (landingRace - takeoffRace) + "ms below " + S_MinFlight + "ms");
+        }
         if (flightUncertain && (previewPublished || unratedReason.Length > 0))
             PublishUnrated(unratedReason.Length > 0 ? unratedReason :
                 "Exact contact timing was lost during flight", landingRace);
+    }
+
+    // The rating filters this takeoff failed, with the values they saw.
+    string EligibilityMisses(int leadMs) {
+        string misses = leadMs >= 0 ? "lead " + leadMs + "ms" :
+            "steering reversed " + takeoffReversalLeadMs + "ms before takeoff";
+        if (takeoffMode == 0) misses += " | no stored direction";
+        if (lastSlideClock < 0 || takeoffClock - lastSlideClock > SLIDE_WINDOW_MS)
+            misses += " | no slip of " + Text::Format("%.0f", S_MinSlideSlip) +
+                " deg in the last " + SLIDE_WINDOW_MS + "ms (" +
+                Text::Format("%.0f", previous.slipDeg) + " deg at takeoff)";
+        if (previous.meanIcing < S_MinIcing)
+            misses += " | icing " + Text::Format("%.2f", previous.meanIcing) +
+                " below " + Text::Format("%.2f", S_MinIcing);
+        if (previous.speedKmh < float(S_MinSpeed))
+            misses += " | speed " + Text::Format("%.0f", previous.speedKmh) +
+                " below " + S_MinSpeed + " km/h";
+        return misses;
+    }
+
+    // Takeoff and landing can both skip in one frame (a brief touch).
+    void NoteSkipped(const string &in reason) {
+        if (skippedReason.Length > 0) skippedReason += "; ";
+        skippedReason += "takeoff " + takeoffRace + "ms | " + reason;
+        skippedEvent = true;
     }
 
     void PublishUnrated(const string &in reason, int raceTime) {
@@ -306,7 +363,7 @@ class TransitionTracker {
     void ResolveLanding(PhysicsSnapshot@ snap) {
         pendingLanding = false;
         bool hasPreview = preview !is null && previewPublished;
-        bool enoughIcing = snap.meanIcing >= S_MinIcing;
+        bool enoughIcing = snap.meanIcing >= LANDING_MIN_ICING;
         // The verdict uses the stored direction as of the check tick: the first
         // change seen since takeoff (every tire-force reset writes modeAt), and
         // only if it was stored by then. A later frame may already show a
@@ -316,7 +373,11 @@ class TransitionTracker {
         // target (light steering, low speed), not a delayed grip.
         bool recovered = enoughIcing && !switchedByCheck &&
             forceEligibleClock - takeoffModeAt >= recoveryDelayMs;
-        if (hasPreview && recovered && !firstChangeSeen && snap.force <= 1.001f)
+        // Only a front wheel down since eligibility ramps the force; one that
+        // bounced and came back later has not ramped it yet.
+        int frontSince = ContactStart(snap, FRONT_WHEELS, landingClock - 1);
+        if (hasPreview && recovered && !firstChangeSeen && snap.force <= 1.001f &&
+            frontSince >= 0 && frontSince <= forceEligibleClock)
             forceDisagreedEvent = true;
         // A scrape in flight counts as ground contact and can store the new
         // direction before the real landing; name it instead of a generic miss.
@@ -334,7 +395,7 @@ class TransitionTracker {
                 "Pre-takeoff mode held through force-eligible contact" :
                 (enoughIcing ? (touchSwitched ? touchReason :
                 "Direction or tire force did not recover on force-eligible contact") :
-                "Landing icing fell below the rating threshold");
+                "Landing icing fell below 34%");
             verdict.leadMs = preview.leadMs;
         } else if (enoughIcing && takeoffMode != 0 && storedSwitched &&
             // The switch reset the force and holds it for the recovery delay.
@@ -365,6 +426,8 @@ class TransitionTracker {
         silentLandingEvent = false;
         forceDisagreedEvent = false;
         unratedEvent = false;
+        skippedEvent = false;
+        skippedReason = "";
         if (snap is null || !snap.exact || snap.gameTime < 0) {
             if (pendingLanding)
                 PublishUnrated("Exact physics read was lost after landing", landingRace);

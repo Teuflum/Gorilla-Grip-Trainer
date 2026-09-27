@@ -86,8 +86,11 @@ removed or folded into the existing snapshot debug line.
 Measured on 27 September 2026 with TICK revision 53 on *ANGULAR MOMENTUM*
 (`xsBIINZa10KzKOtrSt_oxEAnHX5`), replayed to 40 s three times: 1× (about
 6,870 frames), 4× (about 1,710 frames), and 1× with the Trainer processing
-every 5th frame (about 1,370 frames). Script:
-`Analysis/work/probe_wheel_stamps.py`.
+every 5th frame (about 1,370 frames). The probe script was a one-off and
+was not kept; its source is in Task 2 of the
+[implementation plan](../plans/2026-09-27-tick-exact-timing.md), and it
+reads a temporary "stamp probe" trace that was later removed from the
+plugin.
 
 1. **Per-wheel timestamps record more than touchdown and lift-off.** The
    wheel's contact state (`+0x68`: 1 contact, 2 air) can flip and flip back

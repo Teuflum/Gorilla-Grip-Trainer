@@ -1,6 +1,6 @@
 # Gorilla Grip Trainer
 
-An [Openplanet](https://openplanet.dev) plugin for Trackmania that trains the "gorilla grip": switching the ice-slide direction just before the car leaves the ground, so the tires grip again when it lands. The plugin reads the game's physics, grades how early you switched (S+ to D), and confirms on landing that the tire force actually recovered.
+An [Openplanet](https://openplanet.dev) plugin for Trackmania that trains the "gorilla grip": switching the ice-slide direction just before the car leaves the ground, so the tires grip again when it lands. The plugin reads the game's physics, grades how early you switched (S+ to D), and confirms on landing that the new direction held.
 
 New to the mechanic? The [player guide](https://github.com/Teuflum/tm-gorilla-grip-reverse-engineering/blob/main/outputs/gorilla_grip_player_guide.md) explains it.
 
@@ -14,10 +14,10 @@ The physics reads are tied to one Trackmania build. On any other build, Openplan
 
 ## How a jump is rated
 
-1. **Takeoff.** When you commit the opposite slide direction while a wheel still touches the ground, a small preview grade appears in the air. Only jumps out of an ice slide count: the car's slip angle must reach 20° in the last 500 ms on the ground, so steering through a bobsleigh turn is never rated. Only the Stadium car is rated: the Snow, Rally and Desert cars don't ice slide, so their jumps are ignored, and a jump in progress when a gate changes the car is dropped.
-2. **Landing.** The grade becomes final once the tire force starts rising again. If the landing changes the stored direction, you steer the other way, or the force never rises, the result is `MISSED`.
+1. **Takeoff.** When the game stores the opposite slide direction while a wheel still touches the ground, a small preview grade appears in the air. A jump that keeps its slide direction shows nothing.
+2. **Landing.** Shortly after touchdown the plugin checks that the stored direction held and the tires still average at least 34% icing. If both hold, the preview becomes the final grade. Otherwise the result is `MISSED`. A jump without a switch before takeoff is also `MISSED` if the direction switches on landing, because the tire force then waits after touchdown.
 
-The grade depends only on how early the direction switched before the last wheel left the ground:
+The grade depends only on how early the direction switched before the last wheel left the ground. Landing force and airtime are left out on purpose: countersteering early costs speed, so the best switch is the latest one that still counts.
 
 | Grade | Switch lead (default) | Base points |
 | --- | --- | --- |
@@ -29,9 +29,20 @@ The grade depends only on how early the direction switched before the last wheel
 | D | up to 250 ms | 30 |
 
 - **Score:** base points × combo multiplier (up to ×8).
-- **`UNRATED`:** the plugin lost the physics read or the contact timing, so it doesn't guess a grade.
+- **`UNRATED`:** the plugin lost the physics read or the contact timing, or the tire force never became ready after landing, so it doesn't guess a grade.
 
 Timing comes from the game's own physics clock, so grades don't depend on frame rate or game speed. The physics runs in 10 ms ticks, so every lead is a multiple of 10 ms: S is one tick early, A two or three, B four to six.
+
+### Which jumps count
+
+A jump is rated only if it comes out of an ice slide. The takeoff icing, speed and flight limits can be changed on the Rating tab; these are the defaults:
+
+- **Icing:** the four tires average at least 65% icing as the last wheel leaves. The landing check only needs a fixed 34%, because tires lose icing in the air.
+- **Slide:** the car's slip angle reached 20° in the last 500 ms on the ground, so steering through a bobsleigh turn is never rated.
+- **Speed and flight:** at least 50 km/h at takeoff and 100 ms in the air.
+- **Car:** Only the Stadium car is rated. The Snow, Rally and Desert cars don't ice slide, so their jumps are ignored, and a jump in progress when a gate changes the car is dropped.
+
+With **Log trainer events** on (Debug tab, developer mode), a direction switch that these filters drop writes a line to `Openplanet.log` naming each failed filter and the value it saw.
 
 ## HUD widgets
 
@@ -93,7 +104,7 @@ If you have the Wakeboarding sounds from Wii Sports Resort under these names, th
 ## Development
 
 - **Offline tests** check the plugin source and need no game: `python tests/<name>.py`, for example `python tests/test_rating_settings.py`. [AGENTS.md](AGENTS.md) has the full workflow.
-- **In-game tests** (`test_trainer_in_game.py`, `test_current_input.py`, `test_finish_reset_in_game.py`, `test_improve_reset_in_game.py`) drive a real run. They need:
+- **In-game tests** (`test_trainer_in_game.py`, `test_current_input.py`, `test_finish_reset_in_game.py`, `test_improve_reset_in_game.py`, `test_frame_independence_in_game.py`) drive a real run. They need:
   - Trackmania and TICK;
   - **Log trainer events** turned on (Debug tab, developer mode);
   - for all but `test_improve_reset_in_game.py`, a local clone of the [research repository](https://github.com/Teuflum/tm-gorilla-grip-reverse-engineering), passed as `--research-root` where the script asks for it. The tests import TICK's local client from its `work/tick_client.py` and replay runs through its Gorilla Grip Logger plugin. The Trainer itself does not need the Logger.
@@ -103,6 +114,6 @@ If you have the Wakeboarding sounds from Wii Sports Resort under these names, th
 
 ## More
 
-- [Design specification](docs/superpowers/specs/2026-09-25-gorilla-grip-trainer.md) and [landing popup design](docs/superpowers/specs/2026-09-27-grade-popup-pictures-design.md)
+- Design documents: [trainer](docs/superpowers/specs/2026-09-25-gorilla-grip-trainer.md), [tick-exact timing](docs/superpowers/specs/2026-09-27-tick-exact-timing-design.md) and [landing popup](docs/superpowers/specs/2026-09-27-grade-popup-pictures-design.md). The plans next to them are the step lists these were built from.
 - [Physics research and reverse engineering](https://github.com/Teuflum/tm-gorilla-grip-reverse-engineering)
 - Emoji pictures: [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) by Microsoft (MIT), [Twemoji](https://github.com/jdecked/twemoji) by Twitter, Inc. and other contributors (CC-BY 4.0), [Noto Emoji](https://github.com/googlefonts/noto-emoji) by Google (Apache 2.0) and [OpenMoji](https://openmoji.org) (CC BY-SA 4.0); details in `plugin/assets/emoji/ATTRIBUTION.md`.

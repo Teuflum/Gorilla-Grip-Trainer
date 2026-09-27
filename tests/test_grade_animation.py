@@ -124,3 +124,15 @@ assert "Math::Min(1.0f, (0.2f + 0.15f*float(j))*f.k)*f.fade" in sheen
 for name, text in (("rays", rays), ("outline", outline), ("sheen", sheen)):
     assert "Math::Min(1.0f, f.k)" not in text, name
 print("Intensity brightens rays, outline and sheen: PASS")
+
+# In-game feedback: flat top/bottom bars stuck out past the rounded corners.
+# The panel edge is now one thin border in the grade colour that follows the
+# corners, and Broadcast's underline is as wide as the caption.
+panel = body("void DrawPopupPanel(PopupFrame@ f)")
+assert "HudBox(x, y + 2*s" not in panel and "HudBox(x, y + 101*s" not in panel
+assert "nvg::RoundedRect(x, y, w, 105*s, 16*s);" in panel
+assert "nvg::StrokeWidth(1.5f*s);" in panel
+assert "nvg::StrokeColor(HudColor(a.x, a.y, a.z, 0.45f*f.fade));" in panel
+assert "float captionW = nvg::TextBounds(ResultCaption(f.label)).x;" in panel
+assert "120*s" not in panel
+print("Panel border follows the corners; underline fits the caption: PASS")

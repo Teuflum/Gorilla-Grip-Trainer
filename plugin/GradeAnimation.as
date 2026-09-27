@@ -279,18 +279,26 @@ void DrawPopupPanel(PopupFrame@ f) {
     vec4 a = f.accent;
     HudBox(x, y + 5*s, w, 105*s, 16*s, HudColor(0, 0, 0, 0.35f*f.fade));
     HudBox(x, y, w, 105*s, 16*s, HudColor(0.025f, 0.035f, 0.09f, 0.93f*f.fade));
-    HudBox(x, y + 2*s, w, 3*s, 1*s, HudColor(a.x, a.y, a.z, 0.75f*f.fade));
-    HudBox(x, y + 101*s, w, 2*s, 1*s, HudColor(a.x, a.y, a.z, 0.28f*f.fade));
+    // A thin grade-coloured border that follows the rounded corners; the S+
+    // Glowing outline effect brightens it.
+    nvg::BeginPath();
+    nvg::RoundedRect(x, y, w, 105*s, 16*s);
+    nvg::StrokeWidth(1.5f*s);
+    nvg::StrokeColor(HudColor(a.x, a.y, a.z, 0.45f*f.fade));
+    nvg::Stroke();
     if (f.style != "broadcast") return;
     if (f.age < 260) {
         float edge = 0.9f*(1.0f - float(f.age)/260.0f)*f.fade;
         HudBox(x - 2*s, y, 4*s, 105*s, 1*s, HudColor(1, 1, 1, edge));
         HudBox(x + w - 2*s, y, 4*s, 105*s, 1*s, HudColor(1, 1, 1, edge));
     }
+    // The underline grows from the centre to the caption's width.
     float bar = EaseOutCubic(float(f.age - 300) / 300.0f);
-    if (bar > 0.0f)
-        HudBox(f.cx + f.ox - 60*s*bar, f.cy + f.oy + 18*s, 120*s*bar, 2*s, 1*s,
-            HudColor(a.x, a.y, a.z, 0.9f*f.fade));
+    if (bar <= 0.0f) return;
+    nvg::FontSize(13.0f*s);
+    float captionW = nvg::TextBounds(ResultCaption(f.label)).x;
+    HudBox(f.cx + f.ox - captionW*0.5f*bar, f.cy + f.oy + 18*s, captionW*bar, 2*s, 1*s,
+        HudColor(a.x, a.y, a.z, 0.9f*f.fade));
 }
 
 void DrawPopupFlash(PopupFrame@ f) {

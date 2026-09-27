@@ -34,7 +34,9 @@ change.
 The popup keeps today's timing envelope: effects play in the first ~0.8 s
 and everything fades out between 0.7 s and 1.0 s after the verdict. All sizes
 are in the widget's base units and scale with the Grade widget as today
-(`s = min(w / 500, h / 125)`). The panel's full width is 480 units.
+(`s = min(w / 500, h / 125)`). The panel's full width is 480 units. Every panel has a thin border in the grade colour (1.5 units,
+alpha 0.45) that follows its rounded corners; there are no separate top or
+bottom lines.
 
 Each result has a **power** that scales its effects:
 
@@ -95,8 +97,8 @@ after the verdict.
   on both moving edges that fade over 0–260.
 - No flash.
 - Letter is wiped in from the left over 120–380 (scissor clip, ease-out).
-- A 120-unit underline in the grade colour grows from the centre over
-  300–600.
+- An underline in the grade colour, as wide as the caption, grows from the
+  centre over 300–600.
 - Pictures slide in from 30 units further out and fade in over 60–360.
 - MISSED: over 150–450 the letter glitches, jumping up to ±5 units on every
   other 40 ms step, with a cyan ghost copy offset 3 units at alpha 0.6.

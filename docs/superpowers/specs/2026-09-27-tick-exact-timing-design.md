@@ -242,7 +242,8 @@ physics clock.
   large gap cannot lose or add a turn. Without it, today's per-frame yaw sum
   stays, and the spin count is unreliable (no spin points) whenever a frame
   gap was long enough to hide more than half a turn at the fastest spin rate
-  seen so far in that flight.
+  seen so far in that flight. Spin counting was later removed from the
+  plugin, so this no longer applies.
 - **Unchanged:** speed and icing eligibility still come from the last
   grounded frame. The preview and cue may appear one frame later at low
   frame rates; their content is the same.

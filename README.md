@@ -28,7 +28,7 @@ The grade depends only on how early the direction switched before the last wheel
 | C | up to 110 ms | 60 |
 | D | up to 250 ms | 30 |
 
-- **Score:** base points × combo multiplier (up to ×8), plus 50 per full spin.
+- **Score:** base points × combo multiplier (up to ×8).
 - **`UNRATED`:** the plugin lost the physics read or the contact timing, so it doesn't guess a grade.
 
 Timing comes from the game's own physics clock, so grades don't depend on frame rate or game speed.
@@ -88,7 +88,7 @@ If you have the Wakeboarding sounds from Wii Sports Resort under these names, th
 
 ## Run history
 
-**Plugins → Gorilla Grip Trainer → Run history** (or **VIEW HISTORY** on the finish summary) lists your attempts with their jumps, filtered by map and status. Selecting a jump shows its timing, preview, spins, score and reason. The last 500 attempts are kept locally in `PluginStorage/GorillaGripTrainer/history.json`, with `history.backup.json` as a fallback.
+**Plugins → Gorilla Grip Trainer → Run history** (or **VIEW HISTORY** on the finish summary) lists your attempts with their jumps, filtered by map and status. Selecting a jump shows its timing, preview, score and reason. The last 500 attempts are kept locally in `PluginStorage/GorillaGripTrainer/history.json`, with `history.backup.json` as a fallback.
 
 ## Development
 

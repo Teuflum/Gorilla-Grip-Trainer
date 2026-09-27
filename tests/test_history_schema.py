@@ -62,7 +62,7 @@ def validate(doc: object) -> list[dict]:
             assert previous <= jump["landingMs"]
             assert jump["takeoffMs"] <= jump["landingMs"]
             previous = jump["landingMs"]
-            for key in ("leadMinMs", "leadMaxMs", "combo", "points", "spins"):
+            for key in ("leadMinMs", "leadMaxMs", "combo", "points"):
                 assert isinstance(jump.get(key), int), key
             if "scoreAfter" in jump:
                 # Earlier local builds wrote -1 for attempts saved before this field existed.

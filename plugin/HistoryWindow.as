@@ -238,7 +238,6 @@ void RenderHistoryJumps(RunRecord@ selected) {
         detail += "  |  Takeoff " + jump.preview +
             (jump.timingEstimated && jump.preview != "S+" ? "+" : "");
     if (jump.scoreAfter >= 0) detail += "  |  Score after landing " + jump.scoreAfter;
-    if (jump.spins > 0) detail += "  |  " + jump.spins + (jump.spins == 1 ? " spin" : " spins");
     UI::PushStyleColor(UI::Col::Text, HudColor(0.67f, 0.82f, 0.93f));
     UI::TextWrapped(detail);
     UI::PopStyleColor();

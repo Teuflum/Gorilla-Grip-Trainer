@@ -382,7 +382,6 @@ void DrawPopupSheen(PopupFrame@ f) {
     array<int> starts;
     if (f.label == "S+") { starts.InsertLast(260); starts.InsertLast(520); }
     else if (f.label == "S" || f.label == "A" || f.label == "B") starts.InsertLast(300);
-    float strength = Math::Min(1.0f, f.k)*f.fade;
     for (uint i = 0; i < starts.Length; i++) {
         float t = float(f.age - starts[i]) / 340.0f;
         if (t <= 0.0f || t >= 1.0f) continue;
@@ -391,14 +390,14 @@ void DrawPopupSheen(PopupFrame@ f) {
             float half = (40.0f - 12.0f*float(j))*f.s;
             nvg::Scissor(bandX - half, f.letterY - 60.0f*f.s, half*2.0f, 120.0f*f.s);
             DrawPopupText(f, f.letterX, f.letterY, f.letterScale, f.letterRot,
-                HudColor(1, 1, 1, (0.2f + 0.15f*float(j))*strength), 0.0f);
+                HudColor(1, 1, 1, Math::Min(1.0f, (0.2f + 0.15f*float(j))*f.k)*f.fade), 0.0f);
         }
         nvg::ResetScissor();
     }
 }
 
 void DrawPopupRays(PopupFrame@ f) {
-    float alpha = 0.12f*Math::Min(1.0f, f.k)*f.fade*
+    float alpha = Math::Min(1.0f, 0.12f*f.k)*f.fade*
         EaseOutCubic(float(f.age - 150) / 300.0f);
     if (alpha <= 0.0f) return;
     nvg::Save();
@@ -430,7 +429,6 @@ void DrawPopupShockwave(PopupFrame@ f) {
 
 void DrawPopupOutline(PopupFrame@ f) {
     float glow = 0.5f + 0.5f*Math::Sin(float(f.age)*0.02f);
-    float strength = Math::Min(1.0f, f.k)*f.fade;
     float x = f.cx + f.ox - f.panelW*0.5f;
     float y = f.cy + f.oy - 52.0f*f.s;
     for (int pass = 0; pass < 2; pass++) {
@@ -438,7 +436,7 @@ void DrawPopupOutline(PopupFrame@ f) {
         nvg::RoundedRect(x, y, f.panelW, 105.0f*f.s, 16.0f*f.s);
         nvg::StrokeWidth((pass == 0 ? 6.0f : 2.0f)*f.s);
         float alpha = pass == 0 ? 0.25f*glow : 0.35f + 0.4f*glow;
-        nvg::StrokeColor(HudColor(f.accent.x, f.accent.y, f.accent.z, alpha*strength));
+        nvg::StrokeColor(HudColor(f.accent.x, f.accent.y, f.accent.z, Math::Min(1.0f, alpha*f.k)*f.fade));
         nvg::Stroke();
     }
 }
@@ -567,6 +565,7 @@ void DrawPopupSnowflakes(PopupFrame@ f) {
 void DrawPictureTexture(nvg::Texture@ texture, float x, float y, float size,
     float angle, float alpha) {
     vec2 dims = texture.GetSize();
+    if (dims.x <= 0.0f || dims.y <= 0.0f) return;
     float aspect = dims.y > 0.0f ? dims.x / dims.y : 1.0f;
     float w = size*Math::Min(1.0f, aspect);
     float h = size*Math::Min(1.0f, 1.0f / Math::Max(aspect, 0.001f));

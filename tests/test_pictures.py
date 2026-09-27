@@ -92,3 +92,18 @@ print("Picture choices and LocalImages: PASS")
 assert not (ASSETS / "gorilla-emoji.png").exists()
 assert not (ASSETS / "GORILLA_ASSET.md").exists()
 print("AI gorilla removed from shipped assets: PASS")
+
+# Review fix: an invalid or unreadable image gives no picture instead of a
+# per-frame exception (Openplanet returns a 0x0 texture for bad data, and
+# IO::File throws on unreadable files); the failed entry is still cached.
+load = pictures.split("PictureTexture@ LoadPicture(const string &in choice) {", 1)[1].split("\n}", 1)[0]
+assert "try {" in load and "} catch {" in load
+assert "if (!TextureUsable(picture.drawing)) @picture.drawing = null;" in load
+assert "if (!TextureUsable(picture.thumbnail)) @picture.thumbnail = null;" in load
+for kind in ("nvg::Texture@", "UI::Texture@"):
+    usable = pictures.split(f"bool TextureUsable({kind} texture) {{", 1)[1].split("\n}", 1)[0]
+    assert "texture !is null && texture.GetSize().x > 0 && texture.GetSize().y > 0" in usable, kind
+# Review fix: pictures are drawn much smaller than 256 px, so use mipmaps.
+assert "nvg::LoadTexture(asset, nvg::TextureFlags::GenerateMipmaps)" in load
+assert "nvg::LoadTexture(ReadLocalImage(path), nvg::TextureFlags::GenerateMipmaps)" in load
+print("Invalid pictures fail safely, with mipmaps: PASS")

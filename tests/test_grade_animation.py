@@ -110,3 +110,17 @@ assert "PopupRandom(f.seed + uint(f.age / 16))" in body("void ApplyPopupMotion(P
 # Broadcast's panel never collapses below a sliver on tiny or early frames.
 assert "Math::Max(6.0f, 480.0f*EaseOutCubic(float(f.age) / 230.0f))*f.s" in body("float PopupPanelWidth(PopupFrame@ f)")
 print("Popup rendering contract: PASS")
+
+# Review fix: a 0x0 texture is never drawn.
+assert "if (dims.x <= 0.0f || dims.y <= 0.0f) return;" in draw
+# Review fix: intensity multiplies ray, outline and sheen alpha, clamped at 1
+# (spec), so 200 % is brighter than 100 %.
+rays = body("void DrawPopupRays(PopupFrame@ f)")
+outline = body("void DrawPopupOutline(PopupFrame@ f)")
+sheen = body("void DrawPopupSheen(PopupFrame@ f)")
+assert "float alpha = Math::Min(1.0f, 0.12f*f.k)*f.fade*" in rays
+assert "Math::Min(1.0f, alpha*f.k)*f.fade" in outline
+assert "Math::Min(1.0f, (0.2f + 0.15f*float(j))*f.k)*f.fade" in sheen
+for name, text in (("rays", rays), ("outline", outline), ("sheen", sheen)):
+    assert "Math::Min(1.0f, f.k)" not in text, name
+print("Intensity brightens rays, outline and sheen: PASS")

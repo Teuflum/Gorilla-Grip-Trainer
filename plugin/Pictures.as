@@ -94,22 +94,41 @@ MemoryBuffer@ ReadLocalImage(const string &in path) {
     return buffer;
 }
 
+// Openplanet returns a 0x0 texture for data it cannot decode.
+bool TextureUsable(nvg::Texture@ texture) {
+    return texture !is null && texture.GetSize().x > 0 && texture.GetSize().y > 0;
+}
+
+bool TextureUsable(UI::Texture@ texture) {
+    return texture !is null && texture.GetSize().x > 0 && texture.GetSize().y > 0;
+}
+
 PictureTexture@ LoadPicture(const string &in choice) {
+    bool isEmoji = choice.StartsWith("emoji:") && EmojiIndex(choice.SubStr(6)) >= 0;
+    bool isLocal = choice.StartsWith("local:") && IsSafeLocalName(choice.SubStr(6));
+    if (!isEmoji && !isLocal) return null;
     PictureTexture@ picture = PictureTexture();
     picture.choice = choice;
-    if (choice.StartsWith("emoji:") && EmojiIndex(choice.SubStr(6)) >= 0) {
-        string asset = "assets/twemoji/" + choice.SubStr(6) + ".png";
-        @picture.drawing = nvg::LoadTexture(asset);
-        @picture.thumbnail = UI::LoadTexture(asset);
-    } else if (choice.StartsWith("local:") && IsSafeLocalName(choice.SubStr(6))) {
-        string path = IO::FromStorageFolder("LocalImages/" + choice.SubStr(6));
-        if (IO::FileExists(path)) {
-            @picture.drawing = nvg::LoadTexture(ReadLocalImage(path));
-            @picture.thumbnail = UI::LoadTexture(ReadLocalImage(path));
+    // An unreadable file throws; catching it keeps the failed entry cached
+    // instead of retrying on every frame.
+    try {
+        if (isEmoji) {
+            string asset = "assets/twemoji/" + choice.SubStr(6) + ".png";
+            @picture.drawing = nvg::LoadTexture(asset, nvg::TextureFlags::GenerateMipmaps);
+            @picture.thumbnail = UI::LoadTexture(asset);
+        } else {
+            string path = IO::FromStorageFolder("LocalImages/" + choice.SubStr(6));
+            if (IO::FileExists(path)) {
+                @picture.drawing = nvg::LoadTexture(ReadLocalImage(path), nvg::TextureFlags::GenerateMipmaps);
+                @picture.thumbnail = UI::LoadTexture(ReadLocalImage(path));
+            }
         }
-    } else {
-        return null;
+    } catch {
+        @picture.drawing = null;
+        @picture.thumbnail = null;
     }
+    if (!TextureUsable(picture.drawing)) @picture.drawing = null;
+    if (!TextureUsable(picture.thumbnail)) @picture.thumbnail = null;
     if (picture.drawing is null)
         print("Gorilla Grip Trainer images: could not load " + PictureLabel(choice));
     return picture;

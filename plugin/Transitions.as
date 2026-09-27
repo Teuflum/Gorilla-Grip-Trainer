@@ -52,14 +52,16 @@ bool TakeoffClockValid(PhysicsSnapshot@ before, PhysicsSnapshot@ after) {
 
 // When the game began processing the current contact of the grounded wheels
 // in `mask`: the earliest timestamp newer than `after`. A flag set on the
-// frame's own tick is processed on the next one, before its timestamp is
-// written. -1 when none of them touches.
+// frame's own tick is processed on the next one; until then the wheel keeps
+// its previous timestamp, which can be a graze after takeoff, so only a
+// timestamp the car's contact clock has reached counts. -1 when none of them
+// touches.
 int ContactStart(PhysicsSnapshot@ snap, uint mask, int after) {
     int start = -1;
     for (uint i = 0; i < 4; i++) {
         if ((snap.contactMask & mask & (1 << i)) == 0) continue;
         int at = int(snap.wheelChangedAt[i]);
-        if (at <= after || at > snap.gameTime) at = snap.gameTime + PHYSICS_TICK_MS;
+        if (at <= after || at > snap.contactClock) at = snap.gameTime + PHYSICS_TICK_MS;
         if (start < 0 || at < start) start = at;
     }
     return start;
@@ -254,9 +256,12 @@ class TransitionTracker {
         flightSpinCount = spinReliable ? int(airSpinRadians / (2.0f * Math::PI)) : 0;
         landingEvent = true;
         // The grounded wheels date the touchdown; a touch that already lifted
-        // again is dated by the car's contact clock.
+        // again is dated by the car's contact clock. Only changes after the
+        // last all-air frame count: a wheel whose contact is not processed yet
+        // can still carry a graze timestamp from the flight.
+        int after = previous is null ? takeoffClock : Math::Max(takeoffClock, previous.gameTime);
         landingClock = snap.contactMask != 0 ?
-            ContactStart(snap, ALL_WHEELS, takeoffClock) : snap.contactClock;
+            ContactStart(snap, ALL_WHEELS, after) : snap.contactClock;
         landingRace = snap.RaceAt(landingClock);
         landingTouchLifted = snap.contactMask == 0;
         forceEligibleClock = -1;
@@ -432,8 +437,9 @@ class TransitionTracker {
             // The backwards-motion gate has no timestamp; eligibility restarts
             // at the frame that shows it set.
             if (snap.forceGateState != 0) gateSeenAt = snap.gameTime;
-            // Recovery waits for a front wheel on the ground and the delay.
-            int frontSince = ContactStart(snap, FRONT_WHEELS, takeoffClock);
+            // Recovery waits for a front wheel on the ground and the delay; its
+            // contact cannot have started before the landing.
+            int frontSince = ContactStart(snap, FRONT_WHEELS, landingClock - 1);
             int eligibleAt = frontSince < 0 ? -1 :
                 Math::Max(Math::Max(frontSince, takeoffModeAt + recoveryDelayMs), gateSeenAt);
             int checkAt = eligibleAt < 0 ? -1 :

@@ -205,7 +205,9 @@ void Update(float dt) {
             " | force gate " + next.forceGateState +
             " | eligible at " + g_tracker.forceEligibleClock +
             " | spins " + v.spinCount + " | combo " + g_session.combo +
-            " | score " + g_session.score);
+            " | score " + g_session.score +
+            " | takeoff " + v.takeoffTime + "ms | landing " + v.landingTime +
+            "ms | lead " + v.leadMs + "ms");
     }
     if (!next.exact) return;
     if (g_previousContactMask != int(next.contactMask) || (DebugForceTraceOn() &&

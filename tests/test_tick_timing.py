@@ -78,17 +78,25 @@ land = transitions.split("void Land(", 1)[1].split("\n    }\n", 1)[0]
 resolve = transitions.split("void ResolveLanding(", 1)[1].split("\n    }\n", 1)[0]
 pending = update_body.split("if (pendingLanding) {", 1)[1].split("\n        }\n", 1)[0]
 assert "landingDirection" not in transitions
-assert "ContactStart(snap, ALL_WHEELS, takeoffClock) : snap.contactClock;" in land
+# A wheel whose contact is not processed yet can still carry a graze
+# timestamp from the flight: only changes after the last all-air frame date
+# the touchdown, and a front wheel cannot touch down before the landing.
+assert "int after = previous is null ? takeoffClock : Math::Max(takeoffClock, previous.gameTime);" in land
+assert "ContactStart(snap, ALL_WHEELS, after) : snap.contactClock;" in land
 assert "landingRace = snap.RaceAt(landingClock);" in land
 assert "landingTouchLifted = snap.contactMask == 0;" in land
 # A grounded wheel whose contact is not processed yet counts from the next tick.
 contact_start = transitions.split("int ContactStart(", 1)[1].split("\n}", 1)[0]
 assert "at = snap.gameTime + PHYSICS_TICK_MS;" in contact_start
+# A wheel whose flag is set but not processed yet still carries its previous
+# timestamp, possibly a graze after takeoff; only a timestamp the car's
+# contact clock has reached dates a touchdown.
+assert "if (at <= after || at > snap.contactClock) at = snap.gameTime + PHYSICS_TICK_MS;" in contact_start
 assert "TouchedSince" not in transitions and "EarliestWheelChange" not in transitions
 # Review Focus 1: a touch the game processed between two all-air frames.
 assert "else if (inFlight && snap.contactMask == 0 && snap.contactClock > takeoffClock) {" in update_body
 assert "if (!pendingLanding) StartFlight(snap);" in update_body
-assert "int frontSince = ContactStart(snap, FRONT_WHEELS, takeoffClock);" in pending
+assert "int frontSince = ContactStart(snap, FRONT_WHEELS, landingClock - 1);" in pending
 assert "if (snap.forceGateState != 0) gateSeenAt = snap.gameTime;" in pending
 assert "Math::Max(landingClock + LANDING_CHECK_MS, eligibleAt + FORCE_SETTLE_MS)" in pending
 assert "snap.gameTime >= checkAt" in pending
@@ -119,3 +127,10 @@ assert "else if (gap > 0.0f && maxYawRate * gap > Math::PI) spinReliable = false
 assert "if (inFlight && previous.contactMask == 0) CountSpin(snap, sampleGap);" in update_body
 assert "const int YAW_RATE_OFFSET = " in physics
 print("Gap-safe cue and spins: PASS")
+
+# Verdict lines carry the exact takeoff, landing and lead for comparison runs.
+verdict_log = main.split('DebugLog("Gorilla Grip Trainer verdict at', 1)[1].split(";", 1)[0]
+assert '" | score " + g_session.score +' in verdict_log
+assert '" | takeoff " + v.takeoffTime + "ms | landing " + v.landingTime +' in verdict_log
+assert '"ms | lead " + v.leadMs + "ms"' in verdict_log
+print("Verdict lines carry exact times: PASS")

@@ -1,4 +1,4 @@
-"""Grade popup pictures: shipped Twemoji art and LocalImages choices."""
+"""Grade popup pictures: shipped emoji sets and LocalImages choices."""
 
 import struct
 from pathlib import Path
@@ -12,32 +12,53 @@ EMOJI = {
     "slightly-smiling-face": "1f642", "skull": "1f480", "ice": "1f9ca",
     "snowflake": "2744", "trophy": "1f3c6", "star": "2b50",
 }
+SETS = ["fluent-flat", "fluent-color", "fluent-3d", "twemoji", "noto", "openmoji"]
 
-# Twelve 256x256 RGBA PNGs, and nothing else, ship in assets/twemoji.
-twemoji = ASSETS / "twemoji"
-assert sorted(p.name for p in twemoji.glob("*.png")) == sorted(f"{n}.png" for n in EMOJI)
-for name in EMOJI:
-    png = (twemoji / f"{name}.png").read_bytes()
-    assert png[:8] == b"\x89PNG\r\n\x1a\n", name
-    width, height, depth, colour = struct.unpack(">IIBB", png[16:26])
-    assert (width, height, depth, colour) == (256, 256, 8, 6), (name, width, height, depth, colour)
+# Each set ships the same twelve 256x256 RGBA PNGs, and nothing else.
+emoji = ASSETS / "emoji"
+assert sorted(p.name for p in emoji.iterdir() if p.is_dir()) == sorted(SETS)
+for emoji_set in SETS:
+    folder = emoji / emoji_set
+    assert sorted(p.name for p in folder.glob("*.png")) == sorted(f"{n}.png" for n in EMOJI), emoji_set
+    for name in EMOJI:
+        png = (folder / f"{name}.png").read_bytes()
+        assert png[:8] == b"\x89PNG\r\n\x1a\n", (emoji_set, name)
+        width, height, depth, colour = struct.unpack(">IIBB", png[16:26])
+        assert (width, height, depth, colour) == (256, 256, 8, 6), (emoji_set, name, width, height, depth, colour)
+assert not (ASSETS / "twemoji").exists()
 
-# CC-BY 4.0 needs a credit that names every shipped file.
-attribution = (twemoji / "ATTRIBUTION.md").read_text(encoding="utf-8")
-assert "Twemoji by Twitter, Inc. and other contributors" in attribution
-assert "https://creativecommons.org/licenses/by/4.0/" in attribution
-assert "jdecked/twemoji" in attribution and "v16.0.1" in attribution
+# Every source is credited under its licence; MIT and Apache 2.0 ship their text.
+attribution = (emoji / "ATTRIBUTION.md").read_text(encoding="utf-8")
+for credit in ("Fluent Emoji by Microsoft Corporation", "MIT",
+               "Twemoji by Twitter, Inc. and other contributors",
+               "https://creativecommons.org/licenses/by/4.0/",
+               "Noto Emoji by Google", "Apache License 2.0",
+               "OpenMoji", "https://creativecommons.org/licenses/by-sa/4.0/",
+               "microsoft/fluentui-emoji@1ffb34c752ecf5d402f04cfb4b392c77f57c54bc",
+               "jdecked/twemoji@v16.0.1",
+               "googlefonts/noto-emoji@e20cbc2bbec1926686be9f9bee7d1d2cfa1fea0e",
+               "hfg-gmuend/openmoji@17.0.0"):
+    assert credit in attribution, credit
 for name, code in EMOJI.items():
     assert f"| `{name}.png` |" in attribution and code in attribution, name
+assert "Permission is hereby granted, free of charge" in (emoji / "LICENSE-MIT-Fluent.txt").read_text(encoding="utf-8")
+assert "Apache License" in (emoji / "LICENSE-Apache-2.0.txt").read_text(encoding="utf-8")
 readme = (ROOT / "README.md").read_text(encoding="utf-8")
-assert "[Twemoji](https://github.com/jdecked/twemoji)" in readme
+for link in ("[Fluent Emoji](https://github.com/microsoft/fluentui-emoji)",
+             "[Twemoji](https://github.com/jdecked/twemoji)",
+             "[Noto Emoji](https://github.com/googlefonts/noto-emoji)",
+             "[OpenMoji](https://openmoji.org)"):
+    assert link in readme, link
 assert "LocalImages/" in (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
 
-tool = (ROOT / "tools" / "render_twemoji.py").read_text(encoding="utf-8")
-assert 'VERSION = "v16.0.1"' in tool
+tool = (ROOT / "tools" / "render_emoji.py").read_text(encoding="utf-8")
+assert not (ROOT / "tools" / "render_twemoji.py").exists()
+for pin in ('TWEMOJI = "v16.0.1"', 'FLUENT = "1ffb34c752ecf5d402f04cfb4b392c77f57c54bc"',
+            'NOTO = "e20cbc2bbec1926686be9f9bee7d1d2cfa1fea0e"', 'OPENMOJI = "17.0.0"'):
+    assert pin in tool, pin
 for name, code in EMOJI.items():
     assert f'"{name}": "{code}"' in tool, name
-print("Shipped Twemoji pictures: PASS")
+print("Shipped emoji sets: PASS")
 
 import re
 
@@ -72,7 +93,7 @@ for part in ('!name.Contains("/")', '!name.Contains("\\\\")', '!name.Contains(".
 load = pictures.split("PictureTexture@ LoadPicture(const string &in choice) {", 1)[1].split("\n}", 1)[0]
 assert 'IsSafeLocalName(choice.SubStr(6))' in load
 assert 'IO::FromStorageFolder("LocalImages/" + choice.SubStr(6))' in load
-assert '"assets/twemoji/" + choice.SubStr(6) + ".png"' in load
+assert '"assets/emoji/" + EmojiSet() + "/" + choice.SubStr(6) + ".png"' in load
 # A failed load is logged once: the failed entry is cached, never retried.
 assert 'print("Gorilla Grip Trainer images: could not load " + PictureLabel(choice));' in load
 get = pictures.split("PictureTexture@ GetPicture(const string &in choice) {", 1)[1].split("\n}", 1)[0]
@@ -107,3 +128,23 @@ for kind in ("nvg::Texture@", "UI::Texture@"):
 assert "nvg::LoadTexture(asset, nvg::TextureFlags::GenerateMipmaps)" in load
 assert "nvg::LoadTexture(ReadLocalImage(path), nvg::TextureFlags::GenerateMipmaps)" in load
 print("Invalid pictures fail safely, with mipmaps: PASS")
+
+# The emoji set is one choice for all pictures; Fluent Flat is the default and
+# an unknown set falls back to it. The cache is keyed by set, so switching
+# sets reloads the pictures.
+assert '[Setting hidden] string S_EmojiSet = "fluent-flat";' in pictures
+assert 'array<string> g_emojiSets = {"fluent-flat", "fluent-color", "fluent-3d", "twemoji", "noto", "openmoji"};' in pictures
+assert 'array<string> g_emojiSetLabels = {"Fluent Flat", "Fluent Color", "Fluent 3D", "Twemoji", "Noto (Android)", "OpenMoji"};' in pictures
+emoji_set = pictures.split("string EmojiSet() {", 1)[1].split("\n}", 1)[0]
+assert "if (g_emojiSets[i] == S_EmojiSet) return S_EmojiSet;" in emoji_set
+assert 'return "fluent-flat";' in emoji_set
+key = pictures.split("string PictureCacheKey(const string &in choice) {", 1)[1].split("\n}", 1)[0]
+assert 'return choice.StartsWith("emoji:") ? choice + "@" + EmojiSet() : choice;' in key
+get = pictures.split("PictureTexture@ GetPicture(const string &in choice) {", 1)[1].split("\n}", 1)[0]
+assert "string key = PictureCacheKey(choice);" in get and "g_pictureCache[i].key == key" in get
+assert 'S_EmojiSet = "fluent-flat";' in pictures.split("void ResetPictureSettings() {", 1)[1].split("\n}", 1)[0]
+tab = (ROOT / "plugin" / "PopupTab.as").read_text(encoding="utf-8")
+assert 'UI::BeginCombo("Emoji set", EmojiSetLabel())' in tab
+assert "S_EmojiSet = g_emojiSets[i];" in tab
+assert tab.index('UI::BeginCombo("Emoji set"') < tab.index("RenderPictureRow(g_pictureResults[i]);")
+print("One emoji set choice for all pictures: PASS")

@@ -17,7 +17,7 @@ assert 'GetLayout("grade")' in widgets
 assert 'GetLayout("timing")' not in widgets
 assert 'GetLayout("result")' not in widgets
 assert "gorilla-emoji" not in widgets
-assert (ROOT / "assets" / "twemoji" / "gorilla.png").is_file()
+assert (ROOT / "assets" / "emoji" / "fluent-flat" / "gorilla.png").is_file()
 
 # Layout and Sounds use compact collapsible sections.
 assert 'UI::CollapsingHeader(widget.title)' in layout

@@ -28,6 +28,13 @@ void RenderSettingsPopup() {
 
     UI::SeparatorText("Pictures");
     S_ShowPictures = UI::Checkbox("Show pictures", S_ShowPictures);
+    UI::SetNextItemWidth(260.0f);
+    if (UI::BeginCombo("Emoji set", EmojiSetLabel())) {
+        for (uint i = 0; i < g_emojiSets.Length; i++)
+            if (UI::Selectable(g_emojiSetLabels[i], g_emojiSets[i] == EmojiSet()))
+                S_EmojiSet = g_emojiSets[i];
+        UI::EndCombo();
+    }
     if (UI::Button("Open LocalImages folder")) {
         string folder = IO::FromStorageFolder("LocalImages");
         if (!IO::FolderExists(folder)) IO::CreateFolder(folder, true);

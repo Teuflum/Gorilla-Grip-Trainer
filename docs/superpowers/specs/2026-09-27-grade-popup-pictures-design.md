@@ -21,7 +21,9 @@ change.
   may replace it later if testing shows a need; nothing else would change.
 - Each result has **one** picture, drawn on both sides of the panel as the
   gorilla is today. Only S and S+ pictures bounce ("dance").
-- Shipped pictures are **Twemoji only**. The AI-generated
+- Shipped pictures come from open-source emoji sets only (Fluent Flat by
+  default, Fluent Color, Fluent 3D, Twemoji, Noto, OpenMoji); one **Emoji set**
+  choice restyles every picture. The AI-generated
   `plugin/assets/gorilla-emoji.png` leaves the repository and lives on as a
   user file in `LocalImages`.
 - Pictures can be turned off globally and per result.
@@ -166,10 +168,15 @@ today. S and S+ pictures bob up to 12 units and tilt up to 0.18 rad
 (`|sin(t × 0.012 + side × 1.8)|`); other pictures are still. How a picture
 enters depends on the style (see above).
 
-### Shipped set
+### Shipped emoji sets
 
-Twelve Twemoji graphics, stored as 256×256 transparent PNGs in
-`plugin/assets/twemoji/` and named after the emoji:
+Six sets ship the same twelve pictures, each stored as 256×256 transparent
+PNGs in `plugin/assets/emoji/<set>/` and named after the emoji. `S_EmojiSet`
+(default `fluent-flat`; an unknown value counts as `fluent-flat`) picks the
+set: `fluent-flat`, `fluent-color`, `fluent-3d`, `twemoji`, `noto`, or
+`openmoji`. An `emoji:<name>` choice is drawn from the chosen set, and the
+texture cache is keyed by set so a switch reloads the art. Local pictures
+are not affected.
 
 | File | Emoji | Codepoint |
 | --- | --- | --- |
@@ -186,10 +193,12 @@ Twelve Twemoji graphics, stored as 256×256 transparent PNGs in
 | `trophy.png` | 🏆 | 1f3c6 |
 | `star.png` | ⭐ | 2b50 |
 
-The PNGs are rendered from the official SVGs of the maintained Twemoji
-project (`jdecked/twemoji`, fetched through cdn.jsdelivr.net). The 72 px PNGs
-Twemoji also publishes would blur on a large or high-DPI Grade widget, and
-NanoVG cannot draw SVG.
+`tools/render_emoji.py` renders the PNGs with headless Chrome from pinned
+sources: Fluent Emoji (`microsoft/fluentui-emoji`, Flat and Color SVG, 3D
+PNG; the default yellow variant for skin-tone emoji), Twemoji
+(`jdecked/twemoji` v16.0.1), Noto (`googlefonts/noto-emoji`, `2D/svg`), and
+OpenMoji (`hfg-gmuend/openmoji` 17.0.0, `color/svg`). NanoVG cannot draw SVG,
+and small published PNGs would blur on a large Grade widget.
 
 ### Local pictures
 
@@ -209,7 +218,8 @@ mode only). Like the other custom tabs it has no tab icon.
   - **Intensity** slider, 0–200 %;
   - one checkbox per effect, in the order of the effects table.
 - **Pictures** section:
-  - **Show pictures**, **Open LocalImages folder**, and **Reload files**;
+  - **Show pictures**, the **Emoji set** dropdown, **Open LocalImages folder**,
+    and **Reload files**;
   - one row per result (S+, S, A, B, C, D, Missed) with a small thumbnail of
     the current picture (blank for None), a picker listing *None*, the twelve
     shipped emoji by readable name ("Gorilla", "Oncoming fist", …), then the
@@ -238,6 +248,7 @@ preview replaces a running one; a real verdict replaces a preview.
 | `S_FxSheen` | bool | false |
 | `S_FxOutline` | bool | false |
 | `S_ShowPictures` | bool | true |
+| `S_EmojiSet` | string (see Shipped emoji sets) | `fluent-flat` |
 | `S_Picture…` | string (seven, see above) | see above |
 
 All are `[Setting hidden]` and edited only on the Popup tab. An unknown style
@@ -245,10 +256,13 @@ string counts as `ice`.
 
 ## Assets, licensing, and repository
 
-- Twemoji graphics are licensed CC-BY 4.0. `plugin/assets/twemoji/ATTRIBUTION.md`
-  credits "Twemoji by Twitter, Inc. and other contributors", links the
-  licence, and lists the twelve files and their codepoints. The README gets
-  a one-line credit.
+- `plugin/assets/emoji/ATTRIBUTION.md` credits every set with its pinned
+  source and licence: Fluent Emoji (MIT, full text in
+  `LICENSE-MIT-Fluent.txt`), Twemoji (CC-BY 4.0), Noto Emoji (Apache 2.0, full
+  text in `LICENSE-Apache-2.0.txt`), and OpenMoji (CC BY-SA 4.0; those
+  pictures stay under it). It lists the twelve files and their codepoints.
+  The README gets a one-line credit naming all four projects. Apple and
+  other proprietary emoji are not shipped.
 - `plugin/assets/gorilla-emoji.png` and `plugin/assets/GORILLA_ASSET.md` are
   removed. The image is copied to the installed
   `PluginStorage/GorillaGripTrainer/LocalImages/gorilla-emoji.png` and to a

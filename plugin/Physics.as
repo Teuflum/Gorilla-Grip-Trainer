@@ -1,3 +1,9 @@
+// Yaw rate on this build (stage 0 of the tick-exact timing spec: slope
+// +1.005, r2 0.997 against the frame-to-frame yaw change); -1 when unknown.
+const int YAW_RATE_OFFSET = 0x554;
+// Converts the stored value to rad/s with the sign of the yaw change.
+const float YAW_RATE_SCALE = 1.0f;
+
 // Read-only snapshots of the active physics car on the validated game build.
 class PhysicsSnapshot {
     bool exact = false;
@@ -23,6 +29,9 @@ class PhysicsSnapshot {
     // Angle between the car's heading and its horizontal velocity.
     float slipDeg = 0.0f;
     float yaw = 0.0f;
+    // Yaw rate in rad/s, from the physics state; false when unknown.
+    bool hasYawRate = false;
+    float yawRate = 0.0f;
     // Game clock of each wheel's last contact change (touchdown or lift-off),
     // in the contact-bit order. The physics step writes it, so it dates a
     // change that happened between two rendered frames.
@@ -39,8 +48,6 @@ class PhysicsSnapshot {
     // The frame clock (PlaygroundClientScriptAPI.GameTime); it runs ahead of
     // the physics tick but advances with race time.
     int frameClock = -1;
-    // Stage 0 only: 32 floats after the car position, to find the angular velocity.
-    string probe = "";
 
     int ModeAgeMs() const {
         int changedAt = int(modeAt);
@@ -162,15 +169,14 @@ PhysicsSnapshot@ ReadPhysics(CSceneVehicleVisState@ vis, int raceTime) {
     // Stage 0: time everything on the physics clock.
     snap.frameClock = snap.gameTime;
     snap.gameTime = snap.physicsClock;
+    if (YAW_RATE_OFFSET >= 0) {
+        snap.yawRate = YAW_RATE_SCALE * Dev::SafeReadFloat(vehicle + uint64(YAW_RATE_OFFSET));
+        snap.hasYawRate = Math::Abs(snap.yawRate) < 100.0f;
+    }
     snap.neutralAt = int(Dev::SafeReadUint32(vehicle + 0x14e0));
     uint neutralTimeout = Dev::SafeReadUint32(model + 0x1198);
     snap.neutralTimeoutMs = neutralTimeout >= 50 && neutralTimeout <= 5000 ?
         int(neutralTimeout) : -1;
-    if (DebugForceTraceOn()) {
-        for (uint i = 0; i < 32; i++)
-            snap.probe += (i == 0 ? "" : ",") +
-                Text::Format("%.4f", Dev::SafeReadFloat(vehicle + 0x538 + 4 * i));
-    }
     snap.exact = true;
     return snap;
 }

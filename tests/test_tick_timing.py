@@ -33,11 +33,9 @@ assert update.index("if (!ProcessThisFrame()) return;") < \
 assert 'DebugLog("Gorilla Grip Trainer frame skip " + frameSkip);' in update
 print("Wheel timestamps and frame skip: PASS")
 
-# Stage 0 probe (removed again in Task 5).
-assert 'DebugLog("Gorilla Grip Trainer stamp probe at " + t +' in update
-assert '", contact " + next.contactClock +' in update
-assert "vehicle + 0x538 + 4 * i" in read
-print("Stage 0 probe line: PASS")
+# The stage 0 probe is gone again.
+assert "stamp probe" not in main and "probe" not in read
+print("Stage 0 probe removed: PASS")
 
 # Everything is timed on the physics clock; ticks convert to race time
 # through the frame clock, which advances with race time.
@@ -107,3 +105,17 @@ assert "forceDisagreedEvent = false;" in update_body.split("if (snap is null", 1
 assert 'DebugLog("Gorilla Grip Trainer force did not rise although the direction held at "' in main
 assert "storedAt <= landingClock + LANDING_STEER_MS" in resolve
 print("Landing from timestamps and stored mode: PASS")
+
+# Estimates that never decide a grade.
+observe = transitions.split("void ObserveSteeringAndMode(", 1)[1].split("\n    }\n", 1)[0]
+estimate = transitions.split("int EstimateReversal(", 1)[1].split("\n}", 1)[0]
+spin = transitions.split("void CountSpin(", 1)[1].split("\n    }\n", 1)[0]
+assert "const float SMOOTHED_STEER_STEP = 0.2f;" in transitions
+assert "rawReversalAt = EstimateReversal(previous, snap);" in observe
+assert "if (previousGround && beforeRaw != 0" in observe
+assert "Math::Clamp(after.gameTime - (ticks - 1) * PHYSICS_TICK_MS," in estimate
+assert "if (snap.hasYawRate && previous.hasYawRate) {" in spin
+assert "else if (gap > 0.0f && maxYawRate * gap > Math::PI) spinReliable = false;" in spin
+assert "if (inFlight && previous.contactMask == 0) CountSpin(snap, sampleGap);" in update_body
+assert "const int YAW_RATE_OFFSET = " in physics
+print("Gap-safe cue and spins: PASS")

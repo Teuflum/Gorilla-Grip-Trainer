@@ -163,14 +163,6 @@ void Update(float dt) {
     if (!ProcessThisFrame()) return;
     PhysicsSnapshot@ next = ReadPhysics(vis, t);
     @g_snapshot = next;
-    if (next.exact && DebugForceTraceOn())
-        DebugLog("Gorilla Grip Trainer stamp probe at " + t + "ms: clock " + next.gameTime +
-            ", physics " + next.physicsClock + ", contact " + next.contactClock +
-            ", contacts " + next.ContactBits() +
-            ", stamps " + next.wheelChangedAt[0] + "/" + next.wheelChangedAt[1] + "/" +
-            next.wheelChangedAt[2] + "/" + next.wheelChangedAt[3] +
-            ", mode " + next.mode + ", modeAt " + next.modeAt +
-            ", yaw " + Text::Format("%.5f", next.yaw) + ", probe " + next.probe);
     g_tracker.Update(next);
     if (g_tracker.landingEvent) {
         DebugLog("Gorilla Grip Trainer landing at " + g_tracker.landingRace +

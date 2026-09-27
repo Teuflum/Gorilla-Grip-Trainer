@@ -45,7 +45,7 @@ calls = []
 for name, text in sources.items():
     for call, message in re.findall(r'\b(print|DebugLog)\("(Gorilla Grip Trainer[^"]*)"', text):
         calls.append((name, call, message))
-assert len(calls) == 34, len(calls)  # 21 routine events, 12 problems, 1 state marker
+assert len(calls) == 33, len(calls)  # 20 routine events, 12 problems, 1 state marker
 
 for name, call, message in calls:
     problem = message.startswith(PROBLEMS)

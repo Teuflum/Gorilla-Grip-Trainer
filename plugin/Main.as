@@ -13,6 +13,15 @@ HistoryStore@ g_history;
 RunRecord@ g_activeRun;
 FinishController@ g_finish;
 uint g_runSequence = 0;
+// Whether the last processed frame was in the Stadium car; the tracker resets
+// when the car changes.
+bool g_stadiumCar = true;
+
+// Only the Stadium car ice slides, so only its jumps can have a gorilla grip.
+// VehicleState reports CarSport when it cannot tell the car.
+bool IsStadiumCar(CSceneVehicleVisState@ vis) {
+    return VehicleState::GetVehicleType(vis) == VehicleState::VehicleType::CarSport;
+}
 
 string CurrentMapUid() {
     auto app = cast<CTrackMania>(GetApp());
@@ -163,6 +172,16 @@ void Update(float dt) {
     if (!ProcessThisFrame()) return;
     PhysicsSnapshot@ next = ReadPhysics(vis, t);
     @g_snapshot = next;
+    // Snow, Rally and Desert jumps are not rated; a jump in progress when the
+    // car changes is dropped.
+    bool stadiumCar = IsStadiumCar(vis);
+    if (stadiumCar != g_stadiumCar) {
+        g_stadiumCar = stadiumCar;
+        g_tracker.Reset();
+        DebugLog("Gorilla Grip Trainer car " + tostring(VehicleState::GetVehicleType(vis)) +
+            (stadiumCar ? ": rating jumps" : ": jumps are not rated outside the Stadium car"));
+    }
+    if (!stadiumCar) return;
     g_tracker.Update(next);
     if (g_tracker.landingEvent) {
         DebugLog("Gorilla Grip Trainer landing at " + g_tracker.landingRace +

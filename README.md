@@ -14,7 +14,7 @@ The physics reads are tied to one Trackmania build. On any other build, Openplan
 
 ## How a jump is rated
 
-1. **Takeoff.** When you commit the opposite slide direction while a wheel still touches the ground, a small preview grade appears in the air. Only jumps out of an ice slide count: the car's slip angle must reach 20° in the last 500 ms on the ground, so steering through a bobsleigh turn is never rated.
+1. **Takeoff.** When you commit the opposite slide direction while a wheel still touches the ground, a small preview grade appears in the air. Only jumps out of an ice slide count: the car's slip angle must reach 20° in the last 500 ms on the ground, so steering through a bobsleigh turn is never rated. Only the Stadium car is rated: the Snow, Rally and Desert cars don't ice slide, so their jumps are ignored, and a jump in progress when a gate changes the car is dropped.
 2. **Landing.** The grade becomes final once the tire force starts rising again. If the landing changes the stored direction, you steer the other way, or the force never rises, the result is `MISSED`.
 
 The grade depends only on how early the direction switched before the last wheel left the ground:

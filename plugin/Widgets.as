@@ -15,6 +15,7 @@ void InitWidgets() {
 
 void ShowResult(JumpVerdict@ verdict, int raceTime) {
     if (verdict is null) return;
+    StopPopupPreview();
     g_resultLabel = verdict.label;
     g_resultReason = verdict.reason;
     g_resultTimingEstimated = verdict.timingEstimated;
@@ -395,8 +396,16 @@ bool ShouldRenderWidget(WidgetLayout@ layout) {
 }
 
 void RenderWidgets() {
-    if (!S_EnableWidgets) return;
     if (g_hudFont >= 0) nvg::FontFace(g_hudFont);
+    // A Popup-tab preview plays even with widgets off or outside a run.
+    int previewAge = PopupPreviewAge();
+    if (previewAge >= 0) {
+        WidgetLayout@ grade = GetLayout("grade");
+        if (grade !is null)
+            RenderResult(grade.Pixels(), previewAge, g_popupPreviewLabel, false,
+                PopupPreviewSeed(g_popupPreviewLabel));
+    }
+    if (!S_EnableWidgets) return;
     WidgetLayout@ layout = GetLayout("finish");
     if (g_finish !is null && g_finish.visible &&
         g_finish.summary !is null && ShouldRenderWidget(layout))
@@ -406,7 +415,7 @@ void RenderWidgets() {
     if (ShouldRenderWidget(layout))
         RenderDiagnostics(layout.Pixels(), g_snapshot);
     @layout = GetLayout("grade");
-    if (ShouldRenderWidget(layout)) {
+    if (previewAge < 0 && ShouldRenderWidget(layout)) {
         JumpPreview@ p = (g_tracker.inFlight || g_tracker.pendingLanding) &&
             g_tracker.previewPublished ? g_tracker.preview : null;
         int age = g_snapshot.raceTime - g_resultShownAt;

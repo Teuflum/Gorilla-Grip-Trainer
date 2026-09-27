@@ -179,7 +179,7 @@ void SaveLayoutSettings() {
     S_FinishVisible = g_layouts[4].visible;
 }
 
-[SettingsTab name="Layout" icon="" order="3"]
+[SettingsTab name="Layout" icon="" order="4"]
 void RenderSettingsLayout() {
     g_layoutEditing = true;
     if (UI::Button("Reset all widgets")) {

@@ -64,7 +64,7 @@ assert not any("S_DebugLogging" in text for name, text in sources.items()
 # The in-game tests read the marker since the latest plugin load.
 from trainer_log import event_logging_enabled
 
-LOADED = "[ TRAC] Loaded plugin 'GorillaGripTrainer' (version 0.1.0)\n"
+LOADED = "[ TRAC] Loaded plugin 'GorillaGripTrainer' (version 0.2.0)\n"
 ON = "[GorillaGripTrainer]  Gorilla Grip Trainer event logging on\n"
 OFF = "[GorillaGripTrainer]  Gorilla Grip Trainer event logging off\n"
 assert not event_logging_enabled("")

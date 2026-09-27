@@ -23,6 +23,14 @@ class PhysicsSnapshot {
     // Angle between the car's heading and its horizontal velocity.
     float slipDeg = 0.0f;
     float yaw = 0.0f;
+    // Game clock of each wheel's last contact change (touchdown or lift-off),
+    // in the contact-bit order. The physics step writes it, so it dates a
+    // change that happened between two rendered frames.
+    array<uint> wheelChangedAt = array<uint>(4);
+    // The physics step's own clock (vehicle+0x4f4).
+    int physicsClock = -1;
+    // Stage 0 only: 32 floats after the car position, to find the angular velocity.
+    string probe = "";
 
     int ModeAgeMs() const {
         int changedAt = int(modeAt);
@@ -131,8 +139,16 @@ PhysicsSnapshot@ ReadPhysics(CSceneVehicleVisState@ vis, int raceTime) {
     snap.forceGateState = int(Dev::SafeReadUint32(vehicle + 0x1600));
     snap.recoveryDelayMs = int(delay);
     for (uint i = 0; i < 4; i++) {
-        if (Dev::SafeReadUint32(vehicle + 0x17b4 + 0xb8 * i) != 0)
+        uint64 wheel = vehicle + 0x17b4 + 0xb8 * i;
+        if (Dev::SafeReadUint32(wheel) != 0)
             snap.contactMask |= (1 << i);
+        snap.wheelChangedAt[i] = Dev::SafeReadUint32(wheel + 0x6c);
+    }
+    snap.physicsClock = int(Dev::SafeReadUint32(vehicle + 0x4f4));
+    if (DebugForceTraceOn()) {
+        for (uint i = 0; i < 32; i++)
+            snap.probe += (i == 0 ? "" : ",") +
+                Text::Format("%.4f", Dev::SafeReadFloat(vehicle + 0x538 + 4 * i));
     }
     snap.exact = true;
     return snap;

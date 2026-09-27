@@ -5,6 +5,7 @@ float g_previousForce = -1.0f;
 int g_previousForceGate = -1;
 int g_previousRaceTime = -1;
 bool g_eventLoggingOn = false;
+int g_loggedFrameSkip = -1;
 TransitionTracker@ g_tracker;
 SessionState@ g_session;
 AudioDirector@ g_audio;
@@ -91,6 +92,12 @@ void Update(float dt) {
         g_eventLoggingOn = DebugLoggingOn();
         print("Gorilla Grip Trainer event logging " + (g_eventLoggingOn ? "on" : "off"));
     }
+    // The frame-skip value is logged whenever it or event logging changes.
+    int frameSkip = DebugLoggingOn() ? DebugFrameSkip() : -1;
+    if (frameSkip != g_loggedFrameSkip) {
+        g_loggedFrameSkip = frameSkip;
+        if (frameSkip > 0) DebugLog("Gorilla Grip Trainer frame skip " + frameSkip);
+    }
     g_audio.UpdateSettings();
     auto vis = VehicleState::ViewingPlayerState();
     bool finishSequence = IsFinishSequence();
@@ -152,8 +159,17 @@ void Update(float dt) {
         g_activeRun.mapName = CurrentMapName();
     }
     g_previousRaceTime = t;
+    // Developer frame skipping simulates a low frame rate for timing tests.
+    if (!ProcessThisFrame()) return;
     PhysicsSnapshot@ next = ReadPhysics(vis, t);
     @g_snapshot = next;
+    if (next.exact && DebugForceTraceOn())
+        DebugLog("Gorilla Grip Trainer stamp probe at " + t + "ms: clock " + next.gameTime +
+            ", physics " + next.physicsClock + ", contacts " + next.ContactBits() +
+            ", stamps " + next.wheelChangedAt[0] + "/" + next.wheelChangedAt[1] + "/" +
+            next.wheelChangedAt[2] + "/" + next.wheelChangedAt[3] +
+            ", mode " + next.mode + ", modeAt " + next.modeAt +
+            ", yaw " + Text::Format("%.5f", next.yaw) + ", probe " + next.probe);
     g_tracker.Update(next);
     if (g_tracker.landingEvent) {
         DebugLog("Gorilla Grip Trainer landing at " + g_tracker.landingRace +

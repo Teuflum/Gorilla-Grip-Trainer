@@ -198,10 +198,16 @@ void RenderDiagnostics(const vec4 &in r, PhysicsSnapshot@ snap) {
     bool unverified = snap.exact && g_tracker.inFlight &&
         g_tracker.unratedReason.Length > 0;
     if (unverified) detail = "TIMING UNVERIFIED";
+    // Reads have never worked since the plugin loaded: a game update likely
+    // moved a fixed offset.
+    bool readFailing = !snap.exact && g_readMonitor.ReadFailing();
+    if (readFailing) detail = "PHYSICS READ FAILED";
     HudText(cr, r.y + 150*s, detail, 11*s,
-        unverified ? HudColor(1, 0.58f, 0.36f) : HudColor(0.55f, 0.67f, 0.77f), right);
+        unverified || readFailing ? HudColor(1, 0.58f, 0.36f) :
+        HudColor(0.55f, 0.67f, 0.77f), right);
     HudBox(cx, r.y + 168*s, cr - cx, 1*s, 0, HudColor(0.22f, 0.34f, 0.46f));
-    string explanation = !snap.exact ? "" : modeAge < 0 ?
+    string explanation = readFailing ? "JUMPS NOT RATED | PLUGIN NEEDS UPDATE" :
+        !snap.exact ? "" : modeAge < 0 ?
         "MODE STARTS ON ELIGIBLE WHEEL CONTACT" : g_tracker.inFlight ?
         snap.recoveryDelayMs + " ms delay | " +
             (2 * snap.recoveryDelayMs) + " ms max | check on landing" :

@@ -181,7 +181,11 @@ void Update(float dt) {
         DebugLog("Gorilla Grip Trainer car " + tostring(VehicleState::GetVehicleType(vis)) +
             (stadiumCar ? ": rating jumps" : ": jumps are not rated outside the Stadium car"));
     }
-    if (!stadiumCar) return;
+    if (!stadiumCar) {
+        g_readMonitor.Pause();
+        return;
+    }
+    g_readMonitor.Observe(next);
     g_tracker.Update(next);
     if (g_tracker.landingEvent) {
         DebugLog("Gorilla Grip Trainer landing at " + g_tracker.landingRace +

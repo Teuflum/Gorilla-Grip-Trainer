@@ -20,7 +20,8 @@ gate = update_body.split("bool stadiumCar = IsStadiumCar(vis);", 1)[1]
 before_tracker = gate.split("g_tracker.Update(next);", 1)[0]
 # The car check runs before every tracker update.
 assert update_body.count("g_tracker.Update(") == 1
-assert "if (!stadiumCar) return;" in before_tracker
+assert "if (!stadiumCar) {" in before_tracker
+assert "return;" in before_tracker.split("if (!stadiumCar) {", 1)[1].split("}", 1)[0]
 # A car change drops the jump in progress.
 change = before_tracker.split("if (stadiumCar != g_stadiumCar) {", 1)[1].split("}", 1)[0]
 assert "g_stadiumCar = stadiumCar;" in change and "g_tracker.Reset();" in change

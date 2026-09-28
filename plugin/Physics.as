@@ -1,6 +1,8 @@
 // Read-only snapshots of the active physics car.
 class PhysicsSnapshot {
     bool exact = false;
+    // The check that rejected the read, when it is not exact.
+    string failure = "";
     int raceTime = -1;
     int gameTime = -1;
     float rawSteer = 0.0f;
@@ -236,6 +238,7 @@ PhysicsSnapshot@ ReadPhysics(CSceneVehicleVisState@ vis, int raceTime) {
     snap.slipDeg = Math::ToDeg(Math::Atan2(Math::Abs(side), forward));
     if (!g_supportedBuild) return snap;
 
+    snap.failure = "no player";
     auto app = GetApp();
     if (app is null || app.CurrentPlayground is null ||
         app.CurrentPlayground.GameTerminals.Length == 0) return snap;
@@ -246,10 +249,13 @@ PhysicsSnapshot@ ReadPhysics(CSceneVehicleVisState@ vis, int raceTime) {
     CSmPlayer@ player = cast<CSmPlayer>(app.CurrentPlayground.GameTerminals[0].GUIPlayer);
     if (player is null) return snap;
     PhysicsLayout@ l = g_layout;
+    snap.failure = "vehicle";
     uint64 vehicle = Dev::GetOffsetUint64(player, l.vehicle);
     if (vehicle < 0x10000 || Dev::SafeReadUint32(vehicle + l.wheelCount) != 4) return snap;
+    snap.failure = "car model";
     uint64 model = Dev::SafeReadUint64(vehicle + l.model);
     if (model < 0x10000) return snap;
+    snap.failure = "position";
     vec3 pos = Dev::SafeReadVec3(vehicle + l.position);
     if ((pos - vis.Position).Length() > 4.0f) return snap;
 
@@ -259,11 +265,13 @@ PhysicsSnapshot@ ReadPhysics(CSceneVehicleVisState@ vis, int raceTime) {
     uint8 mode = Dev::SafeReadUint8(vehicle + l.mode);
     uint delay = Dev::SafeReadUint32(model + l.recoveryDelay);
     int physicsClock = int(Dev::SafeReadUint32(vehicle + l.physicsClock));
+    snap.failure = "steering, force or recovery delay";
     if (Math::Abs(raw - vis.InputSteer) > 0.25f ||
         smooth < -1.001f || smooth > 1.001f ||
         force < 0.95f || force > 2.1f || mode > 2 ||
         delay < 100 || delay > 1000) return snap;
     // The physics clock trails the frame clock by under one tick.
+    snap.failure = "physics clock";
     if (snap.gameTime >= 0 && Math::Abs(physicsClock - snap.gameTime) > 1000) return snap;
 
     snap.rawSteer = raw;
@@ -288,6 +296,116 @@ PhysicsSnapshot@ ReadPhysics(CSceneVehicleVisState@ vis, int raceTime) {
     uint neutralTimeout = Dev::SafeReadUint32(model + l.neutralTimeout);
     snap.neutralTimeoutMs = neutralTimeout >= 50 && neutralTimeout <= 5000 ?
         int(neutralTimeout) : -1;
+    snap.failure = "";
     snap.exact = true;
     return snap;
 }
+
+// How long reads must fail in the Stadium car during a run before the trainer
+// says it cannot read the physics.
+const int READ_FAILURE_WARN_MS = 3000;
+// Contact changes in a row whose wheel timestamp never dated them before the
+// trainer says the timestamps look wrong.
+const int UNSTAMPED_CHANGES_WARN = 12;
+// Ticks after the frame that shows a contact change by which the wheel's
+// timestamp must date it.
+const int STAMP_WAIT_TICKS = 2;
+
+void WarnPhysics(const string &in message) {
+    UI::ShowNotification("Gorilla Grip Trainer", message,
+        vec4(0.72f, 0.36f, 0.07f, 1.0f), 12000);
+}
+
+// Watches for a fixed offset that a game update moved. LocatePhysics checks
+// the offsets it finds in the game code at load; the vehicle, position,
+// physics clock and wheel timestamp offsets it cannot check. A moved one shows
+// up only as reads that never pass the checks in ReadPhysics, or as wheel
+// timestamps that never date a contact change.
+class PhysicsReadMonitor {
+    // An exact read since the plugin loaded. A game update needs a restart,
+    // so once a read worked, later failures are loading or spectating.
+    bool everExact = false;
+    int failingSince = -1;
+    string failure = "";
+    bool readWarned = false;
+
+    PhysicsSnapshot@ previous;
+    // Per wheel: the physics clock before a contact change that its timestamp
+    // has not dated yet, or -1, and the clock by which it must.
+    array<int> changeAfter = array<int>(4, -1);
+    array<int> stampDeadline = array<int>(4);
+    int unstampedRun = 0;
+    bool stampWarned = false;
+
+    bool ReadFailing() const { return readWarned && !everExact; }
+
+    // A frame in the Stadium car during a run.
+    void Observe(PhysicsSnapshot@ snap) {
+        if (!snap.exact) {
+            ForgetStamps();
+            if (everExact || readWarned) return;
+            if (failingSince < 0 || snap.raceTime < failingSince)
+                failingSince = snap.raceTime;
+            failure = snap.failure;
+            if (snap.raceTime - failingSince < READ_FAILURE_WARN_MS) return;
+            readWarned = true;
+            print("Gorilla Grip Trainer physics: no exact read in " +
+                READ_FAILURE_WARN_MS + " ms of driving the Stadium car (failed check: " +
+                failure + "); jumps are not rated");
+            WarnPhysics("Can't read the car physics in this Trackmania build, so jumps aren't rated. The trainer needs an update.");
+            return;
+        }
+        if (readWarned && !everExact)
+            print("Gorilla Grip Trainer physics: exact reads working again");
+        everExact = true;
+        failingSince = -1;
+        ObserveStamps(snap);
+    }
+
+    // Another car: its reads fail by design, so a failure spell ends.
+    void Pause() {
+        failingSince = -1;
+        ForgetStamps();
+    }
+
+    void ForgetStamps() {
+        @previous = null;
+        for (uint i = 0; i < 4; i++) changeAfter[i] = -1;
+    }
+
+    // The physics step stamps a wheel when its contact changes, on that tick
+    // or the next one, so the stamp lands after the frame before the change.
+    // A moved offset reads a value unrelated to the clock.
+    void ObserveStamps(PhysicsSnapshot@ snap) {
+        if (previous is null || snap.physicsClock < previous.physicsClock) {
+            ForgetStamps();
+            @previous = snap;
+            return;
+        }
+        for (uint i = 0; i < 4; i++) {
+            int at = int(snap.wheelChangedAt[i]);
+            bool changed = ((previous.contactMask ^ snap.contactMask) & (1 << i)) != 0;
+            if (changed && changeAfter[i] < 0) {
+                changeAfter[i] = previous.physicsClock;
+                stampDeadline[i] = snap.physicsClock + STAMP_WAIT_TICKS * PHYSICS_TICK_MS;
+            }
+            if (changeAfter[i] < 0) continue;
+            // A tick of slack either side: the stamp only has to name this change.
+            if (at >= changeAfter[i] && at <= snap.physicsClock + PHYSICS_TICK_MS) {
+                changeAfter[i] = -1;
+                unstampedRun = 0;
+            } else if (snap.physicsClock > stampDeadline[i]) {
+                changeAfter[i] = -1;
+                unstampedRun++;
+            }
+        }
+        @previous = snap;
+        if (stampWarned || unstampedRun < UNSTAMPED_CHANGES_WARN) return;
+        stampWarned = true;
+        print("Gorilla Grip Trainer physics: the last " + unstampedRun +
+            " wheel contact changes had no matching wheel timestamp; landings are dated by frame");
+        WarnPhysics("Wheel contact times look wrong in this Trackmania build, so landings are timed less exactly. The trainer needs an update.");
+    }
+}
+
+PhysicsReadMonitor g_readMonitor;

@@ -9,7 +9,8 @@ class JumpVerdict {
 }
 
 int GradeBasePoints(const string &in label) {
-    if (label == "S+" || label == "S") return 150;
+    if (label == "S+") return 180;
+    if (label == "S") return 150;
     if (label == "A") return 120;
     if (label == "B") return 90;
     if (label == "C") return 60;

@@ -22,7 +22,9 @@ rating behavior or the HUD.
   widget's combo is the streak of successful landings, starting at x0;
   scoring uses min(streak + 1, 8) for the next landing. Best combo is the
   longest streak.
-- Exact physics reads are gated by the supported executable signature.
+- Exact physics reads use offsets that `LocatePhysics` finds in the game code at
+  load; `tests/test_physics_patterns.py` checks the patterns against a local
+  game binary (`TRACKMANIA_EXE`).
   VehicleState front-wheel steering angles are visual wheel angles, not the
   normalized internal steering value used for the direction threshold.
 - `LocalSounds/`, `LocalImages/`, local audio, maps, replays, binaries, and runtime history

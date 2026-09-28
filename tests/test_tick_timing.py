@@ -13,12 +13,13 @@ update = main.split("void Update(float dt) {", 1)[1].split("\n}", 1)[0]
 
 # Each wheel's block stores the game clock of its last contact change at +0x6c.
 assert "array<uint> wheelChangedAt = array<uint>(4);" in physics
-assert "uint64 wheel = vehicle + 0x17b4 + 0xb8 * i;" in read
-assert "snap.wheelChangedAt[i] = Dev::SafeReadUint32(wheel + 0x6c);" in read
-assert "snap.physicsClock = int(Dev::SafeReadUint32(vehicle + 0x4f4));" in read
+assert "uint64 wheel = vehicle + l.wheels + l.wheelStride * i;" in read
+assert "snap.wheelChangedAt[i] = Dev::SafeReadUint32(wheel + l.wheelChangedAt);" in read
+assert "int physicsClock = int(Dev::SafeReadUint32(vehicle + l.physicsClock));" in read
+assert "snap.physicsClock = physicsClock;" in read
 # The car's last tick with ground contact (vehicle+0x1414): frozen at the
 # takeoff tick in flight, and sub-tick wheel grazes do not move it.
-assert "snap.contactClock = int(Dev::SafeReadUint32(vehicle + 0x1414));" in read
+assert "snap.contactClock = int(Dev::SafeReadUint32(vehicle + l.contactClock));" in read
 
 # Frame skipping simulates a low frame rate, only in developer mode.
 assert "[Setting hidden] int S_DebugFrameSkip = 1;" in settings
@@ -105,8 +106,8 @@ assert "Math::Max(landingClock + LANDING_CHECK_MS, eligibleAt + FORCE_SETTLE_MS)
 assert "snap.gameTime >= checkAt" in pending
 # Review Focus 2 and 5: the verdict uses the stored mode as of the check
 # tick; a lapse to neutral is dated from the neutral timer; force only confirms.
-assert "snap.neutralAt = int(Dev::SafeReadUint32(vehicle + 0x14e0));" in physics
-assert "Dev::SafeReadUint32(model + 0x1198)" in physics
+assert "snap.neutralAt = int(Dev::SafeReadUint32(vehicle + l.neutralAt));" in physics
+assert "Dev::SafeReadUint32(model + l.neutralTimeout)" in physics
 # Final review 1: the first stored-direction change seen since takeoff is
 # recorded on every pending frame, so a second change before a late frame
 # cannot hide it.

@@ -27,7 +27,7 @@ assert 'category="Debug"' not in settings
 # Problem reports, plus the one-line marker when event logging changes state.
 PROBLEMS = (
     "Gorilla Grip Trainer event logging",
-    "Gorilla Grip Trainer: unsupported executable signature",
+    "Gorilla Grip Trainer physics:",
     "Gorilla Grip Trainer audio file name rejected",
     "Gorilla Grip Trainer audio missing",
     "Gorilla Grip Trainer audio could not load",
@@ -45,7 +45,7 @@ calls = []
 for name, text in sources.items():
     for call, message in re.findall(r'\b(print|DebugLog)\("(Gorilla Grip Trainer[^"]*)"', text):
         calls.append((name, call, message))
-assert len(calls) == 34, len(calls)  # 21 routine events, 12 problems, 1 state marker
+assert len(calls) == 37, len(calls)  # 22 routine events, 14 problems, 1 state marker
 
 for name, call, message in calls:
     problem = message.startswith(PROBLEMS)

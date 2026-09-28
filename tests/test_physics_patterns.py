@@ -30,6 +30,9 @@ for var, name, literals in re.findall(
         r'uint64 (\w+) = FindPhysicsCode\("([^"]+)",\s*((?:"[^"]*"\s*)+)\);', locate):
     patterns[var] = (name, "".join(re.findall(r'"([^"]*)"', literals)).split())
 assert len(patterns) == 6, sorted(patterns)
+# Dev::FindPattern misses a pattern that ends in a wildcard (seen in game).
+for name, toks in patterns.values():
+    assert toks[0] != "??" and toks[-1] != "??", f"{name} must start and end on a fixed byte"
 for var in patterns:
     assert f"{var} == 0" in locate, f"missing-pattern check for {var}"
 

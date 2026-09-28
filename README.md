@@ -10,7 +10,7 @@ New to the mechanic? The [player guide](https://github.com/Teuflum/tm-gorilla-gr
 2. Copy the `plugin` folder to `OpenplanetNext/Plugins/GorillaGripTrainer`.
 3. Load or reload the plugin in Openplanet.
 
-The physics reads are tied to one Trackmania build. On any other build, Openplanet shows an amber warning that the offsets need checking, and the plugin unloads itself.
+Each time it loads, the plugin finds the physics data in the game's own code, so it keeps working after most Trackmania updates. If an update changes that code, Openplanet shows an amber warning and the plugin unloads itself until it is updated.
 
 ## How a jump is rated
 

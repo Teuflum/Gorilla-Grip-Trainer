@@ -70,13 +70,13 @@ void ResetAttemptState() {
 }
 
 void Main() {
-    g_supportedBuild = IsSupportedBuild();
+    g_supportedBuild = LocatePhysics();
     if (!g_supportedBuild) {
         UI::ShowNotification("Gorilla Grip Trainer",
-            "Unsupported Trackmania build. Physics offsets must be manually checked and updated before the trainer can work.",
+            "Could not find the car physics in this Trackmania build. The trainer needs an update before it can work.",
             vec4(0.72f, 0.36f, 0.07f, 1.0f),
             12000);
-        print("Gorilla Grip Trainer: unsupported executable signature; unloading");
+        print("Gorilla Grip Trainer physics: not found in this game build; unloading");
         Meta::UnloadPlugin(Meta::ExecutingPlugin());
         return;
     }
@@ -91,7 +91,7 @@ void Main() {
     InitLayout();
     InitWidgets();
     InitPictures();
-    DebugLog("Gorilla Grip Trainer build supported: " + g_supportedBuild);
+    DebugLog("Gorilla Grip Trainer physics offsets: " + DescribeLayout());
 }
 
 void Update(float dt) {

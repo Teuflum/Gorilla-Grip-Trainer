@@ -125,7 +125,7 @@ void RenderSettingsRating() {
     }
     UI::SeparatorText("Grade limits");
     S_SMaxLeadMs = UI::InputInt("S maximum lead (ms)", S_SMaxLeadMs, PHYSICS_TICK_MS);
-    HelpMarker("How early the physics steering direction may switch before the last wheel leaves. Each value is the latest grade's upper limit in milliseconds.\n\nS+ is awarded only for a 0 ms switch lead, with no separate threshold. It uses S points and sounds.\n\nTimes come from the game's own physics clock, so they do not depend on frame rate or game speed. Leads come in whole 10 ms physics ticks, so a limit between two ticks grades the same as the tick below it (15 ms acts as 10 ms).");
+    HelpMarker("How early the physics steering direction may switch before the last wheel leaves. Each value is the latest grade's upper limit in milliseconds.\n\nS+ is awarded only for a 0 ms switch lead, with no separate threshold. It uses S sounds and earns 180 base points instead of 150.\n\nTimes come from the game's own physics clock, so they do not depend on frame rate or game speed. Leads come in whole 10 ms physics ticks, so a limit between two ticks grades the same as the tick below it (15 ms acts as 10 ms).");
     S_AMaxLeadMs = UI::InputInt("A maximum lead (ms)", S_AMaxLeadMs, PHYSICS_TICK_MS);
     S_BMaxLeadMs = UI::InputInt("B maximum lead (ms)", S_BMaxLeadMs, PHYSICS_TICK_MS);
     S_CMaxLeadMs = UI::InputInt("C maximum lead (ms)", S_CMaxLeadMs, PHYSICS_TICK_MS);

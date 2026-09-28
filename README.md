@@ -21,7 +21,7 @@ The grade depends only on how early the direction switched before the last wheel
 
 | Grade | Switch lead (default) | Base points |
 | --- | --- | --- |
-| S+ | exactly 0 ms | 150 |
+| S+ | exactly 0 ms | 180 |
 | S | up to 10 ms | 150 |
 | A | up to 30 ms | 120 |
 | B | up to 60 ms | 90 |

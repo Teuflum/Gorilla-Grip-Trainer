@@ -67,10 +67,9 @@ class PhysicsSnapshot {
     int RaceAt(int tick) const { return tick + raceTime - frameClock; }
 }
 
-// Where the physics fields live. Most offsets are read at load time from the
-// game code that uses them, so an update that moves a field moves the offset
-// with it. The fixed ones were measured in memory; no instruction names them
-// directly, and the checks in ReadPhysics reject a read if they move.
+// Where the physics fields live. Every offset is read at load time from the
+// game code that uses it, so an update that moves a field moves the offset
+// with it. The checks in ReadPhysics still reject a read that looks wrong.
 class PhysicsLayout {
     uint model = 0;          // vehicle -> car model
     uint wheelCount = 0;
@@ -86,10 +85,10 @@ class PhysicsLayout {
     uint wheelStride = 0;
     uint recoveryDelay = 0;  // on the model
     uint neutralTimeout = 0; // on the model
-    uint vehicle = 0x1118;   // on CSmPlayer
-    uint position = 0x538;
-    uint physicsClock = 0x4f4;
-    uint wheelChangedAt = 0x6c; // within a wheel
+    uint vehicle = 0;        // on CSmPlayer
+    uint position = 0;
+    uint physicsClock = 0;
+    uint wheelChangedAt = 0; // from a wheel's contact flag
 }
 
 PhysicsLayout g_layout;
@@ -103,6 +102,16 @@ uint64 FindPhysicsCode(const string &in name, const string &in pattern) {
 // The 32-bit field offset stored at byte `at` of a code match.
 uint CodeOffset(uint64 code, uint at) {
     return uint(Dev::ReadInt32(code + at));
+}
+
+// The byte offset stored at byte `at` of a code match.
+uint CodeByte(uint64 code, uint at) {
+    return Dev::ReadUint8(code + at);
+}
+
+// Where the call or jump whose 32-bit displacement is at byte `at` goes.
+uint64 CodeTarget(uint64 code, uint at) {
+    return uint64(int64(code) + int64(at) + 4 + int64(Dev::ReadInt32(code + at)));
 }
 
 bool PlausibleOffset(uint offset) {
@@ -145,8 +154,53 @@ bool LocatePhysics() {
     // Model defaults: 400 ms force recovery delay, 300 ms neutral timeout.
     uint64 modelDefaults = FindPhysicsCode("model defaults",
         "41 C7 84 24 ?? ?? ?? ?? 90 01 00 00 0F 28 45 ?? 41 C7 84 24 ?? ?? ?? ?? 2C 01 00 00");
+    // The player holds its car as a handle {id, ?, pointer}; both paths here
+    // resolve the same handle with the car-class resolver.
+    uint64 vehicleHandle = FindPhysicsCode("vehicle handle",
+        "41 0F 10 86 ?? ?? ?? ?? 48 8D 4C 24 ?? 0F 29 44 24 ?? E8 ?? ?? ?? ?? 48 85 C0 0F 84 ?? ?? ?? ?? "
+        "41 8B 8E ?? ?? ?? ?? 4C 8B 7C 24 ?? 89 88 ?? ?? ?? ?? 41 8B 8E ?? ?? ?? ?? 89 88 ?? ?? ?? ?? "
+        "48 83 C4 ?? 41 5E C3 41 0F 10 86 ?? ?? ?? ?? 48 89 5C 24");
+    // The resolver checks the id against class 0x0A020000 and returns the
+    // pointer, shifted out of the handle's upper bytes.
+    uint64 vehicleResolver = FindPhysicsCode("vehicle resolver",
+        "48 83 EC ?? 0F 28 01 BA 00 00 02 0A 0F 11 44 24 ?? 8B 4C 24 ?? 0F 11 44 24 ?? E8 ?? ?? ?? ?? "
+        "0F 10 44 24 ?? 8B C8 33 D2 85 C9 66 0F 73 D8 ?? 66 48 0F 7E C0");
+    // Per-wheel contact update: reads the contact flag, sets the state (1 on
+    // the ground, 2 in the air) and times the change against the clock stamp.
+    uint64 wheelState = FindPhysicsCode("wheel state",
+        "44 8B 41 ?? 45 85 C0 74 ?? 0F B6 41 ?? 3C ?? 74 ?? 3C ?? 74 ?? 3C ?? 75 ?? 41 83 B9 ?? ?? ?? ?? 00 74 ?? "
+        "B8 01 00 00 00 EB ?? 33 C0 41 83 FA 01 75 ?? 85 D2 75 ?? 89 91 ?? ?? ?? ?? EB ?? 45 85 C0 74 ?? "
+        "0F B6 41 ?? 3C ?? 74 ?? 3C ?? 74 ?? 3C ?? 74 ?? C7 81 ?? ?? ?? ?? 02 00 00 00 EB ?? 41 83 FA 02 75 ?? "
+        "85 D2 75 ?? 89 91 ?? ?? ?? ?? EB ?? 85 C0 74 ?? C7 81 ?? ?? ?? ?? 01 00 00 00 EB ?? 85 D2 74 ?? "
+        "F7 D8 1B C0 83 C0 02 89 81 ?? ?? ?? ?? 8B 91 ?? ?? ?? ?? 44 3B D2 75 ?? 44 3B 41 ?? 0F 84 ?? ?? ?? ?? "
+        "41 83 FA 01 75 ?? 41 8B C3 0F 57 C9 2B 81 ?? ?? ?? ?? 0F 57 C0");
+    // The car's per-tick state: a caller passes its place in the car to the
+    // fill, which passes it and the clock on to the writer.
+    uint64 stateCaller = FindPhysicsCode("state caller",
+        "49 8B 86 ?? ?? ?? ?? 49 8B CE 49 8B 3C 07 48 8B D7 4C 8D 87 ?? ?? ?? ?? E8 ?? ?? ?? ?? "
+        "8B 87 ?? ?? ?? ?? 83 F8 FF");
+    uint64 stateFill = FindPhysicsCode("state fill",
+        "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 41 56 48 83 EC ?? 48 8B DA "
+        "0F 29 74 24 ?? 48 8B 11 4C 8B F1 48 8D 4C 24 ?? 49 8B F8 E8 ?? ?? ?? ?? 8B 53 ?? 4C 8D 93 ?? ?? ?? ?? "
+        "48 8B AB ?? ?? ?? ?? 0F 57 F6 8B 30 83 FA FF 74 ?? 49 8B 8E ?? ?? ?? ?? 4C 8D 44 24 ?? E8 ?? ?? ?? ?? EB ?? "
+        "48 C7 44 24 ?? 00 00 00 00 C7 44 24 ?? 00 00 00 00 4C 8B 03 4C 8D 8B ?? ?? ?? ?? 48 89 7C 24 ?? "
+        "48 8D 54 24 ?? 8B CE 4C 89 54 24 ?? E8");
+    // The writer stores the clock in the state first...
+    uint64 stateWriter = FindPhysicsCode("state writer",
+        "4C 8B DC 55 57 41 54 49 8D 6B ?? 48 81 EC ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? "
+        "48 8B 7D ?? 4D 8B D0 49 89 5B ?? 49 8B D9 49 89 73 ?? 48 8B 75 ?? 4D 89 6B ?? 4D 89 73 ?? 44 8B F1 "
+        "4D 89 7B ?? 4C 8B FA 41 0F 29 73 ?? 41 0F 29 7B ?? 45 0F 29 43 ?? 45 0F 29 4B ?? 45 0F 29 93 ?? ?? ?? ?? "
+        "89 4C 24 ?? 49 8B 48 ?? 45 0F 29 9B ?? ?? ?? ?? 45 0F 29 A3 ?? ?? ?? ?? 48 89 7C 24 ?? E8 ?? ?? ?? ?? "
+        "4C 8B E8 48 8D 4C 24 ?? 41 8B 40 ?? 45 8B CE 48 89 4C 24 ?? 4D 8B C5 48 8B CE 89 44 24 ?? 49 8B D2 "
+        "E8 ?? ?? ?? ?? F3 44 0F 10 25 ?? ?? ?? ?? 44 89 77 ?? 41 0F 28 D4");
+    // ...and later the rotation, then the position copied from the physics body.
+    uint64 stateLocation = FindPhysicsCode("state location",
+        "48 8D 54 24 ?? 48 8D 4F ?? 66 0F 7F 44 24 ?? E8 ?? ?? ?? ?? 41 0F 28 D4 48 8D 56 ?? 48 8D 4F ?? "
+        "E8 ?? ?? ?? ?? F3 0F 10 46 ?? 48 8D 4F ?? F3 0F 58 86");
     if (wheelLoop == 0 || steerInput == 0 || contactFlags == 0 || steerMode == 0 ||
-        contactClock == 0 || modelDefaults == 0) return false;
+        contactClock == 0 || modelDefaults == 0 || vehicleHandle == 0 ||
+        vehicleResolver == 0 || wheelState == 0 || stateCaller == 0 || stateFill == 0 ||
+        stateWriter == 0 || stateLocation == 0) return false;
 
     PhysicsLayout l;
     l.model = CodeOffset(wheelLoop, 3);
@@ -163,16 +217,39 @@ bool LocatePhysics() {
     l.contactClock = CodeOffset(contactClock, 3);
     l.recoveryDelay = CodeOffset(modelDefaults, 4);
     l.neutralTimeout = CodeOffset(modelDefaults, 20);
+    uint pointerAt = CodeByte(vehicleResolver, 46);
+    l.vehicle = CodeOffset(vehicleHandle, 4) + pointerAt;
+    uint flagAt = CodeByte(wheelState, 3);
+    uint stampAt = CodeOffset(wheelState, 181);
+    l.wheelChangedAt = stampAt - flagAt;
+    uint stateAt = CodeOffset(stateCaller, 20);
+    l.physicsClock = stateAt + CodeByte(stateWriter, 184);
+    l.position = stateAt + CodeByte(stateLocation, 31);
 
     bool agree = CodeOffset(contactFlags, 9) == l.model &&
         CodeOffset(steerMode, 39) == l.mode && CodeOffset(steerMode, 88) == l.mode &&
         CodeOffset(steerMode, 112) == l.mode &&
         CodeOffset(steerMode, 46) == l.neutralAt && CodeOffset(steerMode, 58) == l.neutralAt &&
-        CodeOffset(steerMode, 69) == l.neutralAt && CodeOffset(steerMode, 132) == l.modeAt;
+        CodeOffset(steerMode, 69) == l.neutralAt && CodeOffset(steerMode, 132) == l.modeAt &&
+        CodeOffset(vehicleHandle, 74) == CodeOffset(vehicleHandle, 4) &&
+        CodeOffset(wheelState, 85) == CodeOffset(wheelState, 56) &&
+        CodeOffset(wheelState, 107) == CodeOffset(wheelState, 56) &&
+        CodeOffset(wheelState, 119) == CodeOffset(wheelState, 56) &&
+        CodeOffset(wheelState, 142) == CodeOffset(wheelState, 56) &&
+        CodeOffset(wheelState, 148) == CodeOffset(wheelState, 56) &&
+        // The handle goes to this resolver, and the state place to this writer.
+        CodeTarget(vehicleHandle, 19) == vehicleResolver &&
+        CodeTarget(stateCaller, 25) == stateFill && CodeTarget(stateFill, 144) == stateWriter &&
+        stateLocation > stateWriter && stateLocation - stateWriter < 0x1000;
     array<uint> offsets = { l.model, l.wheelCount, l.rawSteer, l.smoothedSteer,
         l.forceGate, l.modeAt, l.force, l.neutralAt, l.mode, l.contactClock, l.wheels,
-        l.recoveryDelay, l.neutralTimeout };
-    bool plausible = l.wheelStride >= 0x40 && l.wheelStride <= 0x400;
+        l.recoveryDelay, l.neutralTimeout, l.position, l.physicsClock };
+    bool plausible = l.wheelStride >= 0x40 && l.wheelStride <= 0x400 &&
+        // A pointer inside a 16-byte handle, on a CSmPlayer.
+        pointerAt >= 4 && pointerAt < 16 && l.vehicle % 8 == 0 &&
+        l.vehicle >= 0x40 && l.vehicle < 0x10000 &&
+        // The stamp lies after the contact flag, in the same wheel.
+        stampAt > flagAt && stampAt + 4 <= l.wheelStride && flagAt <= l.wheels;
     for (uint i = 0; i < offsets.Length; i++)
         plausible = plausible && PlausibleOffset(offsets[i]);
     if (!agree || !plausible) {
@@ -194,7 +271,9 @@ string DescribeLayout() {
         ", force " + Hex(l.force) + ", neutralAt " + Hex(l.neutralAt) +
         ", mode " + Hex(l.mode) + ", contact clock " + Hex(l.contactClock) +
         ", wheels " + Hex(l.wheels) + " + " + Hex(l.wheelStride) + " * i" +
-        ", delay " + Hex(l.recoveryDelay) + ", timeout " + Hex(l.neutralTimeout);
+        ", delay " + Hex(l.recoveryDelay) + ", timeout " + Hex(l.neutralTimeout) +
+        ", vehicle " + Hex(l.vehicle) + ", position " + Hex(l.position) +
+        ", physics clock " + Hex(l.physicsClock) + ", wheel stamp " + Hex(l.wheelChangedAt);
 }
 
 int ReadRaceTime(CSceneVehicleVisState@ vis) {
@@ -316,11 +395,10 @@ void WarnPhysics(const string &in message) {
         vec4(0.72f, 0.36f, 0.07f, 1.0f), 12000);
 }
 
-// Watches for a fixed offset that a game update moved. LocatePhysics checks
-// the offsets it finds in the game code at load; the vehicle, position,
-// physics clock and wheel timestamp offsets it cannot check. A moved one shows
-// up only as reads that never pass the checks in ReadPhysics, or as wheel
-// timestamps that never date a contact change.
+// Watches for an update that the code checks in LocatePhysics missed: code
+// that still matches but no longer names the field the trainer reads. That
+// shows up only as reads that never pass the checks in ReadPhysics, or as
+// wheel timestamps that never date a contact change.
 class PhysicsReadMonitor {
     // An exact read since the plugin loaded. A game update needs a restart,
     // so once a read worked, later failures are loading or spectating.

@@ -1,33 +1,41 @@
-# Narration: (scene, pause_before_seconds, subtitle text, tts text or None)
-LINES = [
- ("intro",   1.2, "Deep in the frozen wilderness of Trackmania… lives a rare and magnificent creature.", "Deep in the frozen wilderness of Track Mania... lives a rare, and magnificent creature."),
- ("intro",   0.5, "The ice slider.", None),
- ("problem", 0.6, "Watch as it slides — gracefully, sideways — at two hundred kilometres an hour.", "Watch, as it slides. Gracefully. Sideways. At two hundred kilometres an hour."),
- ("problem", 0.4, "It jumps. It lands. And then… nothing. For a painfully long moment, its tires simply refuse to bite.", "It jumps. It lands. And then... nothing. For a painfully long moment, its tyres simply refuse to bite."),
- ("problem", 0.5, "The creature is confused. Frankly, so were we.", None),
- ("science", 0.6, "So researchers spent days poking the game's physics with a stick. And a debugger.", "So, researchers spent days poking the game's physics with a stick. ... And a debugger."),
- ("science", 0.4, "They found that the game quietly remembers which way you are sliding: left, or right.", "They found that the game quietly remembers which way you are sliding. Left, or right."),
- ("science", 0.4, "Change that direction, and the tire-force multiplier drops to 1×. A 400 millisecond timer must run out before it can climb back to 2×.", "Change that direction, and the tyre force multiplier drops to one. A four hundred millisecond timer must run out, before it can climb back to two."),
- ("trick",   0.6, "But here is the clever bit: the direction can only change while a wheel touches the ground.", "But here is the clever bit. The direction can only change while a wheel touches the ground."),
- ("trick",   0.4, "So switch it just before takeoff, while the last wheel is still clinging on… and the timer runs out in the air.", "So, switch it just before takeoff, while the last wheel is still clinging on... and the timer runs out in the air."),
- ("trick",   0.4, "You land with full grip. This… is the gorilla grip.", "You land with full grip. This... is the gorilla grip."),
- ("catch",   0.8, "There is a catch, of course. Countersteer too early, and you bleed speed before you even leave the ground.", "There is a catch, of course. Countersteer too early, and you bleed speed, before you even leave the ground."),
- ("catch",   0.4, "On one jump, every millisecond of lead cost about a tenth of a km/h. The best switch is the latest one that still counts.", "On one jump, every millisecond of lead cost about a tenth of a kilometre per hour. The best switch, is the latest one that still counts."),
- ("plugin",  0.8, "Which is why the species now has a personal trainer.", None),
- ("plugin",  0.5, "Introducing: the Gorilla Grip Trainer. An Openplanet plugin that reads the physics directly, and times your takeoff to the 10 ms physics tick…", "Introducing. The Gorilla Grip Trainer. An Open Planet plugin that reads the physics directly, and times your takeoff to the ten millisecond physics tick..."),
- ("plugin",  0.3, "…and judges you. Mercilessly.", "and judges you. ... Mercilessly."),
- ("grades",  0.7, "Switch on the takeoff tick itself? S+. One tick early? S.", "Switch on the takeoff tick itself? S plus. One tick early? S."),
- ("grades",  0.3, "Then A, B, C and D — all the way out to a quarter of a second.", "Then, A. B. C. And D. All the way out to a quarter of a second."),
- ("grades",  0.4, "And if the direction doesn't hold when you land? MISSED. With a skull.", "And if the direction doesn't hold when you land? Missed. ... With a skull."),
- ("grades",  0.5, "We don't make the rules. Well, actually, you do. They're on the Rating tab.", "We don't make the rules. ... Well, actually, you do. They're on the rating tab."),
- ("features",0.7, "Chain clean landings for a combo multiplier of up to ×8.", "Chain clean landings, for a combo multiplier of up to times eight."),
- ("features",0.4, "Choose your celebration: Ice shatter, Arcade slam, or Broadcast sheen.", "Choose your celebration. Ice shatter. Arcade slam. Or, broadcast sheen."),
- ("features",0.4, "Bring your own announcer. Then relive every jump in your run history, and every finish in a summary of your triumphs. And your skulls.", "Bring your own announcer. Then relive every jump in your run history, and every finish in a summary of your triumphs. ... And your skulls."),
- ("robust",  0.7, "Frame rate? Game speed? Irrelevant. The physics clock is the only judge.", "Frame rate? Game speed? ... Irrelevant. The physics clock is the only judge."),
- ("robust",  0.4, "And every time it loads, it hunts down its physics data in the game's own code, so it survives most updates. Which is more than can be said for your combo.", "And every time it loads, it hunts down its physics data in the game's own code, so it survives most updates. ... Which is more than can be said for your combo."),
- ("outro",   0.8, "So. Ice your tires. Countersteer late. Land clean.", "So. Ice your tyres. Countersteer late. Land clean."),
- ("outro",   0.5, "Become the gorilla.", None),
- ("outro",   0.7, "Gorilla Grip Trainer. Free, for Openplanet, on GitHub.", "Gorilla Grip Trainer. Free, for Open Planet, on Git Hub."),
+# Hype cut: sections are laid out on a 130 BPM bar grid. Each section lists its voice lines:
+# (key, subtitle text, tts text or None, voice, speed, beat offset from the previous line's end or section start)
+BPM = 130
+NARRATOR = ("am_michael", 1.1)
+CUTE = ("af_bella", 0.9)
+
+SECTIONS = [
+    ("cold", 4, [("open", "200 km/h. Fully sideways.", "Two hundred kilometres an hour. Fully sideways.", NARRATOR, 8)]),
+    ("problem", 4, [
+        ("prob1", "You spin off the jump, land the other way… and your tires just give up.", "You spin off the jump, land the other way... and your tyres just, give up.", NARRATOR, 0),
+        ("prob2", "400 milliseconds. Of nothing.", "Four hundred milliseconds. ... Of nothing.", NARRATOR, 1),
+    ]),
+    ("secret", 3, [("secret", "Here's the thing: the game remembers which way you're sliding, and only updates it while a wheel touches the ground.",
+                    "Here's the thing. The game remembers which way you're sliding, and only updates it while a wheel touches the ground.", NARRATOR, 1)]),
+    ("bullet", 4, [
+        ("bt1", "So countersteer on the very last tick, while the last wheel is still on the lip…", "So, countersteer on the very last tick, while the last wheel is still on the lip...", NARRATOR, 0),
+        ("bt2", "The timer burns off in the air, and you land with full grip.", "The timer burns off in the air, and you land, with full grip.", NARRATOR, 1),
+    ]),
+    ("gg", 2, [("gg", "That's the gorilla grip.", "That's, the gorilla grip.", NARRATOR, 0)]),
+    ("catch", 3, [("catch", "Switch too early and you bleed speed: about a tenth of a km/h for every millisecond.",
+                   "Switch too early, and you bleed speed. About a tenth of a kilometre per hour, for every millisecond.", NARRATOR, 0)]),
+    ("build", 2, [("build", "So we built you a trainer.", None, NARRATOR, 0)]),
+    ("reveal", 2, [("name", "Gorilla Grip Trainer.", "Gorilla. Grip. Trainer.", NARRATOR, 1)]),
+    ("ingame", 4, [("ingame", "It reads the physics on every 10 ms tick and grades exactly how late you switched.",
+                    "It reads the physics on every ten millisecond tick, and grades exactly how late you switched.", NARRATOR, 0)]),
+    ("grades", 4, []),   # grade callouts are placed on beats, see GRADE_CALLS
+    ("uwu", 3, [
+        ("blush", "Land an S+ and even the gorilla blushes.", "Land an S plus, and even the gorilla blushes.", NARRATOR, 0),
+        ("uwu", "uwu", "uwu.", CUTE, 2),
+    ]),
+    ("features", 4, [
+        ("feat1", "Combos up to ×8. Three popup styles. Your own sounds. Every run saved.", "Combos up to times eight. Three popup styles. Your own sounds. Every run, saved.", NARRATOR, 0),
+        ("feat2", "Any frame rate. Survives game updates.", None, NARRATOR, 1),
+    ]),
+    ("outro", 5, [
+        ("out1", "Countersteer late. Land clean. Become the gorilla.", None, NARRATOR, 0),
+        ("out2", "Gorilla Grip Trainer. Free on Openplanet.", "Gorilla Grip Trainer. Free, on Open Planet.", NARRATOR, 2),
+    ]),
 ]
-SCENE_TAIL = {"intro": 0.8, "problem": 0.5, "science": 0.6, "trick": 1.4, "catch": 0.6,
-              "plugin": 1.2, "grades": 0.8, "features": 1.0, "robust": 0.8, "outro": 4.5}
+# grade callouts: (label, spoken, beat within the grades section)
+GRADE_CALLS = [("S+", "S plus!", 0), ("S", "S!", 2), ("A", "A!", 4), ("B", "B!", 6), ("C", "C!", 8), ("D", "D!", 10), ("MISSED", "Missed.", 12)]

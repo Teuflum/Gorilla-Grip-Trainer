@@ -5,10 +5,10 @@ const FPS = 30;
 const FF = process.env.FF || 'ffmpeg';
 (async () => {
   const [wi, wn] = process.argv.slice(2).map(Number);
-  const b = await chromium.launch({ executablePath: process.env.CHROMIUM || undefined });
+  const b = await chromium.launch({ executablePath: process.env.CHROMIUM || undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   const p = await b.newPage({ viewport: { width: 1000, height: 600 } });
   p.on('pageerror', e => { console.error('ERR', e.message); process.exit(1); });
-  await p.goto('http://127.0.0.1:8123/index.html'); await p.evaluate(() => window.ready);
+  await p.goto('http://127.0.0.1:8123/index.html'); await p.waitForFunction(() => window.ready, null, { timeout: 180000 });
   const total = await p.evaluate(() => window.TOTAL);
   if (wi === 0) require('fs').writeFileSync('sfx.json', JSON.stringify(await p.evaluate(() => window.SFX)));
   const N = Math.ceil(total * FPS), per = Math.ceil(N / wn), f0 = wi * per, f1 = Math.min(N, f0 + per);

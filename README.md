@@ -2,7 +2,7 @@
 
 An [Openplanet](https://openplanet.dev) plugin for Trackmania that trains the "gorilla grip": switching the ice-slide direction just before the car leaves the ground, so the tires grip again when it lands. The plugin reads the game's physics, grades how early you switched (S+ to D), and confirms on landing that the new direction held.
 
-Watch the three-minute [intro video](media/intro-video/gorilla-grip-trainer-intro.mp4). New to the mechanic? The [player guide](https://github.com/Teuflum/tm-ice-physics-reverse-engineering/blob/main/outputs/gorilla_grip_player_guide.md) explains it.
+Watch the 90-second [intro video](media/intro-video/gorilla-grip-trainer-intro.mp4). New to the mechanic? The [player guide](https://github.com/Teuflum/tm-ice-physics-reverse-engineering/blob/main/outputs/gorilla_grip_player_guide.md) explains it.
 
 ## Install
 

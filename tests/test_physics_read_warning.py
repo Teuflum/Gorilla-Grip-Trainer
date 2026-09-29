@@ -43,6 +43,11 @@ assert "vec4(0.72f, 0.36f, 0.07f, 1.0f)" in main
 # Wheel timestamps: a run of contact changes none of them dated warns once.
 stamps = monitor.split("void ObserveStamps(PhysicsSnapshot@ snap) {", 1)[1]
 assert "unstampedRun = 0;" in stamps and "unstampedRun++;" in stamps
+# The game stamps a touchdown only on a wheel with some icing, so asphalt
+# bounces must not count as unstamped changes.
+assert "bool touchdown = (snap.contactMask & (1 << i)) != 0;" in stamps
+assert "(previous.WheelIcing(i) > 0.0f && snap.WheelIcing(i) > 0.0f)" in stamps
+assert "if (changed && stamped && changeAfter[i] < 0) {" in stamps
 assert "if (stampWarned || unstampedRun < UNSTAMPED_CHANGES_WARN) return;" in stamps
 assert "WarnPhysics(" in stamps
 

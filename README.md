@@ -2,7 +2,7 @@
 
 An [Openplanet](https://openplanet.dev) plugin for Trackmania that trains the "gorilla grip": switching the ice-slide direction just before the car leaves the ground, so the tires grip again when it lands. The plugin reads the game's physics, grades how early you switched (S+ to D), and confirms on landing that the new direction held.
 
-New to the mechanic? The [player guide](https://github.com/Teuflum/tm-gorilla-grip-reverse-engineering/blob/main/outputs/gorilla_grip_player_guide.md) explains it.
+New to the mechanic? The [player guide](https://github.com/Teuflum/tm-ice-physics-reverse-engineering/blob/main/outputs/gorilla_grip_player_guide.md) explains it.
 
 ## Install
 
@@ -109,7 +109,7 @@ If you have the Wakeboarding sounds from Wii Sports Resort under these names, th
 - **In-game tests** (`test_trainer_in_game.py`, `test_current_input.py`, `test_finish_reset_in_game.py`, `test_improve_reset_in_game.py`, `test_frame_independence_in_game.py`) drive a real run. They need:
   - Trackmania and TICK;
   - **Log trainer events** turned on (Debug tab, developer mode);
-  - for all but `test_improve_reset_in_game.py`, a local clone of the [research repository](https://github.com/Teuflum/tm-gorilla-grip-reverse-engineering), passed as `--research-root` where the script asks for it. The tests import TICK's local client from its `work/tick_client.py` and replay runs through its Gorilla Grip Logger plugin. The Trainer itself does not need the Logger.
+  - for all but `test_improve_reset_in_game.py`, a local clone of the [research repository](https://github.com/Teuflum/tm-ice-physics-reverse-engineering), passed as `--research-root` where the script asks for it. The tests import TICK's local client from its `work/tick_client.py` and replay runs through its Gorilla Grip Logger plugin. The Trainer itself does not need the Logger.
 
   Example: `py -3 tests/test_trainer_in_game.py --research-root <path-to-research-repo> --case all`. The finish case also needs `--finish-revision-id <known-finishing-revision>`.
 - **Tools:** `tools/install_local_audio.py` copies your clips into `LocalSounds`; `tools/render_emoji.py` rebuilds the shipped emoji pictures from their pinned sources.
@@ -117,5 +117,5 @@ If you have the Wakeboarding sounds from Wii Sports Resort under these names, th
 ## More
 
 - Design documents: [trainer](docs/superpowers/specs/2026-09-25-gorilla-grip-trainer.md), [tick-exact timing](docs/superpowers/specs/2026-09-27-tick-exact-timing-design.md) and [landing popup](docs/superpowers/specs/2026-09-27-grade-popup-pictures-design.md). The plans next to them are the step lists these were built from.
-- [Physics research and reverse engineering](https://github.com/Teuflum/tm-gorilla-grip-reverse-engineering)
+- [Physics research and reverse engineering](https://github.com/Teuflum/tm-ice-physics-reverse-engineering)
 - Emoji pictures: [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) by Microsoft (MIT), [Twemoji](https://github.com/jdecked/twemoji) by Twitter, Inc. and other contributors (CC-BY 4.0), [Noto Emoji](https://github.com/googlefonts/noto-emoji) by Google (Apache 2.0) and [OpenMoji](https://openmoji.org) (CC BY-SA 4.0); details in `plugin/assets/emoji/ATTRIBUTION.md`.

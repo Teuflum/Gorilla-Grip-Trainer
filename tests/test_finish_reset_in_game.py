@@ -4,7 +4,7 @@ Requires Trackmania and TICK. Run while the completed
 ANGULAR MOMENTUM attempt is still on its finish screen.
 The Trainer itself does not need GorillaGripLogger; this test writes the
 Logger's automation command (from a local clone of
-https://github.com/Teuflum/tm-gorilla-grip-reverse-engineering)
+https://github.com/Teuflum/tm-ice-physics-reverse-engineering)
 only to restart the run.
 Needs Openplanet developer mode and Settings → Gorilla Grip Trainer → Debug →
 Log trainer events.

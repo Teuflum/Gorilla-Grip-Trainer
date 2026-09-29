@@ -21,7 +21,7 @@ assert sections[-2:] == ["Development", "More"], sections
 assert "The plugin ships no audio" in readme
 
 # The in-game tests need the research repository's tools.
-research = "https://github.com/Teuflum/tm-gorilla-grip-reverse-engineering"
+research = "https://github.com/Teuflum/tm-ice-physics-reverse-engineering"
 assert research in readme
 assert "tick_client.py" in readme
 

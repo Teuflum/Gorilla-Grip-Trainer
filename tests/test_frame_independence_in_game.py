@@ -7,7 +7,7 @@ the landing time within 20 ms (see LANDING_TOLERANCE_MS). The
 "Steering reversed N ms" number in a reason is an estimate and is masked.
 
 Needs Trackmania, TICK, and a local clone of
-https://github.com/Teuflum/tm-gorilla-grip-reverse-engineering (for
+https://github.com/Teuflum/tm-ice-physics-reverse-engineering (for
 work/tick_client.py and work/tick_restart.py), passed as --research-root.
 Needs Openplanet developer mode and Settings -> Gorilla Grip Trainer -> Debug
 -> Log trainer events. Only the game speed changes; it is restored after each

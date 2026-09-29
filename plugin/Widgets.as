@@ -199,7 +199,7 @@ void RenderDiagnostics(const vec4 &in r, PhysicsSnapshot@ snap) {
         g_tracker.unratedReason.Length > 0;
     if (unverified) detail = "TIMING UNVERIFIED";
     // Reads have never worked since the plugin loaded: a game update likely
-    // moved a fixed offset.
+    // changed a field the code checks missed.
     bool readFailing = !snap.exact && g_readMonitor.ReadFailing();
     if (readFailing) detail = "PHYSICS READ FAILED";
     HudText(cr, r.y + 150*s, detail, 11*s,

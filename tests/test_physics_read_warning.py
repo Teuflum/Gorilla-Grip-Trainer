@@ -1,11 +1,11 @@
 """The trainer warns when it loads but can't read the physics.
 
-Four offsets are fixed, not found in the game code: the car pointer, its
-position, the physics clock and the wheel contact times. If an update moves one
-of the first three, ReadPhysics never passes its checks and no jump is rated;
-a moved wheel timestamp only dates landings by frame. Both get the same amber
-warning as a missing code pattern, once, and only in the Stadium car, whose
-reads the checks are built for.
+Every offset is found in the game code, but code that still matches can stop
+naming the field the trainer reads. Then ReadPhysics never passes its checks and
+no jump is rated, or the wheel timestamps never date a contact change and
+landings are dated by frame. Both get the same amber warning as a missing code
+pattern, once, and only in the Stadium car, whose reads the checks are built
+for.
 """
 
 from pathlib import Path
@@ -43,6 +43,11 @@ assert "vec4(0.72f, 0.36f, 0.07f, 1.0f)" in main
 # Wheel timestamps: a run of contact changes none of them dated warns once.
 stamps = monitor.split("void ObserveStamps(PhysicsSnapshot@ snap) {", 1)[1]
 assert "unstampedRun = 0;" in stamps and "unstampedRun++;" in stamps
+# The game stamps a touchdown only on a wheel with some icing, so asphalt
+# bounces must not count as unstamped changes.
+assert "bool touchdown = (snap.contactMask & (1 << i)) != 0;" in stamps
+assert "(previous.WheelIcing(i) > 0.0f && snap.WheelIcing(i) > 0.0f)" in stamps
+assert "if (changed && stamped && changeAfter[i] < 0) {" in stamps
 assert "if (stampWarned || unstampedRun < UNSTAMPED_CHANGES_WARN) return;" in stamps
 assert "WarnPhysics(" in stamps
 

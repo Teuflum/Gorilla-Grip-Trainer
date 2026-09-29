@@ -12,7 +12,7 @@ New to the mechanic? The [player guide](https://github.com/Teuflum/tm-gorilla-gr
 
 Each time it loads, the plugin finds the physics data in the game's own code, so it keeps working after most Trackmania updates. If an update changes that code, Openplanet shows an amber warning and the plugin unloads itself until it is updated.
 
-A few fields (the car pointer, its position, the physics clock and the wheel contact times) can't be found that way. If an update moves one of them, the plugin still loads, but after 3 seconds of driving the Stadium car without a single good physics read it shows the same amber warning, and the Physics widget says PHYSICS READ FAILED. No jumps are rated until the plugin is updated. If only the wheel contact times look wrong, it warns once and keeps rating, with landings timed to the frame instead of the physics tick.
+The plugin also checks what it reads. If an update changes a field in a way the code search doesn't catch, the plugin still loads, but after 3 seconds of driving the Stadium car without a single good physics read it shows the same amber warning, and the Physics widget says PHYSICS READ FAILED. No jumps are rated until the plugin is updated. If only the wheel contact times look wrong, it warns once and keeps rating, with landings timed to the frame instead of the physics tick.
 
 ## How a jump is rated
 

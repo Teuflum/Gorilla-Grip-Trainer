@@ -31,4 +31,25 @@ assert "wheel < 2" in diagnostics  # indices 0 and 1 are the front wheels
 assert "snap.WheelIcing(" in diagnostics
 assert "(snap.contactMask & (1 << " in diagnostics
 assert '"ICE AVG "' in diagnostics
+
+# The backwards-motion hold (+0x1600) pins the force at 1.0 until gas returns,
+# on the ground and in the air; the force line names it instead of the timer.
+force = diagnostics.split("string forceText;", 1)[1].split("HudText(cr, r.y + 124*s, forceText", 1)[0]
+held = "bool held = snap.exact && snap.forceGateState != 0;"
+assert held in diagnostics
+assert 'forceText = "FORCE HELD " + Text::Format("%.2fx", snap.force);' in force
+assert 'forceText = "GAS HOLD";' in force
+# Only a touching front wheel updates the force, so with rear-only contact the
+# stored value (often still the pre-jump 2.0) is stale and is not shown.
+assert "bool rearOnly = (snap.contactMask & 3) == 0 && (snap.contactMask & 12) != 0;" in diagnostics
+assert 'forceText = "REAR ONLY";' in force
+assert '"REAR ONLY " +' not in force
+# The hold wins over the timer states and over rear-only contact.
+assert force.index('"GAS HOLD"') < force.index('"NO MODE TIMER"')
+assert force.index('"FORCE HELD "') < force.index('"REAR ONLY"')
+explanation = diagnostics.split("string explanation =", 1)[1].split(";", 1)[0]
+assert 'held ? "GAS OFF WHILE BACKWARDS | GAS RELEASES IT"' in explanation
+assert explanation.index("readFailing") < explanation.index("held ?")
+assert '!g_tracker.inFlight && rearOnly ? "FORCE UPDATES ON FRONT WHEEL CONTACT"' in explanation
+assert explanation.index("held ?") < explanation.index("rearOnly ?")
 print("Physics widget shows per-wheel contact and icing: PASS")

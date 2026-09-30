@@ -178,10 +178,20 @@ void RenderDiagnostics(const vec4 &in r, PhysicsSnapshot@ snap) {
         Math::Max(0, snap.raceTime - g_tracker.takeoffRace) + " ms" : "GROUND";
     HudText(cx, r.y + 124*s, phase, 14*s, HudColor(0.9f, 0.95f, 1), left);
     int modeAge = snap.ModeAgeMs();
+    // The backwards-motion hold (gas released while moving backwards) pins
+    // the force at 1.0 until gas returns, whatever the timer says.
+    bool held = snap.exact && snap.forceGateState != 0;
+    // Only a touching front wheel updates the force, so on the rear wheels
+    // alone the stored value (often the pre-jump one) is stale.
+    bool rearOnly = (snap.contactMask & 3) == 0 && (snap.contactMask & 12) != 0;
     string forceText;
     if (!snap.exact) forceText = "FORCE --";
+    else if (!g_tracker.inFlight && held)
+        forceText = "FORCE HELD " + Text::Format("%.2fx", snap.force);
+    else if (!g_tracker.inFlight && rearOnly) forceText = "REAR ONLY";
     else if (!g_tracker.inFlight)
         forceText = "FORCE " + Text::Format("%.2fx", snap.force);
+    else if (held) forceText = "GAS HOLD";
     else if (modeAge < 0) forceText = "NO MODE TIMER";
     else if (modeAge < snap.recoveryDelayMs) forceText = "FORCE DELAY";
     else if (modeAge < 2 * snap.recoveryDelayMs)
@@ -207,7 +217,9 @@ void RenderDiagnostics(const vec4 &in r, PhysicsSnapshot@ snap) {
         HudColor(0.55f, 0.67f, 0.77f), right);
     HudBox(cx, r.y + 168*s, cr - cx, 1*s, 0, HudColor(0.22f, 0.34f, 0.46f));
     string explanation = readFailing ? "JUMPS NOT RATED | PLUGIN NEEDS UPDATE" :
-        !snap.exact ? "" : modeAge < 0 ?
+        !snap.exact ? "" : held ? "GAS OFF WHILE BACKWARDS | GAS RELEASES IT" :
+        !g_tracker.inFlight && rearOnly ? "FORCE UPDATES ON FRONT WHEEL CONTACT" :
+        modeAge < 0 ?
         "MODE STARTS ON ELIGIBLE WHEEL CONTACT" : g_tracker.inFlight ?
         snap.recoveryDelayMs + " ms delay | " +
             (2 * snap.recoveryDelayMs) + " ms max | check on landing" :

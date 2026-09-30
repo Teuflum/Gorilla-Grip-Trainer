@@ -453,9 +453,9 @@ class PhysicsReadMonitor {
 
     // The physics step stamps a wheel when its contact changes, on that tick
     // or the next one, so the stamp lands after the frame before the change.
-    // A touchdown is stamped only when the wheel has some icing, so one
-    // without icing on either frame is not checked. A moved offset reads a
-    // value unrelated to the clock.
+    // A change, lift-off or touchdown, is stamped only when the wheel has some
+    // icing, so one without icing on either frame is not checked. A moved
+    // offset reads a value unrelated to the clock.
     void ObserveStamps(PhysicsSnapshot@ snap) {
         if (previous is null || snap.physicsClock < previous.physicsClock) {
             ForgetStamps();
@@ -465,9 +465,7 @@ class PhysicsReadMonitor {
         for (uint i = 0; i < 4; i++) {
             int at = int(snap.wheelChangedAt[i]);
             bool changed = ((previous.contactMask ^ snap.contactMask) & (1 << i)) != 0;
-            bool touchdown = (snap.contactMask & (1 << i)) != 0;
-            bool stamped = !touchdown ||
-                (previous.WheelIcing(i) > 0.0f && snap.WheelIcing(i) > 0.0f);
+            bool stamped = previous.WheelIcing(i) > 0.0f && snap.WheelIcing(i) > 0.0f;
             if (changed && stamped && changeAfter[i] < 0) {
                 changeAfter[i] = previous.physicsClock;
                 stampDeadline[i] = snap.physicsClock + STAMP_WAIT_TICKS * PHYSICS_TICK_MS;

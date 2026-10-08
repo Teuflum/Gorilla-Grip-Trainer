@@ -29,6 +29,13 @@ bool IsFinishSequence() {
         terminal.UISequence_Current == CGamePlaygroundUIConfig::EUISequence::Finish;
 }
 
+// Back in the map editor after a test or validation run: the editor keeps the
+// same map loaded, but the drive is over.
+bool IsEditingMap() {
+    auto app = cast<CTrackMania>(GetApp());
+    return app !is null && app.Editor !is null && app.CurrentPlayground is null;
+}
+
 string g_fitMapSource = "";
 string g_fitMapShown = "";
 float g_fitMapFontSize = -1.0f;

@@ -126,7 +126,9 @@ void Update(float dt) {
         return;
     }
     if (vis is null) {
-        if (g_finish.summary !is null &&
+        // The editor keeps the map loaded, so returning to it would otherwise
+        // keep the finish summary and its music until the editor closes.
+        if (g_finish.summary !is null && !IsEditingMap() &&
             CurrentMapUid() == g_finish.summary.mapUid) {
             @g_snapshot = null;
             g_previousContactMask = -1;

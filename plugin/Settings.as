@@ -67,10 +67,7 @@ void NormalizeGradeThresholds() {
 bool S_DebugLogging = false;
 [Setting hidden name="Log every tire-force change" description="With trainer events on, also logs a snapshot whenever the tire-force multiplier or force gate changes. Slow the game to capture every physics tick."]
 bool S_DebugForceTrace = false;
-[Setting hidden name="Process every Nth frame" min=1 max=10 description="Skips frames so the rating sees a lower frame rate, for timing tests."]
-int S_DebugFrameSkip = 1;
-
-array<string> g_debugSettings = {"S_DebugLogging", "S_DebugForceTrace", "S_DebugFrameSkip"};
+array<string> g_debugSettings = {"S_DebugLogging", "S_DebugForceTrace"};
 
 [SettingsTab name="Debug" icon="" order="6"]
 void RenderSettingsDebug() {
@@ -78,8 +75,6 @@ void RenderSettingsDebug() {
     RenderSettings(g_debugSettings);
 }
 #endif
-
-int g_frameSkipCounter = 0;
 
 bool DebugLoggingOn() {
 #if SIG_DEVELOPER
@@ -97,21 +92,6 @@ bool DebugForceTraceOn() {
 #endif
 }
 
-int DebugFrameSkip() {
-#if SIG_DEVELOPER
-    return Math::Clamp(S_DebugFrameSkip, 1, 10);
-#else
-    return 1;
-#endif
-}
-
-bool ProcessThisFrame() {
-    int n = DebugFrameSkip();
-    if (n <= 1) return true;
-    g_frameSkipCounter = (g_frameSkipCounter + 1) % n;
-    return g_frameSkipCounter == 0;
-}
-
 // Routine events only; problems go to warn() so they are always visible.
 void DebugLog(const string &in message) {
     if (DebugLoggingOn()) print(message);
@@ -120,22 +100,15 @@ void DebugLog(const string &in message) {
 // What the debug log last wrote, so it only logs changes.
 class TraceLog {
     bool eventLoggingOn = false;
-    int frameSkip = -1;
     int contactMask = -1;
     float force = -1.0f;
     int forceGate = -1;
 
-    // Logged whenever a switch changes, so a log shows when tracing starts.
+    // Logged whenever the switch changes, so a log shows when tracing starts.
     void UpdateSwitches() {
-        if (DebugLoggingOn() != eventLoggingOn) {
-            eventLoggingOn = DebugLoggingOn();
-            print("Event logging " + (eventLoggingOn ? "on" : "off"));
-        }
-        int skip = DebugLoggingOn() ? DebugFrameSkip() : -1;
-        if (skip != frameSkip) {
-            frameSkip = skip;
-            if (skip > 0) DebugLog("Frame skip " + skip);
-        }
+        if (DebugLoggingOn() == eventLoggingOn) return;
+        eventLoggingOn = DebugLoggingOn();
+        print("Event logging " + (eventLoggingOn ? "on" : "off"));
     }
 
     void ForgetSnapshot() {

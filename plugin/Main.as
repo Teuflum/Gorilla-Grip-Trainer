@@ -121,8 +121,6 @@ void Update(float dt) {
     if (g_activeRun is null && g_finish.summary !is null &&
         t > 500 && t >= g_finish.summary.finishMs - 50) return;
     FollowRun(t);
-    // Developer frame skipping simulates a low frame rate for timing tests.
-    if (!ProcessThisFrame()) return;
     RateFrame(vis, t);
 }
 

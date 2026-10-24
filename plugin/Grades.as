@@ -37,7 +37,6 @@ Grade GradeFromName(const string &in name) {
     return i < 0 ? Grade::None : Grade(i);
 }
 
-// S+ to D: a landing that scores.
 bool IsRated(Grade grade) {
     return grade <= Grade::D;
 }

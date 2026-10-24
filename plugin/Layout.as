@@ -1,6 +1,6 @@
 // Widget rectangles as screen fractions: x, y, width, height.
 [Setting hidden] vec4 S_DiagnosticsRect = vec4(0.030f, 0.029f, 0.258f, 0.181f);
-[Setting hidden] [SettingAlias key="S_DiagVisible"] bool S_DiagnosticsVisible = true;
+[Setting hidden] [SettingAlias key="S_DiagVisible"] bool S_DiagnosticsVisible = false;
 [Setting hidden] vec4 S_GradeRect = vec4(0.379f, 0.800f, 0.240f, 0.109f);
 [Setting hidden] [SettingAlias key="S_ResultVisible"] bool S_GradeVisible = true;
 [Setting hidden] vec4 S_StatsRect = vec4(0.030f, 0.701f, 0.160f, 0.130f);

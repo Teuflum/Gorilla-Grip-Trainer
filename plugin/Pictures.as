@@ -17,7 +17,6 @@ array<string> g_emojiLabels = {"Gorilla", "Oncoming fist", "Flexed biceps",
     "Fire", "Thumbs up", "OK hand", "Slightly smiling face", "Skull",
     "Loudly crying face", "Ice", "Snowflake", "Trophy", "Star"};
 
-// Pictures exist for S+ to MISSED.
 bool HasPicture(Grade grade) {
     return grade <= Grade::Missed;
 }
@@ -56,13 +55,10 @@ bool IsSafeLocalName(const string &in name) {
         !name.Contains("..") && !name.Contains(":");
 }
 
-// The emoji's file name, or "" if the choice is not a known emoji. Choices
-// saved by 0.3 name a set too ("emoji:<set>/<name>"); only the name counts.
+// The emoji's file name, or "" if the choice is not a known emoji.
 string EmojiName(const string &in choice) {
     if (!choice.StartsWith("emoji:")) return "";
     string name = choice.SubStr(6);
-    int slash = name.IndexOf("/");
-    if (slash >= 0) name = name.SubStr(slash + 1);
     return g_emojiNames.Find(name) >= 0 ? name : "";
 }
 

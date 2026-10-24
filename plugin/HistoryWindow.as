@@ -42,7 +42,6 @@ UI::Font@ HistoryFont() {
     return g_historyView.font;
 }
 
-// Text in a colour, using Openplanet's colour codes.
 string Colored(const vec4 &in color, const string &in text) {
     return Text::FormatOpenplanetColor(vec3(color.x, color.y, color.z)) + text;
 }
@@ -51,7 +50,6 @@ vec4 HistoryStatusColor(RunStatus status) {
     return status == RunStatus::Finished ? Hud::Gold : Hud::Pink;
 }
 
-// HUD-style section caption: a short gold bar, then the caption in capitals.
 void RenderHistoryHeader(const string &in caption, const vec4 &in color = Hud::Label) {
     UI::Dummy(vec2(0, 4));
     UI::DrawList@ dl = UI::GetWindowDrawList();
@@ -61,7 +59,6 @@ void RenderHistoryHeader(const string &in caption, const vec4 &in color = Hud::L
     UI::Dummy(vec2(0, 22));
 }
 
-// A row of stat tiles like the finish summary: caption over a large value.
 void RenderHistoryTiles(const array<string> &in captions, const array<string> &in values,
     const array<vec4> &in accents, const array<vec4> &in valueColors) {
     UI::DrawList@ dl = UI::GetWindowDrawList();
@@ -126,7 +123,6 @@ void RenderGradeTally(RunRecord@ run) {
     if (first) UI::TextDisabled("--");
 }
 
-// Gold selection tint for table rows, matching the HUD accent.
 void PushHistorySelectionColors() {
     UI::PushStyleColor(UI::Col::Header, Hud::WithAlpha(Hud::Gold, 0.22f));
     UI::PushStyleColor(UI::Col::HeaderHovered, Hud::WithAlpha(Hud::Gold, 0.12f));

@@ -92,7 +92,6 @@ void RenderWheelTile(float x, float y, float w, float h, float s,
         contact ? Hud::Bright : Hud::Dim, nvg::Align::Right | nvg::Align::Middle);
 }
 
-// The force line of the Physics widget.
 string ForceText(PhysicsSnapshot@ snap, bool held, bool rearOnly, int modeAge) {
     if (!snap.exact) return "FORCE --";
     if (!g_tracker.inFlight) {
@@ -107,7 +106,6 @@ string ForceText(PhysicsSnapshot@ snap, bool held, bool rearOnly, int modeAge) {
     return "WINDOW ELAPSED";
 }
 
-// The bottom line of the Physics widget: what to do or what limits the force.
 string ForceExplanation(PhysicsSnapshot@ snap, bool held, bool rearOnly,
     int modeAge, bool readFailing) {
     if (readFailing) return "JUMPS NOT RATED | PLUGIN NEEDS UPDATE";
@@ -181,10 +179,11 @@ void RenderDiagnostics(const vec4 &in r, PhysicsSnapshot@ snap) {
     Hud::Text(cr, r.y + 124*s, ForceText(snap, held, rearOnly, modeAge), 12*s, Hud::Gold, right);
     Hud::Text(cx, r.y + 150*s,
         "ICE AVG " + Text::Format("%.0f%%", snap.meanIcing*100.0f), 11*s, Hud::Ice, left);
-    string detail = !snap.exact ? "PHYSICS SAMPLE UNAVAILABLE" :
-        modeAge < 0 ? "NO STORED SLIDE MODE" :
-        "MODE AGE " + (modeAge < 10000 ? modeAge + " ms" :
-            Text::Format("%.1f s", float(modeAge) / 1000.0f));
+    string detail;
+    if (!snap.exact) detail = "PHYSICS SAMPLE UNAVAILABLE";
+    else if (modeAge < 0) detail = "NO STORED SLIDE MODE";
+    else if (modeAge < 10000) detail = "MODE AGE " + modeAge + " ms";
+    else detail = "MODE AGE " + Text::Format("%.1f s", float(modeAge) / 1000.0f);
     bool unverified = snap.exact && g_tracker.inFlight &&
         g_tracker.flight.unratedReason.Length > 0;
     if (unverified) detail = "TIMING UNVERIFIED";

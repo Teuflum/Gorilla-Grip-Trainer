@@ -337,23 +337,23 @@ class JumpTracker {
         if (preview !is null) {
             @verdict = JumpVerdict();
             verdict.grade = recovered ? preview.grade : Grade::Missed;
-            verdict.reason = recovered ?
-                "Pre-takeoff mode held through force-eligible contact" :
-                (enoughIcing ? (touchSwitched ? touchReason :
-                "Direction or tire force did not recover on force-eligible contact") :
-                "Landing icing fell below 34%");
+            if (recovered) verdict.reason = "Pre-takeoff mode held through force-eligible contact";
+            else if (!enoughIcing) verdict.reason = "Landing icing fell below 34%";
+            else if (touchSwitched) verdict.reason = touchReason;
+            else verdict.reason = "Direction or tire force did not recover on force-eligible contact";
             verdict.leadMs = preview.leadMs;
         } else if (enoughIcing && flight.takeoffMode != SlideMode::Neutral && storedSwitched &&
             // The switch reset the force and holds it for the recovery delay.
             landing.checkTick - landing.firstChangeAt < flight.recoveryDelayMs) {
             @verdict = JumpVerdict();
             verdict.grade = Grade::Missed;
-            verdict.reason = touchSwitched ? touchReason :
-                flight.reversalLeadMs >= 0 ?
-                "Steering reversed " + flight.reversalLeadMs +
-                " ms before takeoff, too late to store the direction; it switched after the landing" :
-                oppositeLanding ? "Opposite landing direction with delayed tire force" :
-                "Direction switched after the landing with delayed tire force";
+            if (touchSwitched) verdict.reason = touchReason;
+            else if (flight.reversalLeadMs >= 0)
+                verdict.reason = "Steering reversed " + flight.reversalLeadMs +
+                    " ms before takeoff, too late to store the direction; it switched after the landing";
+            else if (oppositeLanding)
+                verdict.reason = "Opposite landing direction with delayed tire force";
+            else verdict.reason = "Direction switched after the landing with delayed tire force";
         } else {
             DebugLog("Landing resolved without verdict at " + snap.raceTime +
                 "ms: takeoff mode " + flight.takeoffMode + ", stored mode " + snap.mode +

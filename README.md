@@ -53,7 +53,7 @@ With **Log trainer events** on (Debug tab, developer mode), a direction switch t
 
 | Widget | Shows |
 | --- | --- |
-| Physics | Steering, stored slide direction, each wheel's contact and icing, tire force, recovery timer |
+| Physics | Steering, stored slide direction, each wheel's contact and icing, tire force, recovery timer. Hidden by default; turn it on under **Layout → Physics → Show**. |
 | Grade | The takeoff preview, then the animated landing result |
 | Stats | Score, combo and best combo |
 | Last run | Your latest rated attempt on this map |

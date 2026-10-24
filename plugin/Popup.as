@@ -39,7 +39,6 @@ uint PopupPreviewSeed(Grade grade) {
     return uint(7919*(int(grade) + 2));
 }
 
-// Everything one popup frame needs; built fresh each frame by RenderResult.
 class PopupFrame {
     Grade grade;
     string caption;

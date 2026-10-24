@@ -1,27 +1,57 @@
-[Setting category="Display" name="Enable widgets"]
+[Setting hidden name="Enable widgets"]
 bool S_EnableWidgets = true;
-[Setting category="Display" name="Show widgets when game HUD is off"]
+[Setting hidden name="Show widgets when game HUD is off"]
 bool S_ShowWhenGameHudOff = false;
-[Setting category="Display" name="Show finish summary automatically"]
+[Setting hidden name="Show finish summary automatically"]
 bool S_AutoFinishSummary = true;
 
 // Leads are whole 10 ms physics ticks, so the defaults sit on the tick grid.
-[Setting category="Rating" name="S maximum lead (ms)" min=0 max=2000 description="How early the stored steering direction may switch before the last wheel leaves, for each grade. S+ is a 0 ms lead and has no limit of its own. Leads come in whole 10 ms physics ticks, so a limit of 15 grades like 10."]
+[Setting hidden name="S maximum lead (ms)" min=0 max=2000 description="How early the stored steering direction may switch before the last wheel leaves, for each grade. S+ is a 0 ms lead and has no limit of its own. Leads come in whole 10 ms physics ticks, so a limit of 15 grades like 10."]
 int S_SMaxLeadMs = 10;
-[Setting category="Rating" name="A maximum lead (ms)" min=0 max=2000]
+[Setting hidden name="A maximum lead (ms)" min=0 max=2000]
 int S_AMaxLeadMs = 30;
-[Setting category="Rating" name="B maximum lead (ms)" min=0 max=2000]
+[Setting hidden name="B maximum lead (ms)" min=0 max=2000]
 int S_BMaxLeadMs = 60;
-[Setting category="Rating" name="C maximum lead (ms)" min=0 max=2000]
+[Setting hidden name="C maximum lead (ms)" min=0 max=2000]
 int S_CMaxLeadMs = 110;
-[Setting category="Rating" name="D maximum lead (ms)" min=0 max=2000]
+[Setting hidden name="D maximum lead (ms)" min=0 max=2000]
 int S_DMaxLeadMs = 250;
-[Setting category="Rating" name="Minimum average tire icing" min=0 max=1 description="Checked as the last wheel leaves. Landings only need a fixed 0.34, because tires lose icing in the air."]
+[Setting hidden name="Minimum average tire icing" min=0 max=1 description="Checked as the last wheel leaves. Landings only need a fixed 0.34, because tires lose icing in the air."]
 float S_MinIcing = 0.65f;
-[Setting category="Rating" name="Minimum speed (km/h)" min=0 max=300]
+[Setting hidden name="Minimum speed (km/h)" min=0 max=300]
 int S_MinSpeed = 50;
-[Setting category="Rating" name="Minimum flight (ms)" min=50 max=1000]
+[Setting hidden name="Minimum flight (ms)" min=50 max=1000]
 int S_MinFlight = 100;
+
+// The tabs are script tabs with a fixed order; category tabs would come in
+// whatever order Openplanet puts them. Each draws its hidden settings with
+// Openplanet's own controls.
+void RenderSettings(const array<string> &in names) {
+    auto plugin = Meta::ExecutingPlugin();
+    for (uint i = 0; i < names.Length; i++) plugin.GetSetting(names[i]).Render();
+}
+
+void ResetSettings(const array<string> &in names) {
+    auto plugin = Meta::ExecutingPlugin();
+    for (uint i = 0; i < names.Length; i++) plugin.GetSetting(names[i]).Reset();
+}
+
+array<string> g_displaySettings = {"S_EnableWidgets", "S_ShowWhenGameHudOff", "S_AutoFinishSummary"};
+array<string> g_ratingSettings = {"S_SMaxLeadMs", "S_AMaxLeadMs", "S_BMaxLeadMs", "S_CMaxLeadMs",
+    "S_DMaxLeadMs", "S_MinIcing", "S_MinSpeed", "S_MinFlight"};
+
+[SettingsTab name="Display" icon="" order="1"]
+void RenderSettingsDisplay() {
+    if (UI::Button("Reset to default")) ResetSettings(g_displaySettings);
+    RenderSettings(g_displaySettings);
+}
+
+[SettingsTab name="Rating" icon="" order="2"]
+void RenderSettingsRating() {
+    if (UI::Button("Reset to default")) ResetSettings(g_ratingSettings);
+    RenderSettings(g_ratingSettings);
+    NormalizeGradeThresholds();
+}
 
 // Each grade's limit is at least the one before it.
 void NormalizeGradeThresholds() {
@@ -33,12 +63,20 @@ void NormalizeGradeThresholds() {
 }
 
 #if SIG_DEVELOPER
-[Setting category="Debug" name="Log trainer events" description="Writes routine trainer events (contact snapshots, previews, verdicts, audio, history saves) to Openplanet.log. Problems are always logged."]
+[Setting hidden name="Log trainer events" description="Writes routine trainer events (contact snapshots, previews, verdicts, audio, history saves) to Openplanet.log. Problems are always logged."]
 bool S_DebugLogging = false;
-[Setting category="Debug" name="Log every tire-force change" description="With trainer events on, also logs a snapshot whenever the tire-force multiplier or force gate changes. Slow the game to capture every physics tick."]
+[Setting hidden name="Log every tire-force change" description="With trainer events on, also logs a snapshot whenever the tire-force multiplier or force gate changes. Slow the game to capture every physics tick."]
 bool S_DebugForceTrace = false;
-[Setting category="Debug" name="Process every Nth frame" min=1 max=10 description="Skips frames so the rating sees a lower frame rate, for timing tests."]
+[Setting hidden name="Process every Nth frame" min=1 max=10 description="Skips frames so the rating sees a lower frame rate, for timing tests."]
 int S_DebugFrameSkip = 1;
+
+array<string> g_debugSettings = {"S_DebugLogging", "S_DebugForceTrace", "S_DebugFrameSkip"};
+
+[SettingsTab name="Debug" icon="" order="6"]
+void RenderSettingsDebug() {
+    if (UI::Button("Reset to default")) ResetSettings(g_debugSettings);
+    RenderSettings(g_debugSettings);
+}
 #endif
 
 int g_frameSkipCounter = 0;

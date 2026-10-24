@@ -70,7 +70,7 @@ WidgetLayout@ GetLayout(const string &in id) {
 
 // While this tab is open, RenderLayoutEditor gives every widget a window to
 // drag and resize.
-[SettingsTab name="Layout" icon="" order="4"]
+[SettingsTab name="Layout" icon="" order="5"]
 void RenderSettingsLayout() {
     g_layoutEditing = true;
     UI::TextWrapped("While this tab is open, drag a widget's window by its title to move it, and its corner to resize it.");

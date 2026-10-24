@@ -1,48 +1,48 @@
 // Sounds come from the user's own files: one folder per cue inside
 // PluginStorage/GorillaGripTrainer/LocalSounds. Each play picks one file of
 // the cue's folder at random.
-[Setting category="Sounds" name="Enable sounds" beforerender="RenderSoundFolders"]
+[Setting hidden name="Enable sounds"]
 bool S_EnableAudio = true;
-[Setting category="Sounds" name="Master volume" min=0 max=1]
+[Setting hidden name="Master volume" min=0 max=1]
 float S_MasterVolume = 0.5f;
-[Setting category="Sounds" name="Takeoff"]
+[Setting hidden name="Takeoff"]
 bool S_SoundTakeoff = true;
-[Setting category="Sounds" name="Takeoff volume" min=0 max=1 if="S_SoundTakeoff"]
+[Setting hidden name="Takeoff volume" min=0 max=1]
 float S_VolumeTakeoff = 0.35f;
-[Setting category="Sounds" name="S and S+"]
+[Setting hidden name="S and S+"]
 [SettingAlias key="S_GradeSEnabled"]
 bool S_SoundS = true;
-[Setting category="Sounds" name="S volume" min=0 max=1 if="S_SoundS"]
+[Setting hidden name="S volume" min=0 max=1]
 float S_VolumeS = 0.4f;
-[Setting category="Sounds" name="A"]
+[Setting hidden name="A"]
 [SettingAlias key="S_GradeAEnabled"]
 bool S_SoundA = true;
-[Setting category="Sounds" name="A volume" min=0 max=1 if="S_SoundA"]
+[Setting hidden name="A volume" min=0 max=1]
 float S_VolumeA = 0.4f;
-[Setting category="Sounds" name="B"]
+[Setting hidden name="B"]
 [SettingAlias key="S_GradeBEnabled"]
 bool S_SoundB = true;
-[Setting category="Sounds" name="B volume" min=0 max=1 if="S_SoundB"]
+[Setting hidden name="B volume" min=0 max=1]
 float S_VolumeB = 0.4f;
-[Setting category="Sounds" name="C"]
+[Setting hidden name="C"]
 [SettingAlias key="S_GradeCEnabled"]
 bool S_SoundC = true;
-[Setting category="Sounds" name="C volume" min=0 max=1 if="S_SoundC"]
+[Setting hidden name="C volume" min=0 max=1]
 float S_VolumeC = 0.4f;
-[Setting category="Sounds" name="D"]
+[Setting hidden name="D"]
 [SettingAlias key="S_GradeDEnabled"]
 bool S_SoundD = true;
-[Setting category="Sounds" name="D volume" min=0 max=1 if="S_SoundD"]
+[Setting hidden name="D volume" min=0 max=1]
 float S_VolumeD = 0.4f;
-[Setting category="Sounds" name="Missed"]
+[Setting hidden name="Missed"]
 [SettingAlias key="S_SoundFailure"]
 bool S_SoundMissed = true;
-[Setting category="Sounds" name="Missed volume" min=0 max=1 if="S_SoundMissed"]
+[Setting hidden name="Missed volume" min=0 max=1]
 float S_VolumeMissed = 0.35f;
-[Setting category="Sounds" name="Finish music"]
+[Setting hidden name="Finish music"]
 [SettingAlias key="S_SoundResults"]
 bool S_SoundFinish = true;
-[Setting category="Sounds" name="Finish volume" min=0 max=1 if="S_SoundFinish"]
+[Setting hidden name="Finish volume" min=0 max=1]
 float S_VolumeFinish = 0.25f;
 
 enum Cue {
@@ -58,6 +58,8 @@ enum Cue {
 
 array<string> g_cueFolders = {"takeoff", "S", "A", "B", "C", "D", "missed", "finish"};
 array<string> g_cueLabels = {"Takeoff", "S and S+", "A", "B", "C", "D", "Missed", "Finish"};
+// The cue's part of its S_Sound... and S_Volume... setting names.
+array<string> g_cueSettings = {"Takeoff", "S", "A", "B", "C", "D", "Missed", "Finish"};
 
 bool CueEnabled(Cue cue) {
     switch (cue) {
@@ -159,7 +161,28 @@ void LoadSoundCues() {
     }
 }
 
-// Drawn above the sound settings on the Sounds tab.
+[SettingsTab name="Sounds" icon="" order="3"]
+void RenderSettingsSounds() {
+    auto plugin = Meta::ExecutingPlugin();
+    array<string> general = {"S_EnableAudio", "S_MasterVolume"};
+    if (UI::Button("Reset to default")) {
+        array<string> names = general;
+        for (uint i = 0; i < g_cueSettings.Length; i++) {
+            names.InsertLast("S_Sound" + g_cueSettings[i]);
+            names.InsertLast("S_Volume" + g_cueSettings[i]);
+        }
+        ResetSettings(names);
+    }
+    RenderSoundFolders();
+    RenderSettings(general);
+    UI::Separator();
+    // A cue's volume shows only while the cue is on.
+    for (uint i = 0; i < g_cueSettings.Length; i++) {
+        plugin.GetSetting("S_Sound" + g_cueSettings[i]).Render();
+        if (CueEnabled(Cue(int(i)))) plugin.GetSetting("S_Volume" + g_cueSettings[i]).Render();
+    }
+}
+
 void RenderSoundFolders() {
     UI::TextWrapped("Put WAV, OGG or MP3 files into the folders inside LocalSounds, one folder per cue, then click Reload files.");
     if (UI::Button("Open LocalSounds folder")) {

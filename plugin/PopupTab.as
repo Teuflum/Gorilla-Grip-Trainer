@@ -1,4 +1,4 @@
-[SettingsTab name="Popup" icon="" order="3"]
+[SettingsTab name="Popup" icon="" order="4"]
 void RenderSettingsPopup() {
     if (!g_localImagesScanned) RefreshLocalImages();
     S_ShowPictures = UI::Checkbox("Show pictures beside the grade", S_ShowPictures);

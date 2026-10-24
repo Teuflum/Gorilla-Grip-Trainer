@@ -193,7 +193,7 @@ class JumpTracker {
         if (!flight.eligible) return;
         if (!exactTakeoff) {
             flight.uncertain = true;
-            if (attempted) MarkUnrated("Contact timestamps were inconsistent at takeoff",
+            if (attempted) MarkUnrated("Couldn't time the takeoff exactly.",
                 "TIMING UNVERIFIED", snap.raceTime);
             return;
         }
@@ -227,7 +227,7 @@ class JumpTracker {
         if (flight.uncertain && flight.unratedReason.Length > 0)
             PublishUnrated(flight.unratedReason, flight.unratedCaption, landing.race);
         else if (flight.uncertain && flight.previewPublished)
-            PublishUnrated("Exact contact timing was lost during flight",
+            PublishUnrated("Lost the exact timing during the jump.",
                 "CONTACT TIMING LOST", landing.race);
     }
 
@@ -271,7 +271,7 @@ class JumpTracker {
         // A scrape in flight counts as ground contact and can store the new
         // direction before the real landing; name it instead of a generic miss.
         bool touchSwitched = landing.touchLifted && switchedByCheck;
-        const string touchReason = "Direction switched on a brief touch before the landing";
+        const string touchReason = "A wheel touched the ground in the air and switched the slide direction.";
         // The stored direction changes only on the ground: after a neutral
         // landing, steering the other way switches it and delays the force.
         bool storedSwitched = switchedByCheck && landing.firstChangeMode != SlideMode::Neutral &&
@@ -281,10 +281,10 @@ class JumpTracker {
         if (preview !is null) {
             @verdict = JumpVerdict();
             verdict.grade = recovered ? preview.grade : Grade::Missed;
-            if (recovered) verdict.reason = "Pre-takeoff mode held through force-eligible contact";
-            else if (!enoughIcing) verdict.reason = "Landing icing fell below 34%";
+            if (recovered) verdict.reason = "You kept the grip: the slide direction held after the landing.";
+            else if (!enoughIcing) verdict.reason = "Not enough ice on the tires at the landing.";
             else if (touchSwitched) verdict.reason = touchReason;
-            else verdict.reason = "Direction or tire force did not recover on force-eligible contact";
+            else verdict.reason = "The grip did not come back after landing.";
             verdict.leadMs = preview.leadMs;
         } else if (enoughIcing && flight.takeoffMode != SlideMode::Neutral && storedSwitched &&
             // The switch reset the force and holds it for the recovery delay.
@@ -293,11 +293,11 @@ class JumpTracker {
             verdict.grade = Grade::Missed;
             if (touchSwitched) verdict.reason = touchReason;
             else if (flight.reversalLeadMs >= 0)
-                verdict.reason = "Steering reversed " + flight.reversalLeadMs +
-                    " ms before takeoff, too late to store the direction; it switched after the landing";
+                verdict.reason = "You steered the other way " + flight.reversalLeadMs +
+                    " ms before takeoff. That was too late, so the slide direction switched after landing.";
             else if (oppositeLanding)
-                verdict.reason = "Opposite landing direction with delayed tire force";
-            else verdict.reason = "Direction switched after the landing with delayed tire force";
+                verdict.reason = "You landed steering the other way, so the grip came back too late.";
+            else verdict.reason = "The slide direction switched after landing, so the grip came back too late.";
         } else return;
         verdict.takeoffTime = flight.takeoffRace;
         verdict.landingTime = landing.race;
@@ -346,7 +346,7 @@ class JumpTracker {
             Math::Max(landing.tick + LANDING_CHECK_MS, eligibleAt + FORCE_SETTLE_MS);
         int deadline = FORCE_GATE_TIMEOUT_MS + Math::Max(landing.tick, delayEnd);
         if (flight.uncertain)
-            PublishUnrated("Landing contact timing became uncertain",
+            PublishUnrated("Couldn't time the landing exactly.",
                 "CONTACT TIMING LOST", snap.raceTime);
         else if (checkAt >= 0 && checkAt <= deadline && snap.forceGateState == 0 &&
             snap.tick >= checkAt) {
@@ -354,7 +354,7 @@ class JumpTracker {
             landing.checkTick = checkAt;
             ResolveLanding(snap);
         } else if (snap.tick > deadline)
-            PublishUnrated("Tire-force contact never became eligible",
+            PublishUnrated("Couldn't check the grip after landing.",
                 "FORCE CHECK UNAVAILABLE", snap.raceTime);
     }
 
@@ -364,7 +364,7 @@ class JumpTracker {
         takeoffCueEvent = false;
         if (snap is null || !snap.exact || snap.tick < 0) {
             if (pendingLanding)
-                PublishUnrated("Exact physics read was lost after landing",
+                PublishUnrated("Lost the car data after landing.",
                     "PHYSICS READ LOST", landing.race);
             else if (inFlight) flight.uncertain = true;
             @previous = null;

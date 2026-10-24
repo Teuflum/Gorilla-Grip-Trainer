@@ -1,6 +1,16 @@
 [SettingsTab name="Popup" icon="" order="4"]
 void RenderSettingsPopup() {
     if (!g_localImagesScanned) RefreshLocalImages();
+    if (UI::Button("Reset to default")) {
+        Meta::ExecutingPlugin().GetSetting("S_PopupAnimate").Reset();
+        ResetSettings(g_effectSettings);
+        ResetPictureSettings();
+    }
+    UI::SeparatorText("Animation");
+    S_PopupAnimate = UI::Checkbox("Enabled", S_PopupAnimate);
+    // The effects show only while the popup is animated.
+    if (S_PopupAnimate) RenderSettings(g_effectSettings);
+    UI::SeparatorText("Pictures");
     S_ShowPictures = UI::Checkbox("Show pictures beside the grade", S_ShowPictures);
     if (UI::Button("Open LocalImages folder")) {
         string folder = IO::FromStorageFolder("LocalImages");
@@ -12,8 +22,6 @@ void RenderSettingsPopup() {
         RefreshLocalImages();
         ClearPictureCache();
     }
-    UI::SameLine();
-    if (UI::Button("Reset pictures")) ResetPictureSettings();
     UI::Separator();
     for (int g = int(Grade::SPlus); g <= int(Grade::Missed); g++)
         RenderPictureRow(Grade(g));

@@ -38,22 +38,17 @@ string Colored(const vec4 &in color, const string &in text) {
     return Text::FormatOpenplanetColor(vec3(color.x, color.y, color.z)) + text;
 }
 
-// Rated grades of one run in their HUD colours, e.g. "S+1 S4 A2  2 missed".
+// How often one run got each grade, in the HUD colours: "S+: 3  S: 2  MISSED: 1".
 void RenderGradeTally(RunRecord@ run) {
     bool first = true;
-    for (int g = int(Grade::SPlus); g <= int(Grade::D); g++) {
+    for (int g = int(Grade::SPlus); g <= int(Grade::Missed); g++) {
         string name = GradeName(Grade(g));
         int count = 0;
         for (uint j = 0; j < run.jumps.Length; j++)
             if (run.jumps[j].label == name) count++;
         if (count == 0) continue;
-        if (!first) UI::SameLine(0, 6);
-        UI::Text(Colored(GradeColor(Grade(g)), name + count));
-        first = false;
-    }
-    if (run.misses > 0) {
-        if (!first) UI::SameLine(0, 10);
-        UI::Text(Colored(GradeColor(Grade::Missed), run.misses + " missed"));
+        if (!first) UI::SameLine(0, 12);
+        UI::Text(Colored(GradeColor(Grade(g)), name + ": " + count));
         first = false;
     }
     if (first) UI::TextDisabled("--");
@@ -98,8 +93,8 @@ void RenderHistoryAttempts() {
 string JumpDetail(HistoryJump@ jump) {
     string detail = jump.reason;
     if (jump.preview.Length > 0 && jump.preview != jump.label)
-        detail += "\nTakeoff " + jump.preview;
-    if (jump.scoreAfter >= 0) detail += "\nScore after landing " + jump.scoreAfter;
+        detail += "\nGrade at takeoff: " + jump.preview;
+    if (jump.scoreAfter >= 0) detail += "\nScore after: " + jump.scoreAfter;
     return detail;
 }
 

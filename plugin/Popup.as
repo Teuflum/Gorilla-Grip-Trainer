@@ -1,5 +1,25 @@
 // The landing popup: an ice panel with the grade, cracks, shards and the
 // result's pictures. Better grades get bigger effects; UNRATED is calm.
+[Setting hidden name="Popup animation"]
+bool S_PopupAnimate = true;
+[Setting hidden name="Effect intensity (%)" min=0 max=200]
+int S_PopupIntensity = 100;
+[Setting hidden name="Cracks"]
+bool S_FxCracks = true;
+[Setting hidden name="Ice shards"]
+bool S_FxShards = true;
+[Setting hidden name="Snowflakes (S, S+)"]
+bool S_FxSnowflakes = true;
+[Setting hidden name="Light rays (S+)"]
+bool S_FxRays = true;
+[Setting hidden name="Flash"]
+bool S_FxFlash = true;
+
+array<string> g_effectSettings = {"S_PopupIntensity", "S_FxCracks", "S_FxShards",
+    "S_FxSnowflakes", "S_FxRays", "S_FxFlash"};
+
+// Without animation the popup shows from the start as it looks at this age.
+const int SETTLED_AGE = 600;
 
 float EaseOutCubic(float x) {
     float r = 1.0f - Math::Clamp(x, 0.0f, 1.0f);
@@ -44,29 +64,27 @@ void RenderResult(const vec4 &in r, int age, Grade grade, const string &in capti
     PopupFrame@ f = PopupFrame();
     f.grade = grade;
     f.caption = caption;
-    f.age = age;
+    f.age = S_PopupAnimate ? age : Math::Max(age, SETTLED_AGE);
     f.seed = seed;
     f.s = Math::Min(r.z / 500.0f, r.w / 125.0f);
     f.cx = r.x + r.z*0.5f;
     f.cy = r.y + r.w*0.5f;
     f.fade = 1.0f - Math::Clamp(float(age - 700) / 300.0f, 0.0f, 1.0f);
-    f.power = GradePower(grade);
-    f.calm = f.power <= 0.0f;
+    f.power = GradePower(grade) * float(Math::Clamp(S_PopupIntensity, 0, 200)) / 100.0f;
+    f.calm = !S_PopupAnimate || f.power <= 0.0f;
     f.miss = grade == Grade::Missed;
     f.accent = GradeColor(grade, f.fade);
-    f.panelW = (180.0f + 300.0f*EaseOutCubic(float(age) / 180.0f))*f.s;
-    if (f.miss) f.slump = 10.0f*f.s*EaseOutCubic((float(age) - 250.0f) / 350.0f);
+    f.panelW = (180.0f + 300.0f*EaseOutCubic(float(f.age) / 180.0f))*f.s;
+    if (f.miss) f.slump = 10.0f*f.s*EaseOutCubic((float(f.age) - 250.0f) / 350.0f);
     bool top = grade == Grade::SPlus || grade == Grade::S;
-    if (!f.calm && grade == Grade::SPlus) DrawPopupRays(f);
+    if (!f.calm && S_FxRays && grade == Grade::SPlus) DrawPopupRays(f);
     DrawPopupPanel(f);
-    if (!f.calm) {
-        DrawPopupCracks(f);
-        DrawPopupPictures(f);
-        DrawPopupShards(f);
-        if (top) DrawPopupSnowflakes(f);
-    }
+    if (!f.calm && S_FxCracks) DrawPopupCracks(f);
+    DrawPopupPictures(f);
+    if (!f.calm && S_FxShards) DrawPopupShards(f);
+    if (!f.calm && S_FxSnowflakes && top) DrawPopupSnowflakes(f);
     DrawPopupLetter(f);
-    if (!f.calm) DrawPopupFlash(f);
+    if (!f.calm && S_FxFlash) DrawPopupFlash(f);
     DrawPopupCaption(f);
 }
 
@@ -254,7 +272,7 @@ void DrawPictureTexture(nvg::Texture@ texture, float x, float y, float size,
 void DrawPopupPictures(PopupFrame@ f) {
     nvg::Texture@ picture = PictureForResult(f.grade);
     if (picture is null) return;
-    bool dance = f.grade == Grade::S || f.grade == Grade::SPlus;
+    bool dance = S_PopupAnimate && (f.grade == Grade::S || f.grade == Grade::SPlus);
     float age = float(f.age);
     for (int i = 0; i < 2; i++) {
         float side = i == 0 ? -1.0f : 1.0f;

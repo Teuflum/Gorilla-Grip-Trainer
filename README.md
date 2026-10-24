@@ -68,13 +68,13 @@ Open **Settings → Gorilla Grip Trainer → Layout** to drag and resize them, o
 | Display | Turn widgets on or off, show them with the game HUD hidden, open the finish summary automatically |
 | Rating | Grade limits and which jumps count (icing, speed, flight time) |
 | Sounds | Sound folders, and an on/off switch and volume per cue |
-| Popup | Pictures beside the landing grade |
+| Popup | Popup animation, effects and intensity; pictures beside the landing grade |
 | Layout | Which widgets show, and their positions and sizes |
 | Debug | Event logging; only in Openplanet's developer mode |
 
 ## Landing popup
 
-The landing grade appears on an ice panel that cracks and throws shards; better grades get bigger effects, S and S+ add snowflakes, and S+ adds light rays. A miss sinks and tips over.
+The landing grade appears on an ice panel that cracks and throws shards; better grades get bigger effects, S and S+ add snowflakes, and S+ adds light rays. A miss sinks and tips over. Under **Popup** you can turn single effects off, make them smaller or bigger with **Effect intensity**, or turn off **Animate the popup** to show the grade without motion.
 
 - **Pictures:** one per result, shown on both sides of the grade. Pick one of the shipped emoji pictures, or use your own PNG or JPG files from the `LocalImages` folder. Only S and S+ pictures bounce.
 - **Preview** plays any result's popup with your current pictures.

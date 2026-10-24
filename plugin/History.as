@@ -1,5 +1,6 @@
 // Local run history. No replay or user media is stored here.
 const uint HISTORY_LIMIT = 500;
+const int HISTORY_VERSION = 2;
 
 enum RunStatus {
     Reset,
@@ -11,20 +12,16 @@ string StatusName(RunStatus status) {
 }
 
 class HistoryJump {
-    // Grade names as GradeName gives them. Older previews can be a range ("A/B").
+    // Grade names as GradeName gives them.
     string preview;
     string label;
     string reason;
     int takeoffMs;
     int landingMs;
-    // New entries store the exact lead in both; older ones may hold a range.
-    int leadMinMs;
-    int leadMaxMs;
+    int leadMs;
     int combo;
     int points;
     int scoreAfter = -1;
-    // Set only by older versions, which estimated some takeoff times.
-    bool timingEstimated = false;
 
     HistoryJump() {}
 
@@ -35,8 +32,7 @@ class HistoryJump {
         reason = verdict.reason;
         takeoffMs = verdict.takeoffTime;
         landingMs = verdict.landingTime;
-        leadMinMs = verdict.leadMs;
-        leadMaxMs = verdict.leadMs;
+        leadMs = verdict.leadMs;
         combo = currentCombo;
         points = verdict.points;
         scoreAfter = currentScore;
@@ -49,12 +45,10 @@ class HistoryJump {
         value["reason"] = reason;
         value["takeoffMs"] = takeoffMs;
         value["landingMs"] = landingMs;
-        value["leadMinMs"] = leadMinMs;
-        value["leadMaxMs"] = leadMaxMs;
+        value["leadMs"] = leadMs;
         value["combo"] = combo;
         value["points"] = points;
         if (scoreAfter >= 0) value["scoreAfter"] = scoreAfter;
-        value["timingEstimated"] = timingEstimated;
         return value;
     }
 
@@ -64,12 +58,10 @@ class HistoryJump {
         reason = string(value["reason"]);
         takeoffMs = int(value["takeoffMs"]);
         landingMs = int(value["landingMs"]);
-        leadMinMs = int(value["leadMinMs"]);
-        leadMaxMs = int(value["leadMaxMs"]);
+        leadMs = int(value["leadMs"]);
         combo = int(value["combo"]);
         points = int(value["points"]);
         scoreAfter = value.HasKey("scoreAfter") ? int(value["scoreAfter"]) : -1;
-        timingEstimated = value.HasKey("timingEstimated") && bool(value["timingEstimated"]);
     }
 }
 
@@ -153,7 +145,7 @@ class HistoryStore {
         array<RunRecord@> loaded;
         try {
             Json::Value@ root = Json::FromFile(path);
-            if (int(root["version"]) != 1) return false;
+            if (int(root["version"]) != HISTORY_VERSION) return false;
             Json::Value@ records = root["runs"];
             uint first = records.Length > HISTORY_LIMIT ? records.Length - HISTORY_LIMIT : 0;
             for (uint i = first; i < records.Length; i++) {
@@ -185,7 +177,7 @@ class HistoryStore {
 
     Json::Value@ ToJson() {
         Json::Value@ root = Json::Object();
-        root["version"] = 1;
+        root["version"] = HISTORY_VERSION;
         Json::Value@ records = Json::Array();
         for (uint i = 0; i < runs.Length; i++) records.Add(runs[i].ToJson());
         root["runs"] = records;

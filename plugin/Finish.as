@@ -80,20 +80,11 @@ void RenderFinishSummary(const vec4 &in r, RunRecord@ run) {
     // One count per grade from S+ to MISSED; anything else counts as unrated.
     array<int> counts(8);
     array<int> leads;
-    int bestLo = -1;
-    int bestHi = -1;
     for (uint i = 0; i < run.jumps.Length; i++) {
         HistoryJump@ jump = run.jumps[i];
         Grade grade = GradeFromName(jump.label);
         counts[uint(Math::Min(int(grade), int(Grade::Unrated)))]++;
-        if (IsRated(grade) && jump.leadMinMs >= 0) {
-            int lead = (jump.leadMinMs + jump.leadMaxMs) / 2;
-            leads.InsertLast(lead);
-            if (bestLo < 0 || lead < (bestLo + bestHi) / 2) {
-                bestLo = jump.leadMinMs;
-                bestHi = jump.leadMaxMs;
-            }
-        }
+        if (IsRated(grade) && jump.leadMs >= 0) leads.InsertLast(jump.leadMs);
     }
     float gradeGap = 7*s;
     float gradeWidth = (inner - 5*gradeGap) / 6.0f;
@@ -115,8 +106,7 @@ void RenderFinishSummary(const vec4 &in r, RunRecord@ run) {
         int median = leads[leads.Length / 2];
         if (leads.Length % 2 == 0)
             median = (leads[leads.Length / 2 - 1] + median) / 2;
-        // Older entries may hold a lead range; new ones hold one exact value.
-        bestLead = bestLo == bestHi ? bestLo + "ms" : bestLo + "-" + bestHi + "ms";
+        bestLead = leads[0] + "ms";
         medianLead = "~" + median + "ms";
     }
     array<string> detailLabels = {"MISSED", "UNRATED", "BEST LEAD", "MEDIAN"};

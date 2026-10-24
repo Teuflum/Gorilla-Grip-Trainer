@@ -32,19 +32,8 @@ RunRecord@ SelectedHistoryRun() {
     return null;
 }
 
-string HistoryGrade(HistoryJump@ jump) {
-    if (jump is null) return "";
-    // Older versions marked estimated takeoff times with a "+".
-    Grade grade = GradeFromName(jump.label);
-    bool estimated = grade != Grade::SPlus && jump.timingEstimated && IsRated(grade);
-    return jump.label + (estimated ? "+" : "");
-}
-
-// Older entries may hold a lead range; new ones hold one exact value.
 string HistoryLead(HistoryJump@ jump) {
-    if (jump.leadMinMs < 0) return "--";
-    if (jump.leadMinMs == jump.leadMaxMs) return jump.leadMinMs + " ms";
-    return jump.leadMinMs + "-" + jump.leadMaxMs + " ms";
+    return jump.leadMs < 0 ? "--" : jump.leadMs + " ms";
 }
 
 UI::Font@ HistoryFont() {
@@ -108,7 +97,7 @@ void RenderAttemptTiles(RunRecord@ run) {
 void RenderJumpTiles(HistoryJump@ jump) {
     vec4 grade = GradeColor(GradeFromName(jump.label));
     array<string> captions = {"GRADE", "LANDING", "LEAD", "POINTS", "COMBO"};
-    array<string> values = {HistoryGrade(jump), Time::Format(uint64(jump.landingMs)),
+    array<string> values = {jump.label, Time::Format(uint64(jump.landingMs)),
         HistoryLead(jump),
         "+" + jump.points, "x" + jump.combo};
     array<vec4> accents = {grade, Hud::Label, Hud::Label, Hud::Gold, Hud::Cyan};
@@ -206,7 +195,7 @@ void RenderHistoryJumps(RunRecord@ selected) {
                 UI::SelectableFlags::SpanAllColumns))
                 g_historyView.selectedJump = int(j);
             UI::TableNextColumn();
-            UI::Text(Colored(GradeColor(GradeFromName(jump.label)), HistoryGrade(jump)));
+            UI::Text(Colored(GradeColor(GradeFromName(jump.label)), jump.label));
             UI::TableNextColumn();
             UI::Text(Time::Format(uint64(jump.landingMs)));
             UI::TableNextColumn();
@@ -228,8 +217,7 @@ void RenderHistoryJumps(RunRecord@ selected) {
     string detail = jump.reason;
     // Only mention the takeoff grade when the landing changed it.
     if (jump.preview.Length > 0 && jump.preview != jump.label)
-        detail += "  |  Takeoff " + jump.preview +
-            (jump.timingEstimated && jump.preview != "S+" ? "+" : "");
+        detail += "  |  Takeoff " + jump.preview;
     if (jump.scoreAfter >= 0) detail += "  |  Score after landing " + jump.scoreAfter;
     UI::TextWrapped(Colored(Hud::Label, detail));
 }

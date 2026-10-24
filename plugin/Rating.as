@@ -194,7 +194,7 @@ class JumpTracker {
         if (!exactTakeoff) {
             flight.uncertain = true;
             if (attempted) MarkUnrated("Couldn't time the takeoff exactly.",
-                "TIMING UNVERIFIED", snap.raceTime);
+                "TIMING NOT EXACT", snap.raceTime);
             return;
         }
         if (!attempted || switchOldMode == SlideMode::Neutral ||
@@ -228,7 +228,7 @@ class JumpTracker {
             PublishUnrated(flight.unratedReason, flight.unratedCaption, landing.race);
         else if (flight.uncertain && flight.previewPublished)
             PublishUnrated("Lost the exact timing during the jump.",
-                "CONTACT TIMING LOST", landing.race);
+                "LOST THE TIMING", landing.race);
     }
 
     void MarkUnrated(const string &in reason, const string &in caption, int raceTime) {
@@ -347,7 +347,7 @@ class JumpTracker {
         int deadline = FORCE_GATE_TIMEOUT_MS + Math::Max(landing.tick, delayEnd);
         if (flight.uncertain)
             PublishUnrated("Couldn't time the landing exactly.",
-                "CONTACT TIMING LOST", snap.raceTime);
+                "LOST THE TIMING", snap.raceTime);
         else if (checkAt >= 0 && checkAt <= deadline && snap.forceGateState == 0 &&
             snap.tick >= checkAt) {
             landing.forceEligibleTick = eligibleAt;
@@ -355,7 +355,7 @@ class JumpTracker {
             ResolveLanding(snap);
         } else if (snap.tick > deadline)
             PublishUnrated("Couldn't check the grip after landing.",
-                "FORCE CHECK UNAVAILABLE", snap.raceTime);
+                "COULDN'T CHECK GRIP", snap.raceTime);
     }
 
     // False when the clocks ran backwards (a rewind); start a new tracker then.

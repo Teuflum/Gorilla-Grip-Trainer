@@ -65,7 +65,7 @@ float StatBadgeFade(int age) {
 string ModeName(SlideMode mode) {
     if (mode == SlideMode::Left) return "LEFT";
     if (mode == SlideMode::Right) return "RIGHT";
-    return "NEUTRAL";
+    return "NONE";
 }
 
 vec4 ModeColor(SlideMode mode) {
@@ -97,28 +97,28 @@ void RenderWheelTile(float x, float y, float w, float h, float s,
 string ForceText(PhysicsSnapshot@ snap, bool held, bool rearOnly, int modeAge) {
     if (!snap.exact) return "FORCE --";
     if (!g_tracker.inFlight) {
-        if (held) return "FORCE HELD " + Text::Format("%.2fx", snap.force);
-        if (rearOnly) return "REAR ONLY";
+        if (held) return "FORCE LOCKED " + Text::Format("%.2fx", snap.force);
+        if (rearOnly) return "REAR WHEELS ONLY";
         return "FORCE " + Text::Format("%.2fx", snap.force);
     }
-    if (held) return "GAS HOLD";
-    if (modeAge < 0) return "NO MODE TIMER";
-    if (modeAge < snap.recoveryDelayMs) return "FORCE DELAY";
-    if (modeAge < 2 * snap.recoveryDelayMs) return "RECOVERY WINDOW";
-    return "WINDOW ELAPSED";
+    if (held) return "FORCE LOCKED";
+    if (modeAge < 0) return "NO DIRECTION";
+    if (modeAge < snap.recoveryDelayMs) return "FORCE DELAYED";
+    if (modeAge < 2 * snap.recoveryDelayMs) return "FORCE COMING BACK";
+    return "FULL FORCE READY";
 }
 
 string ForceExplanation(PhysicsSnapshot@ snap, bool held, bool rearOnly,
     int modeAge, bool readFailing) {
     if (readFailing) return "JUMPS NOT RATED | PLUGIN NEEDS UPDATE";
     if (!snap.exact) return "";
-    if (held) return "GAS OFF WHILE BACKWARDS | GAS RELEASES IT";
-    if (!g_tracker.inFlight && rearOnly) return "FORCE UPDATES ON FRONT WHEEL CONTACT";
-    if (modeAge < 0) return "MODE STARTS ON ELIGIBLE WHEEL CONTACT";
+    if (held) return "GAS OFF GOING BACKWARDS | PRESS GAS";
+    if (!g_tracker.inFlight && rearOnly) return "FORCE ONLY CHANGES ON THE FRONT WHEELS";
+    if (modeAge < 0) return "STEER ON THE GROUND TO SET A DIRECTION";
     if (g_tracker.inFlight)
-        return snap.recoveryDelayMs + " ms delay | " +
-            (2 * snap.recoveryDelayMs) + " ms max | check on landing";
-    return "FRONT WHEELS RAISE TIRE FORCE";
+        return "FORCE BACK " + snap.recoveryDelayMs + "-" +
+            (2 * snap.recoveryDelayMs) + " ms AFTER A SWITCH";
+    return "FRONT WHEELS ON THE GROUND ADD FORCE";
 }
 
 void RenderDiagnostics(const vec4 &in r, PhysicsSnapshot@ snap) {
@@ -131,11 +131,11 @@ void RenderDiagnostics(const vec4 &in r, PhysicsSnapshot@ snap) {
         Hud::Text(r.x + r.z*0.5f, r.y + r.w*0.5f, "NO CAR", 24*s, Hud::Label, center);
         return;
     }
-    Hud::Text(r.x + 20*s, r.y + 17*s, "SMOOTHED STEER", 10*s, Hud::Label, left);
+    Hud::Text(r.x + 20*s, r.y + 17*s, "STEERING", 10*s, Hud::Label, left);
     Hud::Text(r.x + 20*s, r.y + 42*s,
         snap.exact ? Text::Format("%+.1f%%", snap.smoothedSteer * 100.0f) : "--",
         28*s, Hud::White, left);
-    Hud::Text(r.x + r.z - 18*s, r.y + 17*s, "STORED SLIDE MODE", 10*s, Hud::Label, right);
+    Hud::Text(r.x + r.z - 18*s, r.y + 17*s, "SLIDE DIRECTION", 10*s, Hud::Label, right);
     Hud::Text(r.x + r.z - 18*s, r.y + 44*s, snap.exact ? ModeName(snap.mode) : "--",
         19*s, ModeColor(snap.mode), right);
     // Steering bar with the two direction gates.
@@ -148,8 +148,8 @@ void RenderDiagnostics(const vec4 &in r, PhysicsSnapshot@ snap) {
     if (snap.exact)
         Hud::Box(bx + bw*Math::Clamp((snap.smoothedSteer + 1)*0.5f, 0.0f, 1.0f) - 3*s,
             by - 5*s, 6*s, 25*s, 3*s, Hud::White);
-    Hud::Text(bx, by + 29*s, "LEFT GATE", 10*s, Hud::Magenta, left);
-    Hud::Text(bx + bw, by + 29*s, "RIGHT GATE", 10*s, Hud::Teal, right);
+    Hud::Text(bx, by + 29*s, "SETS LEFT", 10*s, Hud::Magenta, left);
+    Hud::Text(bx + bw, by + 29*s, "SETS RIGHT", 10*s, Hud::Teal, right);
 
     // Wheel grid in the car's layout; indices are the game's wheel order.
     array<string> names = {"FL", "FR", "RL", "RR"};
@@ -168,8 +168,8 @@ void RenderDiagnostics(const vec4 &in r, PhysicsSnapshot@ snap) {
 
     float cx = gridX + 2*tileW + 32*s;
     float cr = r.x + r.z - 18*s;
-    string phase = g_tracker.inFlight ? "AIR " +
-        Math::Max(0, snap.raceTime - g_tracker.flight.takeoffRace) + " ms" : "GROUND";
+    string phase = g_tracker.inFlight ? "IN AIR " +
+        Math::Max(0, snap.raceTime - g_tracker.flight.takeoffRace) + " ms" : "ON GROUND";
     Hud::Text(cx, r.y + 124*s, phase, 14*s, Hud::Bright, left);
     int modeAge = snap.ModeAgeMs();
     // The backwards-motion hold (gas released while moving backwards) pins
@@ -180,15 +180,15 @@ void RenderDiagnostics(const vec4 &in r, PhysicsSnapshot@ snap) {
     bool rearOnly = (snap.contactMask & 3) == 0 && (snap.contactMask & 12) != 0;
     Hud::Text(cr, r.y + 124*s, ForceText(snap, held, rearOnly, modeAge), 12*s, Hud::Gold, right);
     Hud::Text(cx, r.y + 150*s,
-        "ICE AVG " + Text::Format("%.0f%%", snap.meanIcing*100.0f), 11*s, Hud::Ice, left);
+        "ICY TIRES " + Text::Format("%.0f%%", snap.meanIcing*100.0f), 11*s, Hud::Ice, left);
     string detail;
-    if (!snap.exact) detail = "PHYSICS SAMPLE UNAVAILABLE";
-    else if (modeAge < 0) detail = "NO STORED SLIDE MODE";
-    else if (modeAge < 10000) detail = "MODE AGE " + modeAge + " ms";
-    else detail = "MODE AGE " + Text::Format("%.1f s", float(modeAge) / 1000.0f);
+    if (!snap.exact) detail = "NO PHYSICS READ";
+    else if (modeAge < 0) detail = "NO DIRECTION SET";
+    else if (modeAge < 10000) detail = "SET " + modeAge + " ms AGO";
+    else detail = "SET " + Text::Format("%.1f s AGO", float(modeAge) / 1000.0f);
     bool unverified = snap.exact && g_tracker.inFlight &&
         g_tracker.flight.unratedReason.Length > 0;
-    if (unverified) detail = "TIMING UNVERIFIED";
+    if (unverified) detail = "TIMING NOT EXACT";
     // Reads have never worked since the plugin loaded: a game update likely
     // changed a field the code checks missed.
     bool readFailing = !snap.exact && g_readMonitor.ReadFailing();

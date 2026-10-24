@@ -14,7 +14,7 @@ enum Grade {
 array<string> g_gradeNames = {"S+", "S", "A", "B", "C", "D", "MISSED", "UNRATED"};
 array<int> g_gradePoints = {180, 150, 120, 90, 60, 30, 0, 0};
 array<string> g_gradeCaptions = {"PERFECT GORILLA GRIP", "GORILLA GRIP", "CLEAN TIMING",
-    "SOLID TIMING", "GOOD SETUP", "EARLY SETUP", "GRIP MISSED", "TIMING UNVERIFIED"};
+    "SOLID TIMING", "GOOD SETUP", "EARLY SETUP", "GRIP MISSED", "TIMING NOT EXACT"};
 // How big the landing popup's effects get.
 array<float> g_gradePower = {1.0f, 0.8f, 0.55f, 0.4f, 0.3f, 0.2f, 0.5f, 0.0f};
 array<vec4> g_gradeColors = {

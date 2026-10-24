@@ -1,7 +1,6 @@
 class AudioDirector {
     Audio::Voice@ cueVoice;
     Audio::Voice@ resultVoice;
-    Cue resultCue = Cue::GradeS;
     Audio::Voice@ finishVoice;
     Audio::Voice@ previewVoice;
     Cue previewCue = Cue::Takeoff;
@@ -66,6 +65,7 @@ class AudioDirector {
     }
 
     // Follows the volume settings and restarts the finish music when it ends.
+    // The short takeoff and landing sounds keep the volume they started with.
     void UpdateSettings() {
         if (previewVoice !is null) previewVoice.SetGain(Gain(previewCue));
         if (!S_EnableAudio) {
@@ -73,8 +73,6 @@ class AudioDirector {
             StopResults();
             return;
         }
-        if (cueVoice !is null) cueVoice.SetGain(Gain(Cue::Takeoff));
-        if (resultVoice !is null) resultVoice.SetGain(Gain(resultCue));
         if (!S_SoundFinish) StopResults();
         if (finishVoice is null) return;
         finishVoice.SetGain(Gain(Cue::Finish));
@@ -108,7 +106,6 @@ class AudioDirector {
         StopTransient();
         Cue cue;
         if (!S_EnableAudio || !GradeCue(verdict.grade, cue) || !CueEnabled(cue)) return;
-        resultCue = cue;
         @resultVoice = Play(cue);
         DebugLog("Audio: landing " + GradeName(verdict.grade));
     }

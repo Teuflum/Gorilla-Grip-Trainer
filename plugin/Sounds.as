@@ -57,7 +57,6 @@ enum Cue {
 }
 
 array<string> g_cueFolders = {"takeoff", "S", "A", "B", "C", "D", "missed", "finish"};
-array<string> g_cueLabels = {"Takeoff", "S and S+", "A", "B", "C", "D", "Missed", "Finish"};
 // The cue's part of its S_Sound... and S_Volume... setting names.
 array<string> g_cueSettings = {"Takeoff", "S", "A", "B", "C", "D", "Missed", "Finish"};
 
@@ -196,7 +195,7 @@ void RenderSoundFolders() {
             UI::PushID(int(i));
             UI::TableNextRow();
             UI::TableNextColumn();
-            UI::Text(g_cueLabels[i]);
+            UI::Text(g_cueSwitches[i].Name);
             UI::TableNextColumn();
             uint count = g_soundCues[i].files.Length;
             UI::TextDisabled(g_cueFolders[i] + "/  " + count + (count == 1 ? " file" : " files"));

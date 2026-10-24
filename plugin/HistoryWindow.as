@@ -6,8 +6,6 @@ class HistoryView {
     bool clearArmed = false;
     string mapFilter = "";
     string selectedId = "";
-    int selectedJump = -1;
-    UI::Font@ font;
 }
 
 HistoryView g_historyView;
@@ -36,70 +34,8 @@ string HistoryLead(HistoryJump@ jump) {
     return jump.leadMs < 0 ? "--" : jump.leadMs + " ms";
 }
 
-UI::Font@ HistoryFont() {
-    if (g_historyView.font is null)
-        @g_historyView.font = UI::LoadFont("DroidSans-Bold.ttf", 22);
-    return g_historyView.font;
-}
-
 string Colored(const vec4 &in color, const string &in text) {
     return Text::FormatOpenplanetColor(vec3(color.x, color.y, color.z)) + text;
-}
-
-vec4 HistoryStatusColor(RunStatus status) {
-    return status == RunStatus::Finished ? Hud::Gold : Hud::Pink;
-}
-
-void RenderHistoryHeader(const string &in caption, const vec4 &in color = Hud::Label) {
-    UI::Dummy(vec2(0, 4));
-    UI::DrawList@ dl = UI::GetWindowDrawList();
-    vec2 pos = UI::GetCursorScreenPos();
-    dl.AddRectFilled(vec4(pos.x, pos.y + 1, 3, 16), Hud::Gold, 1.0f);
-    dl.AddText(vec2(pos.x + 10, pos.y), color, caption, HistoryFont(), 16);
-    UI::Dummy(vec2(0, 22));
-}
-
-void RenderHistoryTiles(const array<string> &in captions, const array<string> &in values,
-    const array<vec4> &in accents, const array<vec4> &in valueColors) {
-    UI::DrawList@ dl = UI::GetWindowDrawList();
-    vec2 origin = UI::GetCursorScreenPos();
-    float gap = 8.0f;
-    float height = 58.0f;
-    float width = (UI::GetContentRegionAvail().x - gap * float(captions.Length - 1)) /
-        float(captions.Length);
-    for (uint i = 0; i < captions.Length; i++) {
-        float x = origin.x + float(i) * (width + gap);
-        dl.AddRectFilled(vec4(x, origin.y, width, height),
-            Hud::Tile, 4.0f);
-        dl.AddRectFilled(vec4(x, origin.y, width, 3.0f), accents[i], 2.0f);
-        dl.AddText(vec2(x + 10, origin.y + 9), Hud::Label,
-            captions[i]);
-        dl.AddText(vec2(x + 10, origin.y + 26), valueColors[i], values[i],
-            HistoryFont(), 22);
-    }
-    UI::Dummy(vec2(0, height + 4));
-}
-
-void RenderAttemptTiles(RunRecord@ run) {
-    vec4 status = HistoryStatusColor(run.status);
-    array<string> captions = {"RESULT", "SCORE", "BEST COMBO", "HITS", "MISSES"};
-    array<string> values = {
-        run.status == RunStatus::Finished ? Time::Format(uint64(run.finishMs)) : "RESET",
-        "" + run.score, "x" + run.bestCombo, "" + run.hits, "" + run.misses};
-    array<vec4> accents = {status, Hud::Gold, Hud::Cyan, Hud::Teal, Hud::Pink};
-    array<vec4> valueColors = {status, Hud::Gold, Hud::Cyan, Hud::White, Hud::White};
-    RenderHistoryTiles(captions, values, accents, valueColors);
-}
-
-void RenderJumpTiles(HistoryJump@ jump) {
-    vec4 grade = GradeColor(GradeFromName(jump.label));
-    array<string> captions = {"GRADE", "LANDING", "LEAD", "POINTS", "COMBO"};
-    array<string> values = {jump.label, Time::Format(uint64(jump.landingMs)),
-        HistoryLead(jump),
-        "+" + jump.points, "x" + jump.combo};
-    array<vec4> accents = {grade, Hud::Label, Hud::Label, Hud::Gold, Hud::Cyan};
-    array<vec4> valueColors = {grade, Hud::White, Hud::White, Hud::Gold, Hud::Cyan};
-    RenderHistoryTiles(captions, values, accents, valueColors);
 }
 
 // Rated grades of one run in their HUD colours, e.g. "S+1 S4 A2  2 missed".
@@ -123,16 +59,8 @@ void RenderGradeTally(RunRecord@ run) {
     if (first) UI::TextDisabled("--");
 }
 
-void PushHistorySelectionColors() {
-    UI::PushStyleColor(UI::Col::Header, Hud::WithAlpha(Hud::Gold, 0.22f));
-    UI::PushStyleColor(UI::Col::HeaderHovered, Hud::WithAlpha(Hud::Gold, 0.12f));
-    UI::PushStyleColor(UI::Col::HeaderActive, Hud::WithAlpha(Hud::Gold, 0.30f));
-}
-
 void RenderHistoryAttempts() {
-    RenderHistoryHeader("ATTEMPTS");
-    PushHistorySelectionColors();
-    UI::BeginChild("attempts", vec2(0, 185), true);
+    UI::BeginChild("attempts", vec2(0, 220), true);
     if (UI::BeginTable("attemptTable", 5,
         UI::TableFlags::RowBg | UI::TableFlags::SizingStretchProp)) {
         UI::TableSetupColumn("Map", UI::TableColumnFlags::WidthStretch, 2.4f);
@@ -148,15 +76,14 @@ void RenderHistoryAttempts() {
             UI::TableNextColumn();
             if (UI::Selectable(run.mapName + "##" + run.id,
                 g_historyView.selectedId == run.id,
-                UI::SelectableFlags::SpanAllColumns)) {
+                UI::SelectableFlags::SpanAllColumns))
                 g_historyView.selectedId = run.id;
-                g_historyView.selectedJump = -1;
-            }
             UI::TableNextColumn();
             UI::Text(Time::FormatString("%Y-%m-%d %H:%M", run.startedAt / 1000));
             UI::TableNextColumn();
-            UI::Text(Colored(HistoryStatusColor(run.status), run.status == RunStatus::Finished ?
-                "FINISHED " + Time::Format(uint64(run.finishMs)) : "RESET"));
+            if (run.status == RunStatus::Finished)
+                UI::Text(Colored(Hud::Gold, "FINISHED " + Time::Format(uint64(run.finishMs))));
+            else UI::Text(Colored(Hud::Pink, "RESET"));
             UI::TableNextColumn();
             UI::Text("" + run.score);
             UI::TableNextColumn();
@@ -165,15 +92,25 @@ void RenderHistoryAttempts() {
         UI::EndTable();
     }
     UI::EndChild();
-    UI::PopStyleColor(3);
+}
+
+// The reason, and the takeoff grade when the landing changed it.
+string JumpDetail(HistoryJump@ jump) {
+    string detail = jump.reason;
+    if (jump.preview.Length > 0 && jump.preview != jump.label)
+        detail += "\nTakeoff " + jump.preview;
+    if (jump.scoreAfter >= 0) detail += "\nScore after landing " + jump.scoreAfter;
+    return detail;
 }
 
 void RenderHistoryJumps(RunRecord@ selected) {
-    RenderHistoryHeader("JUMPS  " + selected.jumps.Length);
-    PushHistorySelectionColors();
-    UI::BeginChild("jumps", vec2(0, 220), true);
-    if (selected.jumps.Length == 0) UI::Text("No rated jumps in this run.");
-    else if (UI::BeginTable("jumpTable", 6,
+    UI::SeparatorText(selected.mapName + " - " + selected.jumps.Length + " jumps");
+    if (selected.jumps.Length == 0) {
+        UI::Text("No rated jumps in this run.");
+        return;
+    }
+    UI::BeginChild("jumps", vec2(0, 260), true);
+    if (UI::BeginTable("jumpTable", 6,
         UI::TableFlags::RowBg | UI::TableFlags::SizingStretchProp)) {
         UI::TableSetupColumn("#", UI::TableColumnFlags::WidthStretch, 0.4f);
         UI::TableSetupColumn("Grade", UI::TableColumnFlags::WidthStretch, 0.8f);
@@ -186,10 +123,8 @@ void RenderHistoryJumps(RunRecord@ selected) {
             HistoryJump@ jump = selected.jumps[j];
             UI::TableNextRow();
             UI::TableNextColumn();
-            if (UI::Selectable("" + (j + 1) + "##jump" + j,
-                g_historyView.selectedJump == int(j),
-                UI::SelectableFlags::SpanAllColumns))
-                g_historyView.selectedJump = int(j);
+            UI::Selectable("" + (j + 1) + "##jump" + j, false, UI::SelectableFlags::SpanAllColumns);
+            if (UI::IsItemHovered()) UI::SetTooltip(JumpDetail(jump));
             UI::TableNextColumn();
             UI::Text(Colored(GradeColor(GradeFromName(jump.label)), jump.label));
             UI::TableNextColumn();
@@ -204,58 +139,24 @@ void RenderHistoryJumps(RunRecord@ selected) {
         UI::EndTable();
     }
     UI::EndChild();
-    UI::PopStyleColor(3);
-    if (g_historyView.selectedJump < 0 ||
-        g_historyView.selectedJump >= int(selected.jumps.Length)) return;
-    HistoryJump@ jump = selected.jumps[uint(g_historyView.selectedJump)];
-    RenderHistoryHeader("JUMP " + (g_historyView.selectedJump + 1));
-    RenderJumpTiles(jump);
-    string detail = jump.reason;
-    // Only mention the takeoff grade when the landing changed it.
-    if (jump.preview.Length > 0 && jump.preview != jump.label)
-        detail += "  |  Takeoff " + jump.preview;
-    if (jump.scoreAfter >= 0) detail += "  |  Score after landing " + jump.scoreAfter;
-    UI::TextWrapped(Colored(Hud::Label, detail));
 }
 
 void RenderHistoryClear() {
-    UI::Dummy(vec2(0, 6));
     if (!g_historyView.clearArmed) {
         if (UI::Button("Clear local history...")) g_historyView.clearArmed = true;
-    } else {
-        UI::Text("This removes saved attempts from this computer.");
-        if (UI::Button("Confirm clear all attempts")) {
-            g_history.Clear();
-            g_historyView.selectedId = "";
-            g_historyView.selectedJump = -1;
-            g_historyView.clearArmed = false;
-        }
-        UI::SameLine();
-        if (UI::Button("Cancel")) g_historyView.clearArmed = false;
+        return;
     }
+    UI::Text("This removes saved attempts from this computer.");
+    if (UI::Button("Confirm clear all attempts")) {
+        g_history.Clear();
+        g_historyView.selectedId = "";
+        g_historyView.clearArmed = false;
+    }
+    UI::SameLine();
+    if (UI::Button("Cancel")) g_historyView.clearArmed = false;
 }
 
-void RenderHistoryWindow() {
-    if (!g_historyView.visible) return;
-    bool open = true;
-    UI::SetNextWindowSize(850, 640, UI::Cond::FirstUseEver);
-    UI::PushStyleColor(UI::Col::WindowBg, vec4(0.025f, 0.039f, 0.09f, 0.97f));
-    UI::PushStyleColor(UI::Col::ChildBg, vec4(0.035f, 0.065f, 0.13f, 0.88f));
-    UI::PushStyleColor(UI::Col::TableHeaderBg, vec4(0.08f, 0.12f, 0.21f, 1.0f));
-    bool shown = UI::Begin("Gorilla Grip Trainer - Run History", open);
-    g_historyView.visible = open;
-    if (!shown) {
-        UI::End();
-        UI::PopStyleColor(3);
-        return;
-    }
-    if (g_history is null) {
-        UI::Text("History is not ready.");
-        UI::End();
-        UI::PopStyleColor(3);
-        return;
-    }
-    RenderHistoryHeader("GORILLA GRIP  /  RUN HISTORY", Hud::Gold);
+void RenderHistoryContents() {
     UI::Text("" + g_history.runs.Length + " saved attempts");
     UI::SetNextItemWidth(250);
     g_historyView.mapFilter = UI::InputText("Map name or UID", g_historyView.mapFilter);
@@ -265,18 +166,20 @@ void RenderHistoryWindow() {
     g_historyView.showResets = UI::Checkbox("Resets", g_historyView.showResets);
     RenderHistoryAttempts();
     RunRecord@ selected = SelectedHistoryRun();
-    if (selected is null) UI::Text("Select an attempt to inspect its jumps.");
-    else {
-        RenderHistoryHeader("SELECTED ATTEMPT");
-        UI::Font@ nameFont = HistoryFont();
-        if (nameFont !is null) UI::PushFont(nameFont);
-        UI::TextWrapped(Colored(Hud::Gold, selected.mapName));
-        if (nameFont !is null) UI::PopFont();
-        UI::TextDisabled(Time::FormatString("%Y-%m-%d %H:%M", selected.startedAt / 1000));
-        RenderAttemptTiles(selected);
-        RenderHistoryJumps(selected);
-    }
+    if (selected is null) UI::Text("Select an attempt to see its jumps.");
+    else RenderHistoryJumps(selected);
+    UI::Separator();
     RenderHistoryClear();
+}
+
+void RenderHistoryWindow() {
+    if (!g_historyView.visible) return;
+    bool open = true;
+    UI::SetNextWindowSize(850, 640, UI::Cond::FirstUseEver);
+    if (UI::Begin("Gorilla Grip Trainer - Run History", open)) {
+        if (g_history is null) UI::Text("History is not ready.");
+        else RenderHistoryContents();
+    }
     UI::End();
-    UI::PopStyleColor(3);
+    g_historyView.visible = open;
 }

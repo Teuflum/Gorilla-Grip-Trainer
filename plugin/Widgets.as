@@ -1,18 +1,22 @@
 int g_hudFont = -1;
-// The landing result on the Grade widget, from the race time it appeared.
+// The landing result on the Grade widget, or a Popup-tab preview of one.
 class ShownResult {
     Grade grade;
     string caption;
-    int at;
+    uint64 shownAt = Time::Now;
+    // A preview plays even with widgets off or outside a run.
+    bool preview = false;
+
+    int Age() { return int(Time::Now - shownAt); }
 }
 
 // A landing's change to the Stats widget, for its count-up, pulse and badges.
 class StatChange {
     int at;
-    int scoreBefore;
-    int comboBefore;
-    int bestBefore;
     int earned;
+    bool comboGained;
+    bool comboBroken;
+    bool newBest;
 }
 
 ShownResult@ g_result;
@@ -22,28 +26,26 @@ void InitWidgets() {
     g_hudFont = nvg::LoadFont("DroidSans-Bold.ttf");
 }
 
-void ShowResult(JumpVerdict@ verdict, int raceTime) {
+void ShowResult(JumpVerdict@ verdict) {
     if (verdict is null) return;
-    StopPopupPreview();
     @g_result = ShownResult();
     g_result.grade = verdict.grade;
     g_result.caption = verdict.caption.Length > 0 ? verdict.caption : GradeCaption(verdict.grade);
-    g_result.at = raceTime;
 }
 
 void ClearResult() {
     @g_result = null;
 }
 
-void ShowStatChange(JumpVerdict@ verdict, int raceTime,
-    int scoreBefore, int comboBefore, int bestBefore) {
+// Called after the session applied the verdict.
+void ShowStatChange(JumpVerdict@ verdict, int raceTime, int comboBefore, int bestBefore) {
     if (verdict is null || !verdict.exact) return;
     @g_statChange = StatChange();
     g_statChange.at = raceTime;
-    g_statChange.scoreBefore = scoreBefore;
-    g_statChange.comboBefore = comboBefore;
-    g_statChange.bestBefore = bestBefore;
     g_statChange.earned = verdict.points;
+    g_statChange.comboGained = g_session.combo > comboBefore;
+    g_statChange.comboBroken = comboBefore > 0 && g_session.combo == 0;
+    g_statChange.newBest = g_session.bestCombo > bestBefore;
 }
 
 void ClearStatChange() {
@@ -229,11 +231,9 @@ void RenderStats(const vec4 &in r, StatChange@ change, int statAge) {
     bool earned = changed && change.earned > 0;
     float scorePulse = earned ? pulse : 0.0f;
     int shownScore = g_session.score;
-    if (earned && statAge < 500) {
-        float remaining = 1.0f - float(statAge) / 500.0f;
-        float eased = 1.0f - remaining*remaining*remaining;
-        shownScore = change.scoreBefore + int(float(change.earned)*eased + 0.5f);
-    }
+    if (earned && statAge < 500)
+        shownScore -= change.earned -
+            int(float(change.earned)*EaseOutCubic(float(statAge) / 500.0f) + 0.5f);
     Hud::Text(r.x + 18*s, r.y + 22*s, "SCORE", 14*s, Hud::Label, left);
     if (earned && fade > 0.0f)
         Hud::Text(r.x + r.z - 18*s, r.y + 22*s, "+" + change.earned, 13*s,
@@ -244,8 +244,8 @@ void RenderStats(const vec4 &in r, StatChange@ change, int statAge) {
     Hud::Box(r.x + 18*s, r.y + 96*s, r.z - 36*s, Math::Max(1.0f, s), 0, Hud::Line);
 
     float rowY = r.y + 123*s;
-    bool comboGained = changed && g_session.combo > change.comboBefore;
-    bool comboBroken = changed && change.comboBefore > 0 && g_session.combo == 0;
+    bool comboGained = changed && change.comboGained;
+    bool comboBroken = changed && change.comboBroken;
     float comboPulse = comboGained || comboBroken ? pulse : 0.0f;
     vec4 comboColor = comboBroken && fade > 0.0f ? Hud::Pink : Hud::Gold;
     Hud::Text(r.x + 18*s, rowY, "COMBO", 13*s, Hud::Label, left);
@@ -260,7 +260,7 @@ void RenderStats(const vec4 &in r, StatChange@ change, int statAge) {
             Hud::WithAlpha(comboColor, fade), left);
     }
 
-    bool newBest = changed && g_session.bestCombo > change.bestBefore;
+    bool newBest = changed && change.newBest;
     float bestPulse = newBest ? pulse : 0.0f;
     string best = "x" + g_session.bestCombo;
     float bestSize = 22*s*(1.0f + 0.16f*bestPulse);
@@ -321,52 +321,44 @@ void RenderLast(const vec4 &in r, RunRecord@ last) {
 }
 
 bool ShouldRenderWidget(WidgetLayout@ layout) {
-    return layout !is null && layout.Visible() &&
+    return layout.Visible() &&
         (UI::IsGameUIVisible() || S_ShowWhenGameHudOff || g_layoutEditing);
+}
+
+void RenderShownResult(const vec4 &in r) {
+    RenderResult(r, g_result.Age(), g_result.grade, g_result.caption, uint(g_result.shownAt));
 }
 
 void RenderWidgets() {
     if (g_hudFont >= 0) nvg::FontFace(g_hudFont);
-    int previewAge = PopupPreviewAge();
-    if (S_EnableWidgets) RenderWidgetCards(previewAge);
+    bool previewing = g_result !is null && g_result.preview && g_result.Age() < 1000;
+    if (S_EnableWidgets) RenderWidgetCards(previewing);
     // A Popup-tab preview plays on top, even with widgets off or outside a run.
-    if (previewAge >= 0) {
-        WidgetLayout@ grade = GetLayout("grade");
-        if (grade !is null)
-            RenderResult(grade.Pixels(), previewAge, g_popupPreviewGrade,
-                GradeCaption(g_popupPreviewGrade), PopupPreviewSeed(g_popupPreviewGrade));
-    }
+    if (previewing) RenderShownResult(g_gradeLayout.Pixels());
 }
 
-void RenderWidgetCards(int previewAge) {
-    WidgetLayout@ layout = GetLayout("finish");
+void RenderWidgetCards(bool previewing) {
     if (g_finish !is null && g_finish.visible &&
-        g_finish.summary !is null && ShouldRenderWidget(layout))
-        RenderFinishSummary(layout.Pixels(), g_finish.summary);
+        g_finish.summary !is null && ShouldRenderWidget(g_finishLayout))
+        RenderFinishSummary(g_finishLayout.Pixels(), g_finish.summary);
     if (g_snapshot is null) return;
-    @layout = GetLayout("diagnostics");
-    if (ShouldRenderWidget(layout))
-        RenderDiagnostics(layout.Pixels(), g_snapshot);
-    @layout = GetLayout("grade");
-    if (previewAge < 0 && ShouldRenderWidget(layout)) {
+    if (ShouldRenderWidget(g_physicsLayout))
+        RenderDiagnostics(g_physicsLayout.Pixels(), g_snapshot);
+    if (!previewing && ShouldRenderWidget(g_gradeLayout)) {
+        vec4 r = g_gradeLayout.Pixels();
         JumpPreview@ p = (g_tracker.inFlight || g_tracker.pendingLanding) &&
             g_tracker.flight.previewPublished ? g_tracker.flight.preview : null;
-        int age = g_result is null ? -1 : g_snapshot.raceTime - g_result.at;
-        bool active = age >= 0 && age < 1000;
         if (p !is null && !g_layoutEditing)
-            RenderGradePreview(layout.Pixels(), p);
-        else if (active)
-            RenderResult(layout.Pixels(), age, g_result.grade, g_result.caption,
-                uint(g_result.at) + 1);
+            RenderGradePreview(r, p);
+        else if (g_result !is null && g_result.Age() < 1000)
+            RenderShownResult(r);
         else if (g_layoutEditing)
-            RenderResult(layout.Pixels(), 450, Grade::S, GradeCaption(Grade::S), 1);
+            RenderResult(r, 450, Grade::S, GradeCaption(Grade::S), 1);
     }
-    @layout = GetLayout("stats");
-    if (ShouldRenderWidget(layout)) {
+    if (ShouldRenderWidget(g_statsLayout)) {
         int statAge = g_statChange is null ? -1 : g_snapshot.raceTime - g_statChange.at;
-        RenderStats(layout.Pixels(), g_statChange, statAge);
+        RenderStats(g_statsLayout.Pixels(), g_statChange, statAge);
     }
-    @layout = GetLayout("last");
-    if (ShouldRenderWidget(layout))
-        RenderLast(layout.Pixels(), LastRatedRun());
+    if (ShouldRenderWidget(g_lastLayout))
+        RenderLast(g_lastLayout.Pixels(), LastRatedRun());
 }

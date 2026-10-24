@@ -12,31 +12,11 @@ float EaseOutBack(float x) {
     return 1.0f + 2.9f*m*m*m + 1.9f*m*m;
 }
 
-// A Popup-tab preview runs on its own clock for one second.
-Grade g_popupPreviewGrade = Grade::None;
-uint64 g_popupPreviewStart = 0;
-
 void StartPopupPreview(Grade grade) {
-    g_popupPreviewGrade = grade;
-    g_popupPreviewStart = Time::Now;
-}
-
-void StopPopupPreview() {
-    g_popupPreviewGrade = Grade::None;
-}
-
-int PopupPreviewAge() {
-    if (g_popupPreviewGrade == Grade::None) return -1;
-    uint64 elapsed = Time::Now - g_popupPreviewStart;
-    if (elapsed >= 1000) {
-        StopPopupPreview();
-        return -1;
-    }
-    return int(elapsed);
-}
-
-uint PopupPreviewSeed(Grade grade) {
-    return uint(7919*(int(grade) + 2));
+    @g_result = ShownResult();
+    g_result.grade = grade;
+    g_result.caption = GradeCaption(grade);
+    g_result.preview = true;
 }
 
 class PopupFrame {

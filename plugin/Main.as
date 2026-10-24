@@ -86,7 +86,6 @@ void Main() {
     InitLayout();
     InitWidgets();
     InitPictures();
-    DebugLog("Physics offsets: " + Physics::Describe());
 }
 
 void OnSettingsChanged() {
@@ -213,13 +212,12 @@ void RateFrame(CSceneVehicleVisState@ vis, int t) {
 }
 
 void ApplyVerdict(JumpVerdict@ v, PhysicsSnapshot@ next, int t) {
-    int scoreBefore = g_session.score;
     int comboBefore = g_session.combo;
     int bestBefore = g_session.bestCombo;
     g_session.Apply(v);
-    ShowStatChange(v, t, scoreBefore, comboBefore, bestBefore);
+    ShowStatChange(v, t, comboBefore, bestBefore);
     g_activeRun.Record(v, g_session, g_tracker.flight.preview);
-    ShowResult(v, t);
+    ShowResult(v);
     g_audio.OnVerdict(v);
     DebugLog("Verdict at " + t + "ms: " + GradeName(v.grade) +
         " | " + v.reason + " | force " + next.force +

@@ -53,7 +53,7 @@ With **Log trainer events** on (Debug tab, developer mode), a direction switch t
 
 | Widget | Shows |
 | --- | --- |
-| Physics | Steering, stored slide direction, each wheel's contact and icing, tire force, recovery timer. Hidden by default; turn it on under **Layout → Physics → Show**. |
+| Physics | Steering, stored slide direction, each wheel's contact and icing, tire force, recovery timer. Hidden by default; turn it on with **Layout → Show Physics**. |
 | Grade | The takeoff preview, then the animated landing result |
 | Stats | Score, combo and best combo |
 | Last run | Your latest rated attempt on this map |
@@ -69,7 +69,7 @@ Open **Settings → Gorilla Grip Trainer → Layout** to drag and resize them.
 | Rating | Grade limits and which jumps count (icing, speed, flight time) |
 | Sounds | Sound folders, and an on/off switch and volume per cue |
 | Popup | Pictures beside the landing grade |
-| Layout | Widget positions and sizes |
+| Layout | Which widgets show, and their positions and sizes |
 | Debug | Event logging; only in Openplanet's developer mode |
 
 ## Landing popup
@@ -95,7 +95,7 @@ Put WAV, OGG or MP3 files into them and click **Reload files**. When a folder ho
 
 ## Run history
 
-**Plugins → Gorilla Grip Trainer → Run history** (or **VIEW HISTORY** on the finish summary) lists your attempts with their jumps, filtered by map and status. Selecting a jump shows its timing, preview, score and reason. The last 500 attempts are kept locally in `PluginStorage/GorillaGripTrainer/history.json`, with `history.backup.json` as a fallback.
+**Plugins → Gorilla Grip Trainer → Run history** lists your attempts, filtered by map and status. Selecting an attempt lists its jumps; hovering over a jump shows its reason, its takeoff grade when the landing changed it, and the score after it. The last 500 attempts are kept locally in `PluginStorage/GorillaGripTrainer/history.json`, with `history.backup.json` as a fallback.
 
 ## Development
 

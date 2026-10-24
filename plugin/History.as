@@ -16,7 +16,6 @@ class HistoryJump {
     string preview;
     string label;
     string reason;
-    int takeoffMs;
     int landingMs;
     int leadMs;
     int combo;
@@ -30,7 +29,6 @@ class HistoryJump {
         preview = timingPreview is null ? "" : GradeName(timingPreview.grade);
         label = GradeName(verdict.grade);
         reason = verdict.reason;
-        takeoffMs = verdict.takeoffTime;
         landingMs = verdict.landingTime;
         leadMs = verdict.leadMs;
         combo = currentCombo;
@@ -43,7 +41,6 @@ class HistoryJump {
         value["preview"] = preview;
         value["label"] = label;
         value["reason"] = reason;
-        value["takeoffMs"] = takeoffMs;
         value["landingMs"] = landingMs;
         value["leadMs"] = leadMs;
         value["combo"] = combo;
@@ -56,7 +53,6 @@ class HistoryJump {
         preview = string(value["preview"]);
         label = string(value["label"]);
         reason = string(value["reason"]);
-        takeoffMs = int(value["takeoffMs"]);
         landingMs = int(value["landingMs"]);
         leadMs = int(value["leadMs"]);
         combo = int(value["combo"]);

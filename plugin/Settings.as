@@ -126,7 +126,6 @@ class TraceLog {
                 ", clock " + next.tick + ", delay " + next.recoveryDelayMs +
                 ", force " + Text::Format("%.3f", next.force) +
                 ", gate " + next.forceGateState +
-                ", materials " + next.materials +
                 ", icing " + Text::Format("%.0f", next.icingFL * 100.0f) + "/" +
                 Text::Format("%.0f", next.icingFR * 100.0f) + "/" +
                 Text::Format("%.0f", next.icingRR * 100.0f) + "/" +

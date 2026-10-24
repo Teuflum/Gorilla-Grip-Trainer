@@ -27,8 +27,6 @@ class PhysicsSnapshot {
     float icingFR = 0.0f;
     float icingRR = 0.0f;
     float icingRL = 0.0f;
-    // Ground material under each wheel in the game's wheel order (FL FR RR RL).
-    string materials = "";
     float speedKmh = 0.0f;
     // Angle between the car's heading and its horizontal velocity.
     float slipDeg = 0.0f;
@@ -268,21 +266,6 @@ namespace Physics {
         return true;
     }
 
-    string Hex(uint value) { return Text::Format("0x%x", value); }
-
-    string Describe() {
-        Layout@ l = g_layout;
-        return "model " + Hex(l.model) + ", wheel count " + Hex(l.wheelCount) +
-            ", raw " + Hex(l.rawSteer) + ", smoothed " + Hex(l.smoothedSteer) +
-            ", gate " + Hex(l.forceGate) + ", modeAt " + Hex(l.modeAt) +
-            ", force " + Hex(l.force) + ", neutralAt " + Hex(l.neutralAt) +
-            ", mode " + Hex(l.mode) + ", contact clock " + Hex(l.contactClock) +
-            ", wheels " + Hex(l.wheels) + " + " + Hex(l.wheelStride) + " * i" +
-            ", delay " + Hex(l.recoveryDelay) + ", timeout " + Hex(l.neutralTimeout) +
-            ", vehicle " + Hex(l.vehicle) + ", position " + Hex(l.position) +
-            ", physics clock " + Hex(l.physicsClock) + ", wheel stamp " + Hex(l.wheelChangedAt);
-    }
-
     // The frame clock (PlaygroundClientScriptAPI.GameTime), or -1.
     int FrameClock() {
         auto app = GetApp();
@@ -316,12 +299,6 @@ namespace Physics {
         snap.icingRR = vis.RRIcing01;
         snap.icingRL = vis.RLIcing01;
         snap.meanIcing = (snap.icingFL + snap.icingFR + snap.icingRR + snap.icingRL) * 0.25f;
-        // Only the debug log shows the materials.
-        if (DebugLoggingOn())
-            snap.materials = tostring(vis.FLGroundContactMaterial) + "/" +
-                tostring(vis.FRGroundContactMaterial) + "/" +
-                tostring(vis.RRGroundContactMaterial) + "/" +
-                tostring(vis.RLGroundContactMaterial);
         snap.speedKmh = vis.WorldVel.Length() * 3.6f;
         float forward = vis.WorldVel.x * vis.Dir.x + vis.WorldVel.z * vis.Dir.z;
         float side = vis.WorldVel.x * vis.Dir.z - vis.WorldVel.z * vis.Dir.x;

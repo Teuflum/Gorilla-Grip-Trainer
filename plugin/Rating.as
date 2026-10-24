@@ -91,7 +91,6 @@ int EstimateReversal(PhysicsSnapshot@ before, PhysicsSnapshot@ after) {
 class JumpPreview {
     Grade grade = Grade::None;
     int leadMs = -1;
-    int modeAt = -1;
 }
 
 // One flight, from the takeoff that started it.
@@ -111,9 +110,6 @@ class Flight {
     // Why this flight's timing cannot be rated, and the HUD caption.
     string unratedReason = "";
     string unratedCaption = "";
-    // Filters an ineligible takeoff failed; logged only if the flight is long
-    // enough to be a jump, not a wheel flickering on the ground.
-    string pendingSkip = "";
 }
 
 // The check of one landing, from its touchdown.
@@ -145,8 +141,6 @@ class JumpTracker {
     bool takeoffCueEvent = false;
     bool inFlight = false;
     bool pendingLanding = false;
-    // Switch already logged as a too-short flight, so a hop is named once.
-    int shortSkipSwitchAt = -1;
     int switchAt = -1;
     SlideMode switchOldMode = SlideMode::Neutral;
     SlideMode switchNewMode = SlideMode::Neutral;
@@ -196,15 +190,7 @@ class JumpTracker {
             lastSlideTick >= 0 && flight.takeoffTick - lastSlideTick <= SLIDE_WINDOW_MS &&
             previous.meanIcing >= S_MinIcing &&
             previous.speedKmh >= float(S_MinSpeed);
-        if (!flight.eligible) {
-            // Name the filters that dropped a switch or a late reversal, so
-            // their limits can be checked against real jumps.
-            bool switched = attempted && switchOldMode != SlideMode::Neutral &&
-                switchOldMode != flight.takeoffMode;
-            if (switched || flight.reversalLeadMs >= 0)
-                flight.pendingSkip = EligibilityMisses(switched ? flight.takeoffTick - switchAt : -1);
-            return;
-        }
+        if (!flight.eligible) return;
         if (!exactTakeoff) {
             flight.uncertain = true;
             if (attempted) MarkUnrated("Contact timestamps were inconsistent at takeoff",
@@ -219,7 +205,6 @@ class JumpTracker {
         @flight.preview = JumpPreview();
         flight.preview.grade = grade;
         flight.preview.leadMs = lead;
-        flight.preview.modeAt = switchAt;
     }
 
     void Land(PhysicsSnapshot@ snap) {
@@ -237,46 +222,13 @@ class JumpTracker {
         DebugLog("Landing at " + landing.race + "ms: takeoff mode " + flight.takeoffMode +
             ", stored mode " + snap.mode);
         landing.touchLifted = snap.contactMask == 0;
-        int flightMs = landing.race - flight.takeoffRace;
-        bool longFlight = flightMs >= S_MinFlight;
-        pendingLanding = flight.eligible && !flight.uncertain && longFlight;
-        if (flight.pendingSkip.Length > 0 && longFlight) NoteSkipped(flight.pendingSkip);
-        flight.pendingSkip = "";
-        JumpPreview@ preview = flight.preview;
-        if (flight.eligible && !flight.uncertain && !longFlight && preview !is null &&
-            preview.modeAt != shortSkipSwitchAt) {
-            shortSkipSwitchAt = preview.modeAt;
-            NoteSkipped("lead " + preview.leadMs + "ms | flight " + flightMs +
-                "ms below " + S_MinFlight + "ms");
-        }
+        pendingLanding = flight.eligible && !flight.uncertain &&
+            landing.race - flight.takeoffRace >= S_MinFlight;
         if (flight.uncertain && flight.unratedReason.Length > 0)
             PublishUnrated(flight.unratedReason, flight.unratedCaption, landing.race);
         else if (flight.uncertain && flight.previewPublished)
             PublishUnrated("Exact contact timing was lost during flight",
                 "CONTACT TIMING LOST", landing.race);
-    }
-
-    // The rating filters this takeoff failed, with the values they saw.
-    string EligibilityMisses(int leadMs) {
-        string misses = leadMs >= 0 ? "lead " + leadMs + "ms" :
-            "steering reversed " + flight.reversalLeadMs + "ms before takeoff";
-        if (flight.takeoffMode == SlideMode::Neutral) misses += " | no stored direction";
-        if (lastSlideTick < 0 || flight.takeoffTick - lastSlideTick > SLIDE_WINDOW_MS)
-            misses += " | no slip of " + Text::Format("%.0f", MIN_SLIDE_SLIP_DEG) +
-                " deg in the last " + SLIDE_WINDOW_MS + "ms (" +
-                Text::Format("%.0f", previous.slipDeg) + " deg at takeoff)";
-        if (previous.meanIcing < S_MinIcing)
-            misses += " | icing " + Text::Format("%.2f", previous.meanIcing) +
-                " below " + Text::Format("%.2f", S_MinIcing);
-        if (previous.speedKmh < float(S_MinSpeed))
-            misses += " | speed " + Text::Format("%.0f", previous.speedKmh) +
-                " below " + S_MinSpeed + " km/h";
-        return misses;
-    }
-
-    void NoteSkipped(const string &in reason) {
-        DebugLog("Jump skipped by the rating filters: takeoff " + flight.takeoffRace +
-            "ms | " + reason);
     }
 
     void MarkUnrated(const string &in reason, const string &in caption, int raceTime) {
@@ -316,14 +268,6 @@ class JumpTracker {
         // target (light steering, low speed), not a delayed grip.
         bool recovered = enoughIcing && !switchedByCheck &&
             landing.forceEligibleTick - flight.takeoffModeAt >= flight.recoveryDelayMs;
-        // Only a front wheel down since eligibility ramps the force; one that
-        // bounced and came back later has not ramped it yet.
-        int frontSince = ContactStart(snap, FRONT_WHEELS, landing.tick - 1);
-        if (preview !is null && recovered && !landing.firstChangeSeen && snap.force <= 1.001f &&
-            frontSince >= 0 && frontSince <= landing.forceEligibleTick)
-            DebugLog("Force did not rise although the direction held at " + snap.raceTime +
-                "ms: force " + Text::Format("%.3f", snap.force) + ", gate " + snap.forceGateState +
-                ", steer " + Text::Format("%.3f", snap.smoothedSteer));
         // A scrape in flight counts as ground contact and can store the new
         // direction before the real landing; name it instead of a generic miss.
         bool touchSwitched = landing.touchLifted && switchedByCheck;
@@ -354,13 +298,7 @@ class JumpTracker {
             else if (oppositeLanding)
                 verdict.reason = "Opposite landing direction with delayed tire force";
             else verdict.reason = "Direction switched after the landing with delayed tire force";
-        } else {
-            DebugLog("Landing resolved without verdict at " + snap.raceTime +
-                "ms: takeoff mode " + flight.takeoffMode + ", stored mode " + snap.mode +
-                ", force " + Text::Format("%.3f", snap.force) +
-                ", gate " + snap.forceGateState);
-            return;
-        }
+        } else return;
         verdict.takeoffTime = flight.takeoffRace;
         verdict.landingTime = landing.race;
         verdict.exact = true;

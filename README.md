@@ -53,13 +53,13 @@ With **Log trainer events** on (Debug tab, developer mode), a direction switch t
 
 | Widget | Shows |
 | --- | --- |
-| Physics | Steering, stored slide direction, each wheel's contact and icing, tire force, recovery timer. Hidden by default; turn it on with **Layout → Show Physics**. |
+| Physics | Steering, stored slide direction, each wheel's contact and icing, tire force, recovery timer. Hidden by default; turn it on under **Layout**. |
 | Grade | The takeoff preview, then the animated landing result |
 | Stats | Score, combo and best combo |
 | Last run | Your latest rated attempt on this map |
-| Finish summary | After a finish: time, score, best combo, grade counts, misses, best and median switch lead |
+| Finish | After a finish: time, score, best combo, grade counts, misses, best and median switch lead |
 
-Open **Settings → Gorilla Grip Trainer → Layout** to drag and resize them.
+Open **Settings → Gorilla Grip Trainer → Layout** to drag and resize them, or type in their position and size.
 
 ## Settings
 

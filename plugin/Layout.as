@@ -1,14 +1,14 @@
 // Widget rectangles as screen fractions: x, y, width, height.
 [Setting hidden] vec4 S_DiagnosticsRect = vec4(0.030f, 0.029f, 0.258f, 0.181f);
-[Setting hidden name="Show Physics"] [SettingAlias key="S_DiagVisible"] bool S_DiagnosticsVisible = false;
+[Setting hidden] [SettingAlias key="S_DiagVisible"] bool S_DiagnosticsVisible = false;
 [Setting hidden] vec4 S_GradeRect = vec4(0.379f, 0.800f, 0.240f, 0.109f);
-[Setting hidden name="Show Grade"] [SettingAlias key="S_ResultVisible"] bool S_GradeVisible = true;
+[Setting hidden] [SettingAlias key="S_ResultVisible"] bool S_GradeVisible = true;
 [Setting hidden] vec4 S_StatsRect = vec4(0.030f, 0.701f, 0.160f, 0.130f);
-[Setting hidden name="Show Stats"] bool S_StatsVisible = true;
+[Setting hidden] bool S_StatsVisible = true;
 [Setting hidden] vec4 S_LastRect = vec4(0.030f, 0.839f, 0.210f, 0.094f);
-[Setting hidden name="Show Last run"] bool S_LastVisible = true;
+[Setting hidden] bool S_LastVisible = true;
 [Setting hidden] vec4 S_FinishRect = vec4(0.670f, 0.029f, 0.330f, 0.329f);
-[Setting hidden name="Show Finish summary"] bool S_FinishVisible = true;
+[Setting hidden] bool S_FinishVisible = true;
 
 vec4 ClampRect(const vec4 &in r) {
     float w = Math::Clamp(r.z, 0.08f, 0.90f);
@@ -67,7 +67,7 @@ void InitLayout() {
     @g_gradeLayout = AddLayout("Grade", "S_Grade");
     @g_statsLayout = AddLayout("Stats", "S_Stats");
     @g_lastLayout = AddLayout("Last run", "S_Last");
-    @g_finishLayout = AddLayout("Finish summary", "S_Finish");
+    @g_finishLayout = AddLayout("Finish", "S_Finish");
 }
 
 // While this tab is open, RenderLayoutEditor gives every widget a window to
@@ -75,12 +75,40 @@ void InitLayout() {
 [SettingsTab name="Layout" icon="" order="5"]
 void RenderSettingsLayout() {
     g_layoutEditing = true;
-    UI::TextWrapped("While this tab is open, drag a widget's window by its title to move it, and its corner to resize it.");
+    UI::TextWrapped("While this tab is open, you can drag the widgets around and resize them.");
     if (UI::Button("Reset to default")) {
         for (uint i = 0; i < g_layouts.Length; i++) g_layouts[i].Reset();
         g_forceLayoutPosition = true;
     }
-    for (uint i = 0; i < g_layouts.Length; i++) g_layouts[i].visibleSetting.Render();
+    if (!UI::BeginTable("widgets", 4)) return;
+    UI::TableSetupColumn("Widget", UI::TableColumnFlags::WidthStretch);
+    UI::TableSetupColumn("Show", UI::TableColumnFlags::WidthFixed, 40);
+    UI::TableSetupColumn("Position (%)", UI::TableColumnFlags::WidthFixed, 130);
+    UI::TableSetupColumn("Size (%)", UI::TableColumnFlags::WidthFixed, 130);
+    UI::TableHeadersRow();
+    for (uint i = 0; i < g_layouts.Length; i++) {
+        auto widget = g_layouts[i];
+        UI::PushID(widget.settingPrefix);
+        UI::TableNextColumn();
+        UI::AlignTextToFramePadding();
+        UI::Text(widget.title);
+        UI::TableNextColumn();
+        widget.visibleSetting.WriteBool(UI::Checkbox("##show", widget.Visible()));
+        vec4 r = widget.Rect() * 100.0f;
+        UI::TableNextColumn();
+        UI::SetNextItemWidth(-1);
+        vec2 pos = UI::InputFloat2("##position", vec2(r.x, r.y), "%.1f");
+        UI::TableNextColumn();
+        UI::SetNextItemWidth(-1);
+        vec2 size = UI::InputFloat2("##size", vec2(r.z, r.w), "%.1f");
+        if (Math::Abs(pos.x - r.x) + Math::Abs(pos.y - r.y) +
+            Math::Abs(size.x - r.z) + Math::Abs(size.y - r.w) > 0.001f) {
+            widget.SetRect(vec4(pos.x, pos.y, size.x, size.y) * 0.01f);
+            g_forceLayoutPosition = true;
+        }
+        UI::PopID();
+    }
+    UI::EndTable();
 }
 
 void RenderLayoutEditor() {
@@ -94,9 +122,8 @@ void RenderLayoutEditor() {
         vec4 r = widget.Pixels();
         UI::SetNextWindowPos(int(r.x / scale), int(r.y / scale), condition);
         UI::SetNextWindowSize(int(r.z / scale), int(r.w / scale), condition);
-        UI::Begin("Move " + widget.title + "##" + widget.settingPrefix,
+        UI::Begin(Icons::ArrowsAlt + " " + widget.title + "##" + widget.settingPrefix,
             UI::WindowFlags::NoCollapse | UI::WindowFlags::NoSavedSettings);
-        UI::Text("Drag title to move; drag corner to resize");
         vec2 pos = UI::GetWindowPos() * scale;
         vec2 size = UI::GetWindowSize() * scale;
         widget.SetRect(vec4(pos.x / screen.x, pos.y / screen.y,

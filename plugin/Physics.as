@@ -11,7 +11,8 @@ class PhysicsSnapshot {
     // The check that rejected the read, when it is not exact.
     string failure = "";
     int raceTime = -1;
-    int gameTime = -1;
+    // The physics step's own clock (vehicle+0x4f4); everything is timed on it.
+    int tick = -1;
     float rawSteer = 0.0f;
     float smoothedSteer = 0.0f;
     SlideMode mode = SlideMode::Neutral;
@@ -35,8 +36,6 @@ class PhysicsSnapshot {
     // in the contact-bit order. The physics step writes it, so it dates a
     // change that happened between two rendered frames.
     array<uint> wheelChangedAt = array<uint>(4);
-    // The physics step's own clock (vehicle+0x4f4).
-    int physicsClock = -1;
     // Start of the current neutral-steering spell (vehicle+0x14e0), or -1.
     int neutralAt = -1;
     // Neutral time after which the game lets the stored direction lapse.
@@ -50,9 +49,9 @@ class PhysicsSnapshot {
 
     int ModeAgeMs() const {
         int changedAt = int(modeAt);
-        if (!exact || mode == SlideMode::Neutral || gameTime < 0 || changedAt < 0 ||
-            changedAt > gameTime) return -1;
-        return gameTime - changedAt;
+        if (!exact || mode == SlideMode::Neutral || tick < 0 || changedAt < 0 ||
+            changedAt > tick) return -1;
+        return tick - changedAt;
     }
 
     // Icing of one wheel in the game's wheel order, matching the contact bits.
@@ -317,17 +316,19 @@ namespace Physics {
         snap.icingRR = vis.RRIcing01;
         snap.icingRL = vis.RLIcing01;
         snap.meanIcing = (snap.icingFL + snap.icingFR + snap.icingRR + snap.icingRL) * 0.25f;
-        snap.materials = tostring(vis.FLGroundContactMaterial) + "/" +
-            tostring(vis.FRGroundContactMaterial) + "/" +
-            tostring(vis.RRGroundContactMaterial) + "/" +
-            tostring(vis.RLGroundContactMaterial);
+        // Only the debug log shows the materials.
+        if (DebugLoggingOn())
+            snap.materials = tostring(vis.FLGroundContactMaterial) + "/" +
+                tostring(vis.FRGroundContactMaterial) + "/" +
+                tostring(vis.RRGroundContactMaterial) + "/" +
+                tostring(vis.RLGroundContactMaterial);
         snap.speedKmh = vis.WorldVel.Length() * 3.6f;
         float forward = vis.WorldVel.x * vis.Dir.x + vis.WorldVel.z * vis.Dir.z;
         float side = vis.WorldVel.x * vis.Dir.z - vis.WorldVel.z * vis.Dir.x;
         snap.slipDeg = Math::ToDeg(Math::Atan2(Math::Abs(side), forward));
 
         snap.failure = "no player";
-        snap.gameTime = FrameClock();
+        snap.frameClock = FrameClock();
         CSmPlayer@ player = VehicleState::GetViewingPlayer();
         if (player is null) return snap;
         Layout@ l = g_layout;
@@ -354,7 +355,7 @@ namespace Physics {
             delay < 100 || delay > 1000) return snap;
         // The physics clock trails the frame clock by under one tick.
         snap.failure = "physics clock";
-        if (snap.gameTime >= 0 && Math::Abs(physicsClock - snap.gameTime) > 1000) return snap;
+        if (snap.frameClock >= 0 && Math::Abs(physicsClock - snap.frameClock) > 1000) return snap;
 
         snap.rawSteer = raw;
         snap.smoothedSteer = smooth;
@@ -369,11 +370,8 @@ namespace Physics {
                 snap.contactMask |= (1 << i);
             snap.wheelChangedAt[i] = Dev::SafeReadUint32(wheel + l.wheelChangedAt);
         }
-        snap.physicsClock = physicsClock;
+        snap.tick = physicsClock;
         snap.contactClock = int(Dev::SafeReadUint32(vehicle + l.contactClock));
-        // Everything is timed on the physics clock; frameClock keeps the frame's.
-        snap.frameClock = snap.gameTime;
-        snap.gameTime = snap.physicsClock;
         snap.neutralAt = int(Dev::SafeReadUint32(vehicle + l.neutralAt));
         uint neutralTimeout = Dev::SafeReadUint32(model + l.neutralTimeout);
         snap.neutralTimeoutMs = neutralTimeout >= 50 && neutralTimeout <= 5000 ?
@@ -461,7 +459,7 @@ class PhysicsReadMonitor {
     // icing, so one without icing on either frame is not checked. A moved
     // offset reads a value unrelated to the clock.
     void ObserveStamps(PhysicsSnapshot@ snap) {
-        if (previous is null || snap.physicsClock < previous.physicsClock) {
+        if (previous is null || snap.tick < previous.tick) {
             ForgetStamps();
             @previous = snap;
             return;
@@ -471,15 +469,15 @@ class PhysicsReadMonitor {
             bool changed = ((previous.contactMask ^ snap.contactMask) & (1 << i)) != 0;
             bool stamped = previous.WheelIcing(i) > 0.0f && snap.WheelIcing(i) > 0.0f;
             if (changed && stamped && changeAfter[i] < 0) {
-                changeAfter[i] = previous.physicsClock;
-                stampDeadline[i] = snap.physicsClock + STAMP_WAIT_TICKS * PHYSICS_TICK_MS;
+                changeAfter[i] = previous.tick;
+                stampDeadline[i] = snap.tick + STAMP_WAIT_TICKS * PHYSICS_TICK_MS;
             }
             if (changeAfter[i] < 0) continue;
             // A tick of slack either side: the stamp only has to name this change.
-            if (at >= changeAfter[i] && at <= snap.physicsClock + PHYSICS_TICK_MS) {
+            if (at >= changeAfter[i] && at <= snap.tick + PHYSICS_TICK_MS) {
                 changeAfter[i] = -1;
                 unstampedRun = 0;
-            } else if (snap.physicsClock > stampDeadline[i]) {
+            } else if (snap.tick > stampDeadline[i]) {
                 changeAfter[i] = -1;
                 unstampedRun++;
             }

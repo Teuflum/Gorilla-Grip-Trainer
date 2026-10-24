@@ -220,13 +220,13 @@ void ApplyVerdict(JumpVerdict@ v, PhysicsSnapshot@ next, int t) {
     int bestBefore = g_session.bestCombo;
     g_session.Apply(v);
     ShowStatChange(v, t, scoreBefore, comboBefore, bestBefore);
-    g_activeRun.Record(v, g_session, g_tracker.preview);
+    g_activeRun.Record(v, g_session, g_tracker.flight.preview);
     ShowResult(v, t);
     g_audio.OnVerdict(v);
     DebugLog("Verdict at " + t + "ms: " + GradeName(v.grade) +
         " | " + v.reason + " | force " + next.force +
         " | force gate " + next.forceGateState +
-        " | eligible at " + g_tracker.forceEligibleClock +
+        " | eligible at " + g_tracker.landing.forceEligibleTick +
         " | combo " + g_session.combo +
         " | score " + g_session.score +
         " | takeoff " + v.takeoffTime + "ms | landing " + v.landingTime +

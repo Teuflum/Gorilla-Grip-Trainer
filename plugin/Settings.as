@@ -150,7 +150,7 @@ class TraceLog {
             DebugLog("Snapshot at " + t + "ms: exact true, mode " +
                 next.mode + ", steer " + Text::Format("%.6f", next.smoothedSteer) +
                 ", contacts " + next.ContactBits() + ", modeAt " + next.modeAt +
-                ", clock " + next.gameTime + ", delay " + next.recoveryDelayMs +
+                ", clock " + next.tick + ", delay " + next.recoveryDelayMs +
                 ", force " + Text::Format("%.3f", next.force) +
                 ", gate " + next.forceGateState +
                 ", materials " + next.materials +

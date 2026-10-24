@@ -169,7 +169,7 @@ void RenderDiagnostics(const vec4 &in r, PhysicsSnapshot@ snap) {
     float cx = gridX + 2*tileW + 32*s;
     float cr = r.x + r.z - 18*s;
     string phase = g_tracker.inFlight ? "AIR " +
-        Math::Max(0, snap.raceTime - g_tracker.takeoffRace) + " ms" : "GROUND";
+        Math::Max(0, snap.raceTime - g_tracker.flight.takeoffRace) + " ms" : "GROUND";
     Hud::Text(cx, r.y + 124*s, phase, 14*s, Hud::Bright, left);
     int modeAge = snap.ModeAgeMs();
     // The backwards-motion hold (gas released while moving backwards) pins
@@ -186,7 +186,7 @@ void RenderDiagnostics(const vec4 &in r, PhysicsSnapshot@ snap) {
         "MODE AGE " + (modeAge < 10000 ? modeAge + " ms" :
             Text::Format("%.1f s", float(modeAge) / 1000.0f));
     bool unverified = snap.exact && g_tracker.inFlight &&
-        g_tracker.unratedReason.Length > 0;
+        g_tracker.flight.unratedReason.Length > 0;
     if (unverified) detail = "TIMING UNVERIFIED";
     // Reads have never worked since the plugin loaded: a game update likely
     // changed a field the code checks missed.
@@ -351,7 +351,7 @@ void RenderWidgetCards(int previewAge) {
     @layout = GetLayout("grade");
     if (previewAge < 0 && ShouldRenderWidget(layout)) {
         JumpPreview@ p = (g_tracker.inFlight || g_tracker.pendingLanding) &&
-            g_tracker.previewPublished ? g_tracker.preview : null;
+            g_tracker.flight.previewPublished ? g_tracker.flight.preview : null;
         int age = g_result is null ? -1 : g_snapshot.raceTime - g_result.at;
         bool active = age >= 0 && age < 1000;
         if (p !is null && !g_layoutEditing)

@@ -134,34 +134,4 @@ void RenderFinishSummary(const vec4 &in r, RunRecord@ run) {
         Hud::Text(x + detailWidth - 13*s, y + 17*s, detailValues[i], 16*s,
             detailColors[i], alignRight);
     }
-    RenderFinishHistoryButton(r, s, run);
-}
-
-// The summary is drawn with nvg, so its button does its own hit test.
-void RenderFinishHistoryButton(const vec4 &in panel, float scale,
-    RunRecord@ run) {
-    float width = 128*scale;
-    float height = 29*scale;
-    float x = panel.x + panel.z - 25*scale - width;
-    float y = panel.y + 18*scale;
-    vec2 mouse = UI::GetMousePos() * UI::GetScale();
-    bool hovered = mouse.x >= x && mouse.x < x + width &&
-        mouse.y >= y && mouse.y < y + height;
-    // With the overlay open, an overlay window above the button takes the mouse.
-    bool overWindow = UI::IsOverlayShown() && UI::WantCaptureMouse();
-    bool active = hovered && !overWindow;
-    Hud::Box(x, y, width, height, 7*scale, active ?
-        vec4(0.26f, 0.21f, 0.11f, 0.98f) : vec4(0.10f, 0.15f, 0.25f, 0.94f));
-    // Capitals have no descenders, so centre them by cap height on the baseline.
-    float fontSize = 11*scale;
-    Hud::Text(x + width*0.5f, y + height*0.5f + 0.36f*fontSize, "VIEW HISTORY",
-        fontSize, Hud::Gold, nvg::Align::Center | nvg::Align::Baseline);
-    if (active && UI::IsMouseClicked()) {
-        g_historySelectedId = run.id;
-        g_historySelectedJump = -1;
-        g_historyShowFinished = true;
-        g_historyMapFilter = "";
-        g_showHistory = true;
-        UI::ShowOverlay();
-    }
 }

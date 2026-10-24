@@ -1,12 +1,22 @@
 int g_hudFont = -1;
-Grade g_resultGrade = Grade::None;
-string g_resultCaption = "";
-int g_resultShownAt = -1;
-int g_statChangedAt = -1;
-int g_statScoreBefore = 0;
-int g_statComboBefore = 0;
-int g_statBestBefore = 0;
-int g_statEarned = 0;
+// The landing result on the Grade widget, from the race time it appeared.
+class ShownResult {
+    Grade grade;
+    string caption;
+    int at;
+}
+
+// A landing's change to the Stats widget, for its count-up, pulse and badges.
+class StatChange {
+    int at;
+    int scoreBefore;
+    int comboBefore;
+    int bestBefore;
+    int earned;
+}
+
+ShownResult@ g_result;
+StatChange@ g_statChange;
 
 void InitWidgets() {
     g_hudFont = nvg::LoadFont("DroidSans-Bold.ttf");
@@ -15,30 +25,29 @@ void InitWidgets() {
 void ShowResult(JumpVerdict@ verdict, int raceTime) {
     if (verdict is null) return;
     StopPopupPreview();
-    g_resultGrade = verdict.grade;
-    g_resultCaption = verdict.caption.Length > 0 ? verdict.caption : GradeCaption(verdict.grade);
-    g_resultShownAt = raceTime;
+    @g_result = ShownResult();
+    g_result.grade = verdict.grade;
+    g_result.caption = verdict.caption.Length > 0 ? verdict.caption : GradeCaption(verdict.grade);
+    g_result.at = raceTime;
 }
 
 void ClearResult() {
-    g_resultGrade = Grade::None;
-    g_resultCaption = "";
-    g_resultShownAt = -1;
+    @g_result = null;
 }
 
 void ShowStatChange(JumpVerdict@ verdict, int raceTime,
     int scoreBefore, int comboBefore, int bestBefore) {
     if (verdict is null || !verdict.exact) return;
-    g_statChangedAt = raceTime;
-    g_statScoreBefore = scoreBefore;
-    g_statComboBefore = comboBefore;
-    g_statBestBefore = bestBefore;
-    g_statEarned = verdict.points;
+    @g_statChange = StatChange();
+    g_statChange.at = raceTime;
+    g_statChange.scoreBefore = scoreBefore;
+    g_statChange.comboBefore = comboBefore;
+    g_statChange.bestBefore = bestBefore;
+    g_statChange.earned = verdict.points;
 }
 
 void ClearStatChange() {
-    g_statChangedAt = -1;
-    g_statEarned = 0;
+    @g_statChange = null;
 }
 
 float StatPulse(int age) {
@@ -208,27 +217,27 @@ void RenderGradePreview(const vec4 &in r, JumpPreview@ preview) {
 
 // Score leads the card; combo and best combo share the line below it. Each
 // value pulses and shows its own badge when a landing changes it.
-void RenderStats(const vec4 &in r, int statAge) {
+void RenderStats(const vec4 &in r, StatChange@ change, int statAge) {
     Hud::CardBase(r, Hud::Gold);
     float s = Math::Min(r.z / 320.0f, r.w / 150.0f);
     int left = nvg::Align::Left | nvg::Align::Middle;
     int right = nvg::Align::Right | nvg::Align::Middle;
     float pulse = StatPulse(statAge);
     float fade = StatBadgeFade(statAge);
-    bool changed = statAge >= 0;
+    bool changed = change !is null && statAge >= 0;
 
     // The score counts up to its new value.
-    bool earned = changed && g_statEarned > 0;
+    bool earned = changed && change.earned > 0;
     float scorePulse = earned ? pulse : 0.0f;
     int shownScore = g_session.score;
     if (earned && statAge < 500) {
         float remaining = 1.0f - float(statAge) / 500.0f;
         float eased = 1.0f - remaining*remaining*remaining;
-        shownScore = g_statScoreBefore + int(float(g_statEarned)*eased + 0.5f);
+        shownScore = change.scoreBefore + int(float(change.earned)*eased + 0.5f);
     }
     Hud::Text(r.x + 18*s, r.y + 22*s, "SCORE", 14*s, Hud::Label, left);
     if (earned && fade > 0.0f)
-        Hud::Text(r.x + r.z - 18*s, r.y + 22*s, "+" + g_statEarned, 13*s,
+        Hud::Text(r.x + r.z - 18*s, r.y + 22*s, "+" + change.earned, 13*s,
             Hud::WithAlpha(Hud::Bright, fade), right);
     Hud::Text(r.x + r.z - 18*s, r.y + 62*s, "" + shownScore,
         40*s*(1.0f + 0.12f*scorePulse), Hud::Bright, right);
@@ -236,8 +245,8 @@ void RenderStats(const vec4 &in r, int statAge) {
     Hud::Box(r.x + 18*s, r.y + 96*s, r.z - 36*s, Math::Max(1.0f, s), 0, Hud::Line);
 
     float rowY = r.y + 123*s;
-    bool comboGained = changed && g_session.combo > g_statComboBefore;
-    bool comboBroken = changed && g_statComboBefore > 0 && g_session.combo == 0;
+    bool comboGained = changed && g_session.combo > change.comboBefore;
+    bool comboBroken = changed && change.comboBefore > 0 && g_session.combo == 0;
     float comboPulse = comboGained || comboBroken ? pulse : 0.0f;
     vec4 comboColor = comboBroken && fade > 0.0f ? Hud::Pink : Hud::Gold;
     Hud::Text(r.x + 18*s, rowY, "COMBO", 13*s, Hud::Label, left);
@@ -252,7 +261,7 @@ void RenderStats(const vec4 &in r, int statAge) {
             Hud::WithAlpha(comboColor, fade), left);
     }
 
-    bool newBest = changed && g_session.bestCombo > g_statBestBefore;
+    bool newBest = changed && g_session.bestCombo > change.bestBefore;
     float bestPulse = newBest ? pulse : 0.0f;
     string best = "x" + g_session.bestCombo;
     float bestSize = 22*s*(1.0f + 0.16f*bestPulse);
@@ -343,21 +352,20 @@ void RenderWidgetCards(int previewAge) {
     if (previewAge < 0 && ShouldRenderWidget(layout)) {
         JumpPreview@ p = (g_tracker.inFlight || g_tracker.pendingLanding) &&
             g_tracker.previewPublished ? g_tracker.preview : null;
-        int age = g_snapshot.raceTime - g_resultShownAt;
-        bool active = g_resultShownAt >= 0 && age >= 0 && age < 1000;
+        int age = g_result is null ? -1 : g_snapshot.raceTime - g_result.at;
+        bool active = age >= 0 && age < 1000;
         if (p !is null && !g_layoutEditing)
             RenderGradePreview(layout.Pixels(), p);
         else if (active)
-            RenderResult(layout.Pixels(), age, g_resultGrade, g_resultCaption,
-                uint(g_resultShownAt) + 1);
+            RenderResult(layout.Pixels(), age, g_result.grade, g_result.caption,
+                uint(g_result.at) + 1);
         else if (g_layoutEditing)
             RenderResult(layout.Pixels(), 450, Grade::S, GradeCaption(Grade::S), 1);
     }
     @layout = GetLayout("stats");
     if (ShouldRenderWidget(layout)) {
-        int statAge = g_statChangedAt < 0 ? -1 :
-            g_snapshot.raceTime - g_statChangedAt;
-        RenderStats(layout.Pixels(), statAge);
+        int statAge = g_statChange is null ? -1 : g_snapshot.raceTime - g_statChange.at;
+        RenderStats(layout.Pixels(), g_statChange, statAge);
     }
     @layout = GetLayout("last");
     if (ShouldRenderWidget(layout))

@@ -1,17 +1,22 @@
-bool g_showHistory = false;
-bool g_historyShowFinished = true;
-bool g_historyShowResets = true;
-bool g_historyClearArmed = false;
-string g_historyMapFilter = "";
-string g_historySelectedId = "";
-int g_historySelectedJump = -1;
-UI::Font@ g_historyTileFont = null;
+// What the Run history window shows; it is open while visible is set.
+class HistoryView {
+    bool visible = false;
+    bool showFinished = true;
+    bool showResets = true;
+    bool clearArmed = false;
+    string mapFilter = "";
+    string selectedId = "";
+    int selectedJump = -1;
+    UI::Font@ font;
+}
+
+HistoryView g_historyView;
 
 bool HistoryMatches(RunRecord@ run) {
     if (run is null) return false;
-    if (run.status == RunStatus::Finished && !g_historyShowFinished) return false;
-    if (run.status == RunStatus::Reset && !g_historyShowResets) return false;
-    string query = g_historyMapFilter.Trim().ToLower();
+    if (run.status == RunStatus::Finished && !g_historyView.showFinished) return false;
+    if (run.status == RunStatus::Reset && !g_historyView.showResets) return false;
+    string query = g_historyView.mapFilter.Trim().ToLower();
     if (query.Length > 0 &&
         !run.mapName.ToLower().Contains(query) &&
         !run.mapUid.ToLower().Contains(query)) return false;
@@ -21,7 +26,7 @@ bool HistoryMatches(RunRecord@ run) {
 RunRecord@ SelectedHistoryRun() {
     if (g_history is null) return null;
     for (uint i = 0; i < g_history.runs.Length; i++)
-        if (g_history.runs[i].id == g_historySelectedId &&
+        if (g_history.runs[i].id == g_historyView.selectedId &&
             HistoryMatches(g_history.runs[i]))
             return g_history.runs[i];
     return null;
@@ -43,9 +48,9 @@ string HistoryLead(HistoryJump@ jump) {
 }
 
 UI::Font@ HistoryFont() {
-    if (g_historyTileFont is null)
-        @g_historyTileFont = UI::LoadFont("DroidSans-Bold.ttf", 22);
-    return g_historyTileFont;
+    if (g_historyView.font is null)
+        @g_historyView.font = UI::LoadFont("DroidSans-Bold.ttf", 22);
+    return g_historyView.font;
 }
 
 // Text in a colour, using Openplanet's colour codes.
@@ -157,10 +162,10 @@ void RenderHistoryAttempts() {
             UI::TableNextRow();
             UI::TableNextColumn();
             if (UI::Selectable(run.mapName + "##" + run.id,
-                g_historySelectedId == run.id,
+                g_historyView.selectedId == run.id,
                 UI::SelectableFlags::SpanAllColumns)) {
-                g_historySelectedId = run.id;
-                g_historySelectedJump = -1;
+                g_historyView.selectedId = run.id;
+                g_historyView.selectedJump = -1;
             }
             UI::TableNextColumn();
             UI::Text(Time::FormatString("%Y-%m-%d %H:%M", run.startedAt / 1000));
@@ -197,9 +202,9 @@ void RenderHistoryJumps(RunRecord@ selected) {
             UI::TableNextRow();
             UI::TableNextColumn();
             if (UI::Selectable("" + (j + 1) + "##jump" + j,
-                g_historySelectedJump == int(j),
+                g_historyView.selectedJump == int(j),
                 UI::SelectableFlags::SpanAllColumns))
-                g_historySelectedJump = int(j);
+                g_historyView.selectedJump = int(j);
             UI::TableNextColumn();
             UI::Text(Colored(GradeColor(GradeFromName(jump.label)), HistoryGrade(jump)));
             UI::TableNextColumn();
@@ -215,10 +220,10 @@ void RenderHistoryJumps(RunRecord@ selected) {
     }
     UI::EndChild();
     UI::PopStyleColor(3);
-    if (g_historySelectedJump < 0 ||
-        g_historySelectedJump >= int(selected.jumps.Length)) return;
-    HistoryJump@ jump = selected.jumps[uint(g_historySelectedJump)];
-    RenderHistoryHeader("JUMP " + (g_historySelectedJump + 1));
+    if (g_historyView.selectedJump < 0 ||
+        g_historyView.selectedJump >= int(selected.jumps.Length)) return;
+    HistoryJump@ jump = selected.jumps[uint(g_historyView.selectedJump)];
+    RenderHistoryHeader("JUMP " + (g_historyView.selectedJump + 1));
     RenderJumpTiles(jump);
     string detail = jump.reason;
     // Only mention the takeoff grade when the landing changed it.
@@ -231,28 +236,31 @@ void RenderHistoryJumps(RunRecord@ selected) {
 
 void RenderHistoryClear() {
     UI::Dummy(vec2(0, 6));
-    if (!g_historyClearArmed) {
-        if (UI::Button("Clear local history...")) g_historyClearArmed = true;
+    if (!g_historyView.clearArmed) {
+        if (UI::Button("Clear local history...")) g_historyView.clearArmed = true;
     } else {
         UI::Text("This removes saved attempts from this computer.");
         if (UI::Button("Confirm clear all attempts")) {
             g_history.Clear();
-            g_historySelectedId = "";
-            g_historySelectedJump = -1;
-            g_historyClearArmed = false;
+            g_historyView.selectedId = "";
+            g_historyView.selectedJump = -1;
+            g_historyView.clearArmed = false;
         }
         UI::SameLine();
-        if (UI::Button("Cancel")) g_historyClearArmed = false;
+        if (UI::Button("Cancel")) g_historyView.clearArmed = false;
     }
 }
 
 void RenderHistoryWindow() {
-    if (!g_showHistory) return;
+    if (!g_historyView.visible) return;
+    bool open = true;
     UI::SetNextWindowSize(850, 640, UI::Cond::FirstUseEver);
     UI::PushStyleColor(UI::Col::WindowBg, vec4(0.025f, 0.039f, 0.09f, 0.97f));
     UI::PushStyleColor(UI::Col::ChildBg, vec4(0.035f, 0.065f, 0.13f, 0.88f));
     UI::PushStyleColor(UI::Col::TableHeaderBg, vec4(0.08f, 0.12f, 0.21f, 1.0f));
-    if (!UI::Begin("Gorilla Grip Trainer - Run History", g_showHistory)) {
+    bool shown = UI::Begin("Gorilla Grip Trainer - Run History", open);
+    g_historyView.visible = open;
+    if (!shown) {
         UI::End();
         UI::PopStyleColor(3);
         return;
@@ -266,11 +274,11 @@ void RenderHistoryWindow() {
     RenderHistoryHeader("GORILLA GRIP  /  RUN HISTORY", Hud::Gold);
     UI::Text("" + g_history.runs.Length + " saved attempts");
     UI::SetNextItemWidth(250);
-    g_historyMapFilter = UI::InputText("Map name or UID", g_historyMapFilter);
+    g_historyView.mapFilter = UI::InputText("Map name or UID", g_historyView.mapFilter);
     UI::SameLine();
-    g_historyShowFinished = UI::Checkbox("Finished", g_historyShowFinished);
+    g_historyView.showFinished = UI::Checkbox("Finished", g_historyView.showFinished);
     UI::SameLine();
-    g_historyShowResets = UI::Checkbox("Resets", g_historyShowResets);
+    g_historyView.showResets = UI::Checkbox("Resets", g_historyView.showResets);
     RenderHistoryAttempts();
     RunRecord@ selected = SelectedHistoryRun();
     if (selected is null) UI::Text("Select an attempt to inspect its jumps.");

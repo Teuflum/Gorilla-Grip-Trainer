@@ -116,3 +116,55 @@ bool ProcessThisFrame() {
 void DebugLog(const string &in message) {
     if (DebugLoggingOn()) print(message);
 }
+
+// What the debug log last wrote, so it only logs changes.
+class TraceLog {
+    bool eventLoggingOn = false;
+    int frameSkip = -1;
+    int contactMask = -1;
+    float force = -1.0f;
+    int forceGate = -1;
+
+    // Logged whenever a switch changes, so a log shows when tracing starts.
+    void UpdateSwitches() {
+        if (DebugLoggingOn() != eventLoggingOn) {
+            eventLoggingOn = DebugLoggingOn();
+            print("Event logging " + (eventLoggingOn ? "on" : "off"));
+        }
+        int skip = DebugLoggingOn() ? DebugFrameSkip() : -1;
+        if (skip != frameSkip) {
+            frameSkip = skip;
+            if (skip > 0) DebugLog("Frame skip " + skip);
+        }
+    }
+
+    void ForgetSnapshot() {
+        contactMask = -1;
+    }
+
+    // One line per wheel-contact change, or per tire-force change with the force trace on.
+    void Snapshot(PhysicsSnapshot@ next, int t) {
+        if (!next.exact) return;
+        if (contactMask != int(next.contactMask) || (DebugForceTraceOn() &&
+            (force != next.force || forceGate != next.forceGateState))) {
+            DebugLog("Snapshot at " + t + "ms: exact true, mode " +
+                next.mode + ", steer " + Text::Format("%.6f", next.smoothedSteer) +
+                ", contacts " + next.ContactBits() + ", modeAt " + next.modeAt +
+                ", clock " + next.gameTime + ", delay " + next.recoveryDelayMs +
+                ", force " + Text::Format("%.3f", next.force) +
+                ", gate " + next.forceGateState +
+                ", materials " + next.materials +
+                ", icing " + Text::Format("%.0f", next.icingFL * 100.0f) + "/" +
+                Text::Format("%.0f", next.icingFR * 100.0f) + "/" +
+                Text::Format("%.0f", next.icingRR * 100.0f) + "/" +
+                Text::Format("%.0f", next.icingRL * 100.0f) +
+                ", speed " + Text::Format("%.0f", next.speedKmh) +
+                ", slip " + Text::Format("%.0f", next.slipDeg));
+        }
+        contactMask = int(next.contactMask);
+        force = next.force;
+        forceGate = next.forceGateState;
+    }
+}
+
+TraceLog g_trace;

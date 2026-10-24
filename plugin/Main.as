@@ -1,11 +1,6 @@
 bool g_supportedBuild = false;
 PhysicsSnapshot@ g_snapshot;
-int g_previousContactMask = -1;
-float g_previousForce = -1.0f;
-int g_previousForceGate = -1;
 int g_previousRaceTime = -1;
-bool g_eventLoggingOn = false;
-int g_loggedFrameSkip = -1;
 JumpTracker@ g_tracker;
 SessionState@ g_session;
 AudioDirector@ g_audio;
@@ -106,7 +101,7 @@ void OnDisabled() {
 
 void Update(float dt) {
     if (!g_supportedBuild) return;
-    UpdateLoggingState();
+    g_trace.UpdateSwitches();
     g_audio.UpdateSettings();
     auto vis = VehicleState::ViewingPlayerState();
     if (IsFinishSequence()) {
@@ -129,19 +124,6 @@ void Update(float dt) {
     // Developer frame skipping simulates a low frame rate for timing tests.
     if (!ProcessThisFrame()) return;
     RateFrame(vis, t);
-}
-
-void UpdateLoggingState() {
-    // Logged whenever the switch changes, so a log shows when tracing starts.
-    if (DebugLoggingOn() != g_eventLoggingOn) {
-        g_eventLoggingOn = DebugLoggingOn();
-        print("Event logging " + (g_eventLoggingOn ? "on" : "off"));
-    }
-    int frameSkip = DebugLoggingOn() ? DebugFrameSkip() : -1;
-    if (frameSkip != g_loggedFrameSkip) {
-        g_loggedFrameSkip = frameSkip;
-        if (frameSkip > 0) DebugLog("Frame skip " + frameSkip);
-    }
 }
 
 void UpdateFinish(CSceneVehicleVisState@ vis) {
@@ -170,7 +152,7 @@ void LeaveDrive() {
         ResetAttemptState();
     }
     @g_snapshot = null;
-    g_previousContactMask = -1;
+    g_trace.ForgetSnapshot();
     g_previousRaceTime = -1;
 }
 
@@ -229,7 +211,7 @@ void RateFrame(CSceneVehicleVisState@ vis, int t) {
         DebugLog("Takeoff cue at " + t + "ms");
     }
     if (g_tracker.verdictEvent) ApplyVerdict(g_tracker.verdict, next, t);
-    LogSnapshot(next, t);
+    g_trace.Snapshot(next, t);
 }
 
 void ApplyVerdict(JumpVerdict@ v, PhysicsSnapshot@ next, int t) {
@@ -251,38 +233,14 @@ void ApplyVerdict(JumpVerdict@ v, PhysicsSnapshot@ next, int t) {
         "ms | lead " + v.leadMs + "ms");
 }
 
-// One line per wheel-contact change, or per tire-force change with the force trace on.
-void LogSnapshot(PhysicsSnapshot@ next, int t) {
-    if (!next.exact) return;
-    if (g_previousContactMask != int(next.contactMask) || (DebugForceTraceOn() &&
-        (g_previousForce != next.force || g_previousForceGate != next.forceGateState))) {
-        DebugLog("Snapshot at " + t + "ms: exact true, mode " +
-            next.mode + ", steer " + Text::Format("%.6f", next.smoothedSteer) +
-            ", contacts " + next.ContactBits() + ", modeAt " + next.modeAt +
-            ", clock " + next.gameTime + ", delay " + next.recoveryDelayMs +
-            ", force " + Text::Format("%.3f", next.force) +
-            ", gate " + next.forceGateState +
-            ", materials " + next.materials +
-            ", icing " + Text::Format("%.0f", next.icingFL * 100.0f) + "/" +
-            Text::Format("%.0f", next.icingFR * 100.0f) + "/" +
-            Text::Format("%.0f", next.icingRR * 100.0f) + "/" +
-            Text::Format("%.0f", next.icingRL * 100.0f) +
-            ", speed " + Text::Format("%.0f", next.speedKmh) +
-            ", slip " + Text::Format("%.0f", next.slipDeg));
-    }
-    g_previousContactMask = int(next.contactMask);
-    g_previousForce = next.force;
-    g_previousForceGate = next.forceGateState;
-}
-
 void RenderMenu() {
     if (!g_supportedBuild || !UI::BeginMenu(Icons::SnowflakeO + " Gorilla Grip Trainer"))
         return;
     if (g_finish !is null && g_finish.summary !is null &&
         UI::MenuItem("Finish summary", "", g_finish.visible))
         g_finish.visible = !g_finish.visible;
-    if (UI::MenuItem("Run history", "", g_showHistory))
-        g_showHistory = !g_showHistory;
+    if (UI::MenuItem("Run history", "", g_historyView.visible))
+        g_historyView.visible = !g_historyView.visible;
     if (UI::MenuItem("Enable widgets", "", S_EnableWidgets))
         S_EnableWidgets = !S_EnableWidgets;
     UI::EndMenu();

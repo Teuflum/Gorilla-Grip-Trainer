@@ -1,6 +1,6 @@
 # Gorilla Grip Trainer
 
-An [Openplanet](https://openplanet.dev) plugin for Trackmania that trains the "gorilla grip": switching the ice-slide direction just before the car leaves the ground, so the tires grip again when it lands. The plugin reads the game's physics, grades how early you switched (S+ to D), and confirms on landing that the new direction held.
+An [Openplanet](https://openplanet.dev) plugin for Trackmania that trains the "gorilla grip". You switch the ice-slide direction just before the car leaves the ground, so the tires grip again when it lands. The plugin grades how early you switched (S+ to D) and checks on landing that the new direction held.
 
 New to the mechanic? The [player guide](https://github.com/Teuflum/tm-ice-physics-reverse-engineering/blob/main/outputs/gorilla_grip_player_guide.md) explains it, and the [interactive graphs](https://teuflum.github.io/tm-ice-physics-reverse-engineering/) let you try the numbers.
 
@@ -13,18 +13,18 @@ New to the mechanic? The [player guide](https://github.com/Teuflum/tm-ice-physic
 
 To update, download the repository again and replace the `GorillaGripTrainer` folder with the new `plugin` folder the same way. Your settings, history, `LocalSounds` and `LocalImages` live in `PluginStorage` and are kept.
 
-Each time it loads, the plugin finds the physics data in the game's own code, so it keeps working after most Trackmania updates. If an update changes that code, Openplanet shows an amber warning and the plugin unloads itself until it is updated.
+Each time it loads, the plugin looks up the physics data in the game's code, so it keeps working after most Trackmania updates. If an update breaks this, Openplanet shows an amber warning and the plugin unloads until it's updated.
 
-The plugin also checks what it reads. If an update changes a field in a way the code search doesn't catch, the plugin still loads, but after 3 seconds of driving the Stadium car without a single good physics read it shows the same amber warning, and the Physics widget says PHYSICS READ FAILED. No jumps are rated until the plugin is updated. If only the wheel contact times look wrong, it warns once and keeps rating, with landings timed to the frame instead of the physics tick.
+If the plugin loads but can't read the physics for 3 seconds of driving the Stadium car, it shows the same warning and the Physics widget says PHYSICS READ FAILED. Jumps aren't rated until the plugin is updated. If only the wheel contact times look wrong, it warns once and keeps rating, but landings are timed less exactly.
 
 ## How a jump is rated
 
-1. **Takeoff.** When the game stores the opposite slide direction while a wheel still touches the ground, a small preview grade appears in the air. A jump that keeps its slide direction shows nothing.
-2. **Landing.** Shortly after touchdown the plugin checks that the stored direction held and the tires still average at least 34% icing. If both hold, the preview becomes the final grade. Otherwise the result is `MISSED`. A jump without a switch before takeoff is also `MISSED` if the direction switches on landing, because the tire force then waits after touchdown.
+1. **Takeoff.** If the game stored your switch to the other slide direction before the last wheel left the ground, a small preview grade shows up in the air. A jump without a switch shows nothing.
+2. **Landing.** Shortly after touchdown the plugin checks that the direction held and that the tires still average at least 34% icing. If both are true, the preview becomes the final grade. If not, it's `MISSED`. A jump without a switch before takeoff is also `MISSED` if the direction switches on landing, because the grip then comes back too late.
 
-The grade depends only on how early the direction switched before the last wheel left the ground. Landing force and airtime are left out on purpose: countersteering early costs speed, so the best switch is the latest one that still counts.
+The grade only depends on how early the direction switched before the last wheel left the ground, called the lead. Landing force and airtime aren't part of it, because countersteering early costs speed, so the best switch is the latest one that still counts.
 
-| Grade | Switch lead (default) | Base points |
+| Grade | Lead (default) | Base points |
 | --- | --- | --- |
 | S+ | exactly 0 ms | 180 |
 | S | up to 10 ms | 150 |
@@ -34,9 +34,9 @@ The grade depends only on how early the direction switched before the last wheel
 | D | up to 250 ms | 30 |
 
 - **Score:** base points × combo multiplier (up to ×8).
-- **`UNRATED`:** the plugin lost the physics read or the contact timing, or the tire force never became ready after landing, so it doesn't guess a grade.
+- **`UNRATED`:** the plugin couldn't time the jump exactly or lost the physics read, so it doesn't guess a grade.
 
-Timing comes from the game's own physics clock, so grades don't depend on frame rate or game speed. The physics runs in 10 ms ticks, so every lead is a multiple of 10 ms: S is one tick early, A two or three, B four to six.
+Timing comes from the game's own physics clock, so grades don't depend on frame rate or game speed. The physics runs in 10 ms ticks, so every lead is a whole number of ticks. S is one tick early, A two or three, B four to six.
 
 ### Which jumps count
 
@@ -46,8 +46,6 @@ A jump is rated only if it comes out of an ice slide. The takeoff icing, speed a
 - **Slide:** the car's slip angle reached 20° in the last 500 ms on the ground, so steering through a bobsleigh turn is never rated.
 - **Speed and flight:** at least 50 km/h at takeoff and 100 ms in the air.
 - **Car:** Only the Stadium car is rated. The Snow, Rally and Desert cars don't ice slide, so their jumps are ignored, and a jump in progress when a gate changes the car is dropped.
-
-With **Log trainer events** on (Debug tab, developer mode), a direction switch that these filters drop writes a line to `Openplanet.log` naming each failed filter and the value it saw.
 
 ## HUD widgets
 
@@ -74,7 +72,9 @@ Open **Settings → Gorilla Grip Trainer → Layout** to drag and resize them, o
 
 ## Landing popup
 
-The landing grade appears on an ice panel that cracks and throws shards; better grades get bigger effects, S and S+ add snowflakes, and S+ adds light rays. A miss sinks and tips over. Under **Popup** you can turn single effects off, make them smaller or bigger with **Effect intensity**, or turn off **Animate the popup** to show the grade without motion.
+The landing grade shows up on an ice panel that cracks and throws shards. Better grades get bigger effects. S and S+ add snowflakes, and S+ also gets light rays. A miss sinks and tips over.
+
+Under **Popup** you can turn single effects off, change their size with **Effect intensity**, or turn off **Popup animation** to show the grade without any motion.
 
 - **Pictures:** one per result, shown on both sides of the grade. Pick one of the shipped emoji pictures, or use your own PNG or JPG files from the `LocalImages` folder. Only S and S+ pictures bounce.
 - **Preview** plays any result's popup with your current pictures.
@@ -95,7 +95,7 @@ Put WAV, OGG or MP3 files into them and click **Reload files**. When a folder ho
 
 ## Run history
 
-**Plugins → Gorilla Grip Trainer → Run history** lists your attempts, filtered by map and status. Selecting an attempt lists its jumps; hovering over a jump shows its reason, its takeoff grade when the landing changed it, and the score after it. The last 500 attempts are kept locally in `PluginStorage/GorillaGripTrainer/history.json`, with `history.backup.json` as a fallback.
+**Plugins → Gorilla Grip Trainer → Run history** lists your attempts, and you can filter them by map and status. Select an attempt to see its jumps. Hover over a jump to see why it got its grade, its grade at takeoff if the landing changed it, and the score after it. The last 500 attempts are saved locally in `PluginStorage/GorillaGripTrainer/history.json`, with `history.backup.json` as a fallback.
 
 ## Development
 

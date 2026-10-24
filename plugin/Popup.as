@@ -1,22 +1,8 @@
-// The landing popup: an ice panel with the grade, cracks, shards and the
-// result's pictures. Better grades get bigger effects; UNRATED is calm.
+// The landing popup: the grade on a panel in the widget box colours, with the
+// result's pictures. The grade drops in, a miss sinks and tips over, and S and
+// S+ pictures bounce.
 [Setting hidden name="Popup animation"]
 bool S_PopupAnimate = true;
-[Setting hidden name="Effect intensity (%)" min=0 max=200]
-int S_PopupIntensity = 100;
-[Setting hidden name="Cracks"]
-bool S_FxCracks = true;
-[Setting hidden name="Ice shards"]
-bool S_FxShards = true;
-[Setting hidden name="Snowflakes (S, S+)"]
-bool S_FxSnowflakes = true;
-[Setting hidden name="Light rays (S+)"]
-bool S_FxRays = true;
-[Setting hidden name="Flash"]
-bool S_FxFlash = true;
-
-array<string> g_effectSettings = {"S_PopupIntensity", "S_FxCracks", "S_FxShards",
-    "S_FxSnowflakes", "S_FxRays", "S_FxFlash"};
 
 // Without animation the popup shows from the start as it looks at this age.
 const int SETTLED_AGE = 600;
@@ -43,14 +29,10 @@ class PopupFrame {
     Grade grade;
     string caption;
     int age;
-    // The same seed gives the same cracks and shards on every frame.
-    uint seed;
     float s;
     float cx;
     float cy;
     float fade;
-    float power;
-    bool calm;
     bool miss;
     vec4 accent;
     float panelW;
@@ -58,56 +40,31 @@ class PopupFrame {
     float slump = 0.0f;
 }
 
-void RenderResult(const vec4 &in r, int age, Grade grade, const string &in caption,
-    uint seed) {
+void RenderResult(const vec4 &in r, int age, Grade grade, const string &in caption) {
     if (grade == Grade::None) return;
     PopupFrame@ f = PopupFrame();
     f.grade = grade;
     f.caption = caption;
     f.age = S_PopupAnimate ? age : Math::Max(age, SETTLED_AGE);
-    f.seed = seed;
     f.s = Math::Min(r.z / 500.0f, r.w / 125.0f);
     f.cx = r.x + r.z*0.5f;
     f.cy = r.y + r.w*0.5f;
     f.fade = 1.0f - Math::Clamp(float(age - 700) / 300.0f, 0.0f, 1.0f);
-    f.power = GradePower(grade) * float(Math::Clamp(S_PopupIntensity, 0, 200)) / 100.0f;
-    f.calm = !S_PopupAnimate || f.power <= 0.0f;
     f.miss = grade == Grade::Missed;
     f.accent = GradeColor(grade, f.fade);
     f.panelW = (180.0f + 300.0f*EaseOutCubic(float(f.age) / 180.0f))*f.s;
     if (f.miss) f.slump = 10.0f*f.s*EaseOutCubic((float(f.age) - 250.0f) / 350.0f);
-    bool top = grade == Grade::SPlus || grade == Grade::S;
-    if (!f.calm && S_FxRays && grade == Grade::SPlus) DrawPopupRays(f);
     DrawPopupPanel(f);
-    if (!f.calm && S_FxCracks) DrawPopupCracks(f);
     DrawPopupPictures(f);
-    if (!f.calm && S_FxShards) DrawPopupShards(f);
-    if (!f.calm && S_FxSnowflakes && top) DrawPopupSnowflakes(f);
     DrawPopupLetter(f);
-    if (!f.calm && S_FxFlash) DrawPopupFlash(f);
     DrawPopupCaption(f);
 }
 
 void DrawPopupPanel(PopupFrame@ f) {
-    float s = f.s;
-    float x = f.cx - f.panelW*0.5f;
-    float y = f.cy + f.slump - 52.0f*s;
-    Hud::Box(x, y + 5*s, f.panelW, 105*s, 16*s, vec4(0, 0, 0, 0.35f*f.fade));
-    Hud::Box(x, y, f.panelW, 105*s, 16*s, Hud::WithAlpha(Hud::Card, 0.93f*f.fade));
-    // A thin grade-coloured border that follows the rounded corners.
-    nvg::BeginPath();
-    nvg::RoundedRect(x, y, f.panelW, 105*s, 16*s);
-    nvg::StrokeWidth(1.5f*s);
-    nvg::StrokeColor(Hud::WithAlpha(f.accent, 0.45f*f.fade));
-    nvg::Stroke();
-}
-
-void DrawPopupFlash(PopupFrame@ f) {
-    const float duration = 110.0f;
-    if (float(f.age) >= duration) return;
-    float alpha = 0.6f*(1.0f - float(f.age)/duration)*f.fade;
-    Hud::Box(f.cx - f.panelW*0.5f, f.cy + f.slump - 52.0f*f.s,
-        f.panelW, 105.0f*f.s, 16.0f*f.s, vec4(0.82f, 0.94f, 1.0f, alpha));
+    nvg::Save();
+    nvg::GlobalAlpha(f.fade);
+    Hud::Panel(vec4(f.cx - f.panelW*0.5f, f.cy + f.slump - 52.0f*f.s, f.panelW, 105.0f*f.s));
+    nvg::Restore();
 }
 
 void DrawPopupText(PopupFrame@ f, float x, float y, float scale, float rot,
@@ -142,111 +99,6 @@ void DrawPopupLetter(PopupFrame@ f) {
             vec4(0.78f, 0.93f, 1.0f, 0.8f*(1.0f - warm)*f.fade), 12.0f*f.s);
     }
     DrawPopupText(f, x, y, scale, rot, colour, 0.0f);
-}
-
-void DrawPopupRays(PopupFrame@ f) {
-    float alpha = 0.12f*f.fade*EaseOutCubic(float(f.age - 150) / 300.0f);
-    if (alpha <= 0.0f) return;
-    nvg::Save();
-    nvg::Translate(f.cx, f.cy);
-    nvg::Rotate(float(f.age)*0.0012f);
-    nvg::FillColor(Hud::WithAlpha(Hud::Gold, alpha));
-    for (int i = 0; i < 12; i++) {
-        nvg::Rotate(Math::PI*2.0f/12.0f);
-        nvg::BeginPath();
-        nvg::MoveTo(vec2(0, 0));
-        nvg::LineTo(vec2(320.0f*f.s, -18.0f*f.s));
-        nvg::LineTo(vec2(320.0f*f.s, 18.0f*f.s));
-        nvg::ClosePath();
-        nvg::Fill();
-    }
-    nvg::Restore();
-}
-
-void DrawPopupCracks(PopupFrame@ f) {
-    float alpha = 0.7f*f.fade*(1.0f - Math::Clamp(float(f.age - 350) / 400.0f, 0.0f, 1.0f));
-    if (alpha <= 0.0f) return;
-    float grow = EaseOutCubic(float(f.age) / 220.0f);
-    Math::Randomizer rng(uint64(f.seed) + 99);
-    int count = int(4.0f + 8.0f*f.power);
-    nvg::StrokeWidth(1.4f*f.s);
-    nvg::StrokeColor(vec4(0.82f, 0.94f, 1.0f, alpha));
-    for (int i = 0; i < count; i++) {
-        float angle = rng.Float()*Math::PI*2.0f;
-        float step = grow*(60.0f + 90.0f*rng.Float())*f.s/4.0f;
-        // Start outside the letter so the grade stays readable.
-        vec2 p = vec2(f.cx + Math::Cos(angle)*40.0f*f.s,
-            f.cy - 8.0f*f.s + Math::Sin(angle)*40.0f*f.s*0.55f);
-        nvg::BeginPath();
-        nvg::MoveTo(p);
-        for (int j = 0; j < 4; j++) {
-            angle += (rng.Float() - 0.5f)*0.9f;
-            p += vec2(Math::Cos(angle)*step, Math::Sin(angle)*step*0.55f);
-            nvg::LineTo(p);
-        }
-        nvg::Stroke();
-    }
-}
-
-void DrawPopupShards(PopupFrame@ f) {
-    float t = float(f.age) / 1000.0f;
-    if (t >= 0.8f) return;
-    float alpha = 0.55f*(1.0f - t/0.8f)*f.fade;
-    float gravity = f.miss ? 300.0f : 120.0f;
-    vec4 colour = f.miss ? vec4(0.55f, 0.6f, 0.66f, alpha) : vec4(0.62f, 0.85f, 1.0f, alpha);
-    Math::Randomizer rng(uint64(f.seed) + 13);
-    int count = int(6.0f + 34.0f*f.power + 0.5f);
-    for (int i = 0; i < count; i++) {
-        float angle = rng.Float()*Math::PI*2.0f;
-        float distance = (120.0f + 320.0f*f.power*rng.Float())*t*1.1f*f.s;
-        float size = (6.0f + 6.0f*rng.Float())*f.s;
-        float rot = rng.Float()*6.0f;
-        float spin = (rng.Float() - 0.5f)*12.0f;
-        vec2 p = vec2(f.cx + Math::Cos(angle)*distance*1.3f,
-            f.cy + Math::Sin(angle)*distance*0.6f + gravity*t*t*f.s);
-        nvg::Save();
-        nvg::Translate(p);
-        nvg::Rotate(rot + spin*t);
-        nvg::BeginPath();
-        nvg::MoveTo(vec2(0, -size));
-        nvg::LineTo(vec2(size*0.6f, size*0.7f));
-        nvg::LineTo(vec2(-size*0.5f, size*0.5f));
-        nvg::ClosePath();
-        nvg::FillColor(colour);
-        nvg::Fill();
-        nvg::Restore();
-    }
-}
-
-void DrawSnowflake(const vec2 &in c, float r) {
-    nvg::BeginPath();
-    for (int arm = 0; arm < 6; arm++) {
-        float a = float(arm)*Math::PI/3.0f;
-        vec2 d = vec2(Math::Cos(a), Math::Sin(a));
-        vec2 branch = c + d*(r*0.6f);
-        vec2 n = vec2(-d.y, d.x)*(r*0.25f);
-        nvg::MoveTo(c);
-        nvg::LineTo(c + d*r);
-        nvg::MoveTo(branch + n - d*(r*0.2f));
-        nvg::LineTo(branch);
-        nvg::LineTo(branch - n - d*(r*0.2f));
-    }
-    nvg::Stroke();
-}
-
-void DrawPopupSnowflakes(PopupFrame@ f) {
-    float alpha = f.fade*(1.0f - Math::Clamp(float(f.age - 400) / 400.0f, 0.0f, 1.0f));
-    float travel = EaseOutCubic(float(f.age - 80) / 600.0f);
-    if (alpha <= 0.0f || travel <= 0.0f) return;
-    int count = f.grade == Grade::SPlus ? 10 : 6;
-    nvg::StrokeWidth(1.5f*f.s);
-    nvg::StrokeColor(vec4(0.9f, 0.97f, 1.0f, alpha));
-    for (int i = 0; i < count; i++) {
-        float angle = float(i)/float(count)*Math::PI*2.0f + float(f.age)*0.001f;
-        float distance = (40.0f + 200.0f*travel)*f.s;
-        DrawSnowflake(vec2(f.cx + Math::Cos(angle)*distance*1.4f,
-            f.cy + Math::Sin(angle)*distance*0.6f), 7.0f*f.s);
-    }
 }
 
 // Keeps the picture's aspect ratio inside a size-by-size square.
@@ -295,6 +147,7 @@ void DrawPopupPictures(PopupFrame@ f) {
 void DrawPopupCaption(PopupFrame@ f) {
     float alpha = f.fade*Math::Clamp(float(f.age - 120) / 200.0f, 0.0f, 1.0f);
     if (alpha <= 0.0f) return;
+    vec4 text = Hud::TextColor();
     Hud::Text(f.cx, f.cy + f.slump + 28.0f*f.s, f.caption, 13.0f*f.s,
-        vec4(0.88f, 0.96f, 1.0f, alpha), nvg::Align::Center | nvg::Align::Middle);
+        Hud::WithAlpha(text, text.w*alpha), nvg::Align::Center | nvg::Align::Middle);
 }

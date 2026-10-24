@@ -78,7 +78,7 @@ void RenderHistoryAttempts() {
             UI::TableNextColumn();
             if (run.status == RunStatus::Finished)
                 UI::Text(Colored(Hud::Gold, "FINISHED " + Time::Format(uint64(run.finishMs))));
-            else UI::Text(Colored(Hud::Pink, "RESET"));
+            else UI::Text(Colored(GradeColor(Grade::Missed), "RESET"));
             UI::TableNextColumn();
             UI::Text("" + run.score);
             UI::TableNextColumn();

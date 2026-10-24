@@ -56,16 +56,13 @@ void RenderFinishSummary(const vec4 &in r, RunRecord@ run) {
     float left = r.x + 25*s;
     float inner = r.z - 50*s;
     int center = nvg::Align::Center | nvg::Align::Middle;
-    Hud::CardBase(r, Hud::Gold);
-    Hud::Text(cx, r.y + 36*s, "RUN COMPLETE", 27*s, Hud::Gold, center);
+    Hud::Panel(r);
+    Hud::Text(cx, r.y + 40*s, "RUN COMPLETE", 27*s, Hud::TextColor(), center);
     nvg::FontSize(17*s);
-    Hud::Text(cx, r.y + 69*s, FitText(run.mapName, inner - 20*s), 17*s, Hud::Bright, center);
-
-    array<string> statLabels = {"FINISH", "SCORE", "BEST COMBO"};
-    array<string> statValues = {Time::Format(uint64(run.finishMs)),
-        "" + run.score, "x" + run.bestCombo};
-    array<vec4> statColors = {Hud::White, Hud::Gold, Hud::Cyan};
-    Hud::TileRow(left, r.y + 91*s, inner, 68*s, 9*s, statLabels, statValues, statColors, false);
+    Hud::Text(cx, r.y + 75*s, FitText(run.mapName, inner - 20*s), 17*s, Hud::Muted(), center);
+    array<string> totals = {"FINISH " + Time::Format(uint64(run.finishMs)),
+        "SCORE " + run.score, "BEST x" + run.bestCombo};
+    Hud::Columns(left, r.y + 125*s, inner, totals, 18*s, Hud::TextColor());
 
     // One count per grade from S+ to MISSED; anything else counts as unrated.
     array<int> counts(8);
@@ -76,15 +73,14 @@ void RenderFinishSummary(const vec4 &in r, RunRecord@ run) {
         counts[uint(Math::Min(int(grade), int(Grade::Unrated)))]++;
         if (IsRated(grade) && jump.leadMs >= 0) leads.InsertLast(jump.leadMs);
     }
-    array<string> gradeNames;
-    array<string> gradeCounts;
-    array<vec4> gradeColors;
-    for (int g = int(Grade::SPlus); g <= int(Grade::D); g++) {
-        gradeNames.InsertLast(GradeName(Grade(g)));
-        gradeCounts.InsertLast("" + counts[uint(g)]);
-        gradeColors.InsertLast(GradeColor(Grade(g)));
+    // S+ to D and MISS as columns: the grade in its colour over its count.
+    float column = inner / 7.0f;
+    for (int g = int(Grade::SPlus); g <= int(Grade::Missed); g++) {
+        float x = left + column*(float(g) + 0.5f);
+        string name = Grade(g) == Grade::Missed ? "MISS" : GradeName(Grade(g));
+        Hud::Text(x, r.y + 195*s, name, 34*s, GradeColor(Grade(g)), center);
+        Hud::Text(x, r.y + 235*s, "" + counts[uint(g)], 20*s, Hud::TextColor(), center);
     }
-    Hud::TileRow(left, r.y + 177*s, inner, 80*s, 7*s, gradeNames, gradeCounts, gradeColors, true);
 
     string bestLead = "--";
     string medianLead = "--";
@@ -93,12 +89,10 @@ void RenderFinishSummary(const vec4 &in r, RunRecord@ run) {
         int median = leads[leads.Length / 2];
         if (leads.Length % 2 == 0)
             median = (leads[leads.Length / 2 - 1] + median) / 2;
-        bestLead = leads[0] + "ms";
-        medianLead = "~" + median + "ms";
+        bestLead = leads[0] + " ms";
+        medianLead = "~" + median + " ms";
     }
-    array<string> detailLabels = {"MISSED", "UNRATED", "BEST LEAD", "MEDIAN"};
-    array<string> detailValues = {"" + counts[uint(Grade::Missed)],
-        "" + counts[uint(Grade::Unrated)], bestLead, medianLead};
-    array<vec4> detailColors = {Hud::Pink, Hud::Label, Hud::Cyan, Hud::Cyan};
-    Hud::TileRow(left, r.y + 271*s, inner, 70*s, 9*s, detailLabels, detailValues, detailColors, true);
+    array<string> details = {"BEST LEAD " + bestLead, "MEDIAN " + medianLead,
+        "UNRATED " + counts[uint(Grade::Unrated)]};
+    Hud::Columns(left, r.y + 310*s, inner, details, 14*s, Hud::Muted());
 }

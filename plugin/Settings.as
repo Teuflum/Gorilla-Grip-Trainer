@@ -4,6 +4,17 @@ bool S_EnableWidgets = true;
 bool S_ShowWhenGameHudOff = false;
 [Setting hidden name="Show finish summary automatically"]
 bool S_AutoFinishSummary = true;
+// Every widget box and the popup panel use these.
+[Setting hidden color name="Background"]
+vec4 S_BoxBackground = vec4(0, 0, 0, 0.7f);
+[Setting hidden color name="Border colour"]
+vec4 S_BoxBorder = vec4(1, 1, 1, 1);
+[Setting hidden name="Border width" min=0 max=10]
+float S_BoxBorderWidth = 3.0f;
+[Setting hidden name="Corner radius" min=0 max=30]
+float S_BoxRadius = 5.0f;
+[Setting hidden color name="Text colour"]
+vec4 S_BoxText = vec4(1, 1, 1, 1);
 
 // Leads are whole 10 ms physics ticks, so the defaults sit on the tick grid.
 [Setting hidden name="S maximum lead (ms)" min=0 max=2000 description="How early the stored steering direction may switch before the last wheel leaves, for each grade. S+ is a 0 ms lead and has no limit of its own. Leads come in whole 10 ms physics ticks, so a limit of 15 grades like 10."]
@@ -36,7 +47,8 @@ void ResetSettings(const array<string> &in names) {
     for (uint i = 0; i < names.Length; i++) plugin.GetSetting(names[i]).Reset();
 }
 
-array<string> g_displaySettings = {"S_EnableWidgets", "S_ShowWhenGameHudOff", "S_AutoFinishSummary"};
+array<string> g_displaySettings = {"S_EnableWidgets", "S_ShowWhenGameHudOff", "S_AutoFinishSummary",
+    "S_BoxBackground", "S_BoxBorder", "S_BoxBorderWidth", "S_BoxRadius", "S_BoxText"};
 array<string> g_ratingSettings = {"S_SMaxLeadMs", "S_AMaxLeadMs", "S_BMaxLeadMs", "S_CMaxLeadMs",
     "S_DMaxLeadMs", "S_MinIcing", "S_MinSpeed", "S_MinFlight"};
 

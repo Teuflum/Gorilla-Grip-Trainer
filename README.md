@@ -57,24 +57,26 @@ A jump is rated only if it comes out of an ice slide. The takeoff icing, speed a
 | Last run | Your latest rated attempt on this map |
 | Finish | After a finish: time, score, best combo, grade counts, misses, best and median switch lead |
 
+Each widget is a plain box: black at 70% with a white border and white text by default. You can change the colours, the border and the corner radius on the **Display** tab.
+
 Open **Settings → Gorilla Grip Trainer → Layout** to drag and resize them, or type in their position and size.
 
 ## Settings
 
 | Tab | Contents |
 | --- | --- |
-| Display | Turn widgets on or off, show them with the game HUD hidden, open the finish summary automatically |
+| Display | Turn widgets on or off, show them with the game HUD hidden, open the finish summary automatically, widget colours, border and corner radius |
 | Rating | Grade limits and which jumps count (icing, speed, flight time) |
 | Sounds | Sound folders, and an on/off switch and volume per cue |
-| Popup | Popup animation, effects and intensity; pictures beside the landing grade |
+| Popup | Popup animation on or off; pictures beside the landing grade |
 | Layout | Which widgets show, and their positions and sizes |
 | Debug | Event logging; only in Openplanet's developer mode |
 
 ## Landing popup
 
-The landing grade shows up on an ice panel that cracks and throws shards. Better grades get bigger effects. S and S+ add snowflakes, and S+ also gets light rays. A miss sinks and tips over.
+The landing grade drops onto a panel in the same colours as the widgets and turns from white to its grade colour. A miss sinks and tips over.
 
-Under **Popup** you can turn single effects off, change their size with **Effect intensity**, or turn off **Popup animation** to show the grade without any motion.
+Turn off **Popup animation** on the Popup tab to show the grade without any motion.
 
 - **Pictures:** one per result, shown on both sides of the grade. Pick one of the shipped emoji pictures, or use your own PNG or JPG files from the `LocalImages` folder. Only S and S+ pictures bounce.
 - **Preview** plays any result's popup with your current pictures.

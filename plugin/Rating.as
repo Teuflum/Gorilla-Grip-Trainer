@@ -91,11 +91,10 @@ int EstimateReversal(PhysicsSnapshot@ before, PhysicsSnapshot@ after) {
 class JumpPreview {
     Grade grade = Grade::None;
     int leadMs = -1;
-    int takeoffTime = -1;
     int modeAt = -1;
 }
 
-class TransitionTracker {
+class JumpTracker {
     PhysicsSnapshot@ previous;
     JumpPreview@ preview;
     JumpVerdict@ verdict;
@@ -219,7 +218,6 @@ class TransitionTracker {
         @preview = JumpPreview();
         preview.grade = grade;
         preview.leadMs = lead;
-        preview.takeoffTime = takeoffRace;
         preview.modeAt = switchAt;
     }
 

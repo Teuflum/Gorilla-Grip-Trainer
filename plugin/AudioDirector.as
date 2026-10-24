@@ -8,7 +8,6 @@ class AudioDirector {
     bool finishPlayed = false;
     bool loopResults = false;
     int64 finishStartedAt = -1;
-    int64 rewindRequestedAt = -1;
     string previewStatus = "";
 
     void Load() {
@@ -64,7 +63,6 @@ class AudioDirector {
         @finishVoice = null;
         loopResults = false;
         finishStartedAt = -1;
-        rewindRequestedAt = -1;
     }
 
     // Follows the volume settings and restarts the finish music when it ends.
@@ -87,14 +85,6 @@ class AudioDirector {
             return;
         // Each loop picks a new file.
         Audio::Voice@ next = Play(Cue::Finish);
-        if (next is null && rewindRequestedAt < 0) {
-            // Fallback: rewind the existing voice once before giving up.
-            finishVoice.SetPosition(0.0);
-            rewindRequestedAt = Time::MilliStamp;
-            finishStartedAt = Time::MilliStamp;
-            DebugLog("Audio: finish music restarted by rewinding");
-            return;
-        }
         if (next is null) {
             loopResults = false;
             warn("Audio: the finish music could not restart");
@@ -102,7 +92,6 @@ class AudioDirector {
         }
         Mute(finishVoice);
         @finishVoice = next;
-        rewindRequestedAt = -1;
         finishStartedAt = Time::MilliStamp;
         DebugLog("Audio: finish music loop started");
     }

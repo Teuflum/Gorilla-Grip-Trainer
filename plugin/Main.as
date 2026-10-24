@@ -6,7 +6,7 @@ int g_previousForceGate = -1;
 int g_previousRaceTime = -1;
 bool g_eventLoggingOn = false;
 int g_loggedFrameSkip = -1;
-TransitionTracker@ g_tracker;
+JumpTracker@ g_tracker;
 SessionState@ g_session;
 AudioDirector@ g_audio;
 HistoryStore@ g_history;
@@ -62,7 +62,7 @@ void EndActiveRun(RunStatus status, int finishMs = -1) {
 
 void ResetAttemptState() {
     EndActiveRun(RunStatus::Reset);
-    @g_tracker = TransitionTracker();
+    @g_tracker = JumpTracker();
     @g_session = SessionState();
     ClearResult();
     ClearStatChange();
@@ -81,7 +81,7 @@ void Main() {
         return;
     }
     NormalizeGradeThresholds();
-    @g_tracker = TransitionTracker();
+    @g_tracker = JumpTracker();
     @g_session = SessionState();
     @g_history = HistoryStore();
     g_history.Load();
@@ -211,7 +211,7 @@ void RateFrame(CSceneVehicleVisState@ vis, int t) {
     bool stadiumCar = IsStadiumCar(vis);
     if (stadiumCar != g_stadiumCar) {
         g_stadiumCar = stadiumCar;
-        @g_tracker = TransitionTracker();
+        @g_tracker = JumpTracker();
         DebugLog("Car " + tostring(VehicleState::GetVehicleType(vis)) +
             (stadiumCar ? ": rating jumps" : ": jumps are not rated outside the Stadium car"));
     }
@@ -221,7 +221,7 @@ void RateFrame(CSceneVehicleVisState@ vis, int t) {
     }
     g_readMonitor.Observe(next);
     if (!g_tracker.Update(next)) {
-        @g_tracker = TransitionTracker();
+        @g_tracker = JumpTracker();
         g_tracker.Update(next);
     }
     if (g_tracker.takeoffCueEvent) {

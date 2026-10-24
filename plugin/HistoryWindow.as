@@ -48,6 +48,11 @@ UI::Font@ HistoryFont() {
     return g_historyTileFont;
 }
 
+// Text in a colour, using Openplanet's colour codes.
+string Colored(const vec4 &in color, const string &in text) {
+    return Text::FormatOpenplanetColor(vec3(color.x, color.y, color.z)) + text;
+}
+
 vec4 HistoryStatusColor(RunStatus status) {
     return status == RunStatus::Finished ? Hud::Gold : Hud::Pink;
 }
@@ -116,16 +121,12 @@ void RenderGradeTally(RunRecord@ run) {
             if (run.jumps[j].label == name) count++;
         if (count == 0) continue;
         if (!first) UI::SameLine(0, 6);
-        UI::PushStyleColor(UI::Col::Text, GradeColor(Grade(g)));
-        UI::Text(name + count);
-        UI::PopStyleColor();
+        UI::Text(Colored(GradeColor(Grade(g)), name + count));
         first = false;
     }
     if (run.misses > 0) {
         if (!first) UI::SameLine(0, 10);
-        UI::PushStyleColor(UI::Col::Text, GradeColor(Grade::Missed));
-        UI::Text("" + run.misses + " missed");
-        UI::PopStyleColor();
+        UI::Text(Colored(GradeColor(Grade::Missed), run.misses + " missed"));
         first = false;
     }
     if (first) UI::TextDisabled("--");
@@ -164,10 +165,8 @@ void RenderHistoryAttempts() {
             UI::TableNextColumn();
             UI::Text(Time::FormatString("%Y-%m-%d %H:%M", run.startedAt / 1000));
             UI::TableNextColumn();
-            UI::PushStyleColor(UI::Col::Text, HistoryStatusColor(run.status));
-            UI::Text(run.status == RunStatus::Finished ?
-                "FINISHED " + Time::Format(uint64(run.finishMs)) : "RESET");
-            UI::PopStyleColor();
+            UI::Text(Colored(HistoryStatusColor(run.status), run.status == RunStatus::Finished ?
+                "FINISHED " + Time::Format(uint64(run.finishMs)) : "RESET"));
             UI::TableNextColumn();
             UI::Text("" + run.score);
             UI::TableNextColumn();
@@ -202,9 +201,7 @@ void RenderHistoryJumps(RunRecord@ selected) {
                 UI::SelectableFlags::SpanAllColumns))
                 g_historySelectedJump = int(j);
             UI::TableNextColumn();
-            UI::PushStyleColor(UI::Col::Text, GradeColor(GradeFromName(jump.label)));
-            UI::Text(HistoryGrade(jump));
-            UI::PopStyleColor();
+            UI::Text(Colored(GradeColor(GradeFromName(jump.label)), HistoryGrade(jump)));
             UI::TableNextColumn();
             UI::Text(Time::Format(uint64(jump.landingMs)));
             UI::TableNextColumn();
@@ -229,9 +226,7 @@ void RenderHistoryJumps(RunRecord@ selected) {
         detail += "  |  Takeoff " + jump.preview +
             (jump.timingEstimated && jump.preview != "S+" ? "+" : "");
     if (jump.scoreAfter >= 0) detail += "  |  Score after landing " + jump.scoreAfter;
-    UI::PushStyleColor(UI::Col::Text, Hud::Label);
-    UI::TextWrapped(detail);
-    UI::PopStyleColor();
+    UI::TextWrapped(Colored(Hud::Label, detail));
 }
 
 void RenderHistoryClear() {
@@ -283,9 +278,7 @@ void RenderHistoryWindow() {
         RenderHistoryHeader("SELECTED ATTEMPT");
         UI::Font@ nameFont = HistoryFont();
         if (nameFont !is null) UI::PushFont(nameFont);
-        UI::PushStyleColor(UI::Col::Text, Hud::Gold);
-        UI::TextWrapped(selected.mapName);
-        UI::PopStyleColor();
+        UI::TextWrapped(Colored(Hud::Gold, selected.mapName));
         if (nameFont !is null) UI::PopFont();
         UI::TextDisabled(Time::FormatString("%Y-%m-%d %H:%M", selected.startedAt / 1000));
         RenderAttemptTiles(selected);

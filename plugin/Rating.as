@@ -142,7 +142,6 @@ class JumpTracker {
     bool inFlight = false;
     bool pendingLanding = false;
     int switchAt = -1;
-    SlideMode switchOldMode = SlideMode::Neutral;
     SlideMode switchNewMode = SlideMode::Neutral;
     int rawReversalAt = -1;
     int lastSlideTick = -1;
@@ -165,8 +164,8 @@ class JumpTracker {
         if (previous.modeAt == snap.modeAt) return;
         int at = int(snap.modeAt);
         if (at < previous.tick || at > snap.tick) return;
+        // Only a switch between the two directions is recorded.
         switchAt = at;
-        switchOldMode = previous.mode;
         switchNewMode = snap.mode;
     }
 
@@ -197,8 +196,7 @@ class JumpTracker {
                 "TIMING NOT EXACT", snap.raceTime);
             return;
         }
-        if (!attempted || switchOldMode == SlideMode::Neutral ||
-            switchOldMode == flight.takeoffMode || switchAt > flight.takeoffTick) return;
+        if (!attempted || switchAt > flight.takeoffTick) return;
         int lead = flight.takeoffTick - switchAt;
         Grade grade = GradeLead(lead);
         if (grade == Grade::None) return;
@@ -251,7 +249,6 @@ class JumpTracker {
         verdict.takeoffTime = flight.takeoffRace;
         verdict.landingTime = Math::Max(flight.takeoffRace, raceTime);
         verdict.leadMs = flight.preview is null ? -1 : flight.preview.leadMs;
-        verdict.exact = false;
         verdictEvent = true;
     }
 
@@ -266,8 +263,7 @@ class JumpTracker {
         bool switchedByCheck = landing.firstChangeSeen && landing.firstChangeAt <= landing.checkTick;
         // Tire force does not decide: without a reset, a low force means a low
         // target (light steering, low speed), not a delayed grip.
-        bool recovered = enoughIcing && !switchedByCheck &&
-            landing.forceEligibleTick - flight.takeoffModeAt >= flight.recoveryDelayMs;
+        bool recovered = enoughIcing && !switchedByCheck;
         // A scrape in flight counts as ground contact and can store the new
         // direction before the real landing; name it instead of a generic miss.
         bool touchSwitched = landing.touchLifted && switchedByCheck;
@@ -301,7 +297,6 @@ class JumpTracker {
         } else return;
         verdict.takeoffTime = flight.takeoffRace;
         verdict.landingTime = landing.race;
-        verdict.exact = true;
         verdictEvent = true;
     }
 
@@ -309,9 +304,7 @@ class JumpTracker {
     void PublishAirEvents(PhysicsSnapshot@ snap) {
         if (!inFlight || snap.contactMask != 0 || !flight.eligible || flight.uncertain ||
             snap.raceTime - flight.takeoffRace < S_MinFlight) return;
-        int reversalLead = flight.takeoffTick - rawReversalAt;
-        if (!flight.cuePublished && (flight.preview !is null ||
-            (rawReversalAt >= 0 && 0 <= reversalLead && reversalLead <= CUE_REVERSAL_WINDOW_MS))) {
+        if (!flight.cuePublished && (flight.preview !is null || flight.reversalLeadMs >= 0)) {
             flight.cuePublished = true;
             takeoffCueEvent = true;
         }
@@ -362,7 +355,7 @@ class JumpTracker {
     bool Update(PhysicsSnapshot@ snap) {
         verdictEvent = false;
         takeoffCueEvent = false;
-        if (snap is null || !snap.exact || snap.tick < 0) {
+        if (!snap.exact || snap.tick < 0) {
             if (pendingLanding)
                 PublishUnrated("Lost the car data after landing.",
                     "PHYSICS READ LOST", landing.race);

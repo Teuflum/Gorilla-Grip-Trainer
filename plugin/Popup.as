@@ -18,13 +18,6 @@ float EaseOutBack(float x) {
     return 1.0f + 2.9f*m*m*m + 1.9f*m*m;
 }
 
-void StartPopupPreview(Grade grade) {
-    @g_result = ShownResult();
-    g_result.grade = grade;
-    g_result.caption = GradeCaption(grade);
-    g_result.preview = true;
-}
-
 class PopupFrame {
     Grade grade;
     string caption;
@@ -36,7 +29,7 @@ class PopupFrame {
     bool miss;
     vec4 accent;
     float panelW;
-    // How far a MISSED panel has sunk.
+    // How far a MISSED popup has sunk, 0 to 1.
     float slump = 0.0f;
 }
 
@@ -53,7 +46,7 @@ void RenderResult(const vec4 &in r, int age, Grade grade, const string &in capti
     f.miss = grade == Grade::Missed;
     f.accent = GradeColor(grade, f.fade);
     f.panelW = (180.0f + 300.0f*EaseOutCubic(float(f.age) / 180.0f))*f.s;
-    if (f.miss) f.slump = 10.0f*f.s*EaseOutCubic((float(f.age) - 250.0f) / 350.0f);
+    if (f.miss) f.slump = EaseOutCubic((float(f.age) - 250.0f) / 350.0f);
     DrawPopupPanel(f);
     DrawPopupPictures(f);
     DrawPopupLetter(f);
@@ -63,7 +56,7 @@ void RenderResult(const vec4 &in r, int age, Grade grade, const string &in capti
 void DrawPopupPanel(PopupFrame@ f) {
     nvg::Save();
     nvg::GlobalAlpha(f.fade);
-    Hud::Panel(vec4(f.cx - f.panelW*0.5f, f.cy + f.slump - 52.0f*f.s, f.panelW, 105.0f*f.s));
+    Hud::Panel(vec4(f.cx - f.panelW*0.5f, f.cy + (10.0f*f.slump - 52.0f)*f.s, f.panelW, 105.0f*f.s));
     nvg::Restore();
 }
 
@@ -75,7 +68,7 @@ void DrawPopupText(PopupFrame@ f, float x, float y, float scale, float rot,
     nvg::Rotate(rot);
     nvg::Scale(scale, scale);
     nvg::FontBlur(blur);
-    Hud::Text(0, 0, GradeName(f.grade), size, colour, nvg::Align::Center | nvg::Align::Middle);
+    Hud::Text(0, 0, GradeName(f.grade), size, colour, Hud::Center);
     nvg::Restore();
 }
 
@@ -89,9 +82,8 @@ void DrawPopupLetter(PopupFrame@ f) {
     float rot = 0.0f;
     vec4 colour = f.accent;
     if (f.miss) {
-        float slump = EaseOutCubic((age - 250.0f) / 350.0f);
-        y += 14.0f*f.s*slump;
-        rot = 0.12f*slump;
+        y += 14.0f*f.s*f.slump;
+        rot = 0.12f*f.slump;
     } else {
         float warm = Math::Clamp((age - 120.0f) / 300.0f, 0.0f, 1.0f);
         colour = Math::Lerp(vec4(0.84f, 0.95f, 1.0f, f.fade), f.accent, warm);
@@ -104,11 +96,9 @@ void DrawPopupLetter(PopupFrame@ f) {
 // Keeps the picture's aspect ratio inside a size-by-size square.
 void DrawPictureTexture(nvg::Texture@ texture, float x, float y, float size,
     float angle, float alpha) {
-    vec2 dims = texture.GetSize();
-    if (!HasArea(dims)) return;
-    float aspect = dims.x / dims.y;
-    float w = size*Math::Min(1.0f, aspect);
-    float h = size*Math::Min(1.0f, 1.0f / aspect);
+    vec2 fit = FitInSquare(texture.GetSize(), size);
+    float w = fit.x;
+    float h = fit.y;
     nvg::Save();
     nvg::Translate(x, y);
     nvg::Rotate(angle);
@@ -132,7 +122,7 @@ void DrawPopupPictures(PopupFrame@ f) {
         float size = 72.0f*f.s*EaseOutBack((age - delay) / 300.0f);
         float alpha = f.fade*Math::Clamp((age - delay) / 100.0f, 0.0f, 1.0f);
         float x = f.cx + side*150.0f*f.s;
-        float y = f.cy + f.slump;
+        float y = f.cy + 10.0f*f.slump*f.s;
         float tilt = 0.0f;
         if (dance) {
             float wave = Math::Sin(age*0.012f + float(i)*1.8f);
@@ -147,7 +137,6 @@ void DrawPopupPictures(PopupFrame@ f) {
 void DrawPopupCaption(PopupFrame@ f) {
     float alpha = f.fade*Math::Clamp(float(f.age - 120) / 200.0f, 0.0f, 1.0f);
     if (alpha <= 0.0f) return;
-    vec4 text = Hud::TextColor();
-    Hud::Text(f.cx, f.cy + f.slump + 28.0f*f.s, f.caption, 13.0f*f.s,
-        Hud::WithAlpha(text, text.w*alpha), nvg::Align::Center | nvg::Align::Middle);
+    Hud::Text(f.cx, f.cy + (10.0f*f.slump + 28.0f)*f.s, f.caption, 13.0f*f.s,
+        Hud::WithAlpha(Hud::TextColor(), alpha), Hud::Center);
 }

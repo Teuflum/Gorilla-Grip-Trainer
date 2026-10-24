@@ -17,36 +17,29 @@ array<string> g_emojiLabels = {"Gorilla", "Oncoming fist", "Flexed biceps",
     "Fire", "Thumbs up", "OK hand", "Slightly smiling face", "Skull",
     "Loudly crying face", "Ice", "Snowflake", "Trophy", "Star"};
 
-bool HasPicture(Grade grade) {
-    return grade <= Grade::Missed;
-}
-
 // The picture setting of each grade from S+ to MISSED, in Grade order.
 array<string> g_pictureSettingNames = {"S_PictureSPlus", "S_PictureS", "S_PictureA",
     "S_PictureB", "S_PictureC", "S_PictureD", "S_PictureMissed"};
 array<Meta::PluginSetting@> g_pictureSettings;
-
-Meta::PluginSetting@ PictureSettingOf(Grade grade) {
-    if (g_pictureSettings.Length == 0) {
-        auto plugin = Meta::ExecutingPlugin();
-        for (uint i = 0; i < g_pictureSettingNames.Length; i++)
-            g_pictureSettings.InsertLast(plugin.GetSetting(g_pictureSettingNames[i]));
-    }
-    return g_pictureSettings[uint(grade)];
-}
+array<string> g_imageExtensions = {".png", ".jpg", ".jpeg"};
 
 string PictureSetting(Grade grade) {
-    return HasPicture(grade) ? PictureSettingOf(grade).ReadString() : "";
+    return g_pictureSettings[uint(grade)].ReadString();
 }
 
 void SetPictureSetting(Grade grade, const string &in choice) {
-    if (HasPicture(grade)) PictureSettingOf(grade).WriteString(choice);
+    g_pictureSettings[uint(grade)].WriteString(choice);
 }
 
 void ResetPictureSettings() {
     Meta::ExecutingPlugin().GetSetting("S_ShowPictures").Reset();
-    for (int g = int(Grade::SPlus); g <= int(Grade::Missed); g++)
-        PictureSettingOf(Grade(g)).Reset();
+    for (uint i = 0; i < g_pictureSettings.Length; i++) g_pictureSettings[i].Reset();
+}
+
+// A picture's size inside a size-by-size square, keeping its aspect ratio.
+vec2 FitInSquare(const vec2 &in dims, float size) {
+    float aspect = dims.x / Math::Max(dims.y, 1.0f);
+    return aspect >= 1.0f ? vec2(size, size / aspect) : vec2(size * aspect, size);
 }
 
 // One file directly inside LocalImages.
@@ -141,7 +134,7 @@ void ClearPictureCache() {
 }
 
 nvg::Texture@ PictureForResult(Grade grade) {
-    if (!S_ShowPictures || !HasPicture(grade)) return null;
+    if (!S_ShowPictures || grade > Grade::Missed) return null;
     PictureTexture@ picture = GetPicture(PictureSetting(grade));
     return picture is null ? null : picture.drawing;
 }
@@ -149,22 +142,17 @@ nvg::Texture@ PictureForResult(Grade grade) {
 void RefreshLocalImages() {
     g_localImages.RemoveRange(0, g_localImages.Length);
     g_localImagesScanned = true;
-    string folder = IO::FromStorageFolder("LocalImages");
-    if (!IO::FolderExists(folder)) return;
-    array<string>@ files = IO::IndexFolder(folder, false);
-    for (uint i = 0; i < files.Length; i++) {
-        string name = Path::GetFileName(files[i]);
-        string extension = Path::GetExtension(name).ToLower();
-        if ((extension == ".png" || extension == ".jpg" || extension == ".jpeg") &&
-            IsSafeLocalName(name))
-            g_localImages.InsertLast(name);
-    }
-    g_localImages.SortAsc();
+    array<string> names = FilesIn(IO::FromStorageFolder("LocalImages"), g_imageExtensions);
+    for (uint i = 0; i < names.Length; i++)
+        if (IsSafeLocalName(names[i])) g_localImages.InsertLast(names[i]);
 }
 
 // Scan LocalImages and load the chosen pictures so the first popup does not
 // stall on a texture load.
 void InitPictures() {
+    auto plugin = Meta::ExecutingPlugin();
+    for (uint i = 0; i < g_pictureSettingNames.Length; i++)
+        g_pictureSettings.InsertLast(plugin.GetSetting(g_pictureSettingNames[i]));
     RefreshLocalImages();
     for (int g = int(Grade::SPlus); g <= int(Grade::Missed); g++)
         PictureForResult(Grade(g));

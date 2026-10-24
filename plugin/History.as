@@ -76,8 +76,6 @@ class RunRecord {
 
     void Record(JumpVerdict@ verdict, SessionState@ session,
         JumpPreview@ timingPreview) {
-        if (verdict is null || session is null ||
-            (!verdict.exact && verdict.grade != Grade::Unrated)) return;
         jumps.InsertLast(HistoryJump(verdict, session.combo, session.score,
             timingPreview));
         score = session.score;
@@ -127,8 +125,6 @@ class RunRecord {
 
 class HistoryStore {
     array<RunRecord@> runs;
-    // Counts changes, so views can tell when to look at the runs again.
-    uint revision = 0;
     // False while history.json holds something unreadable; it is not used as
     // a backup then.
     bool primaryReadable = true;
@@ -153,12 +149,10 @@ class HistoryStore {
             return false;
         }
         runs = loaded;
-        revision++;
         return true;
     }
 
     void Load() {
-        runs.RemoveRange(0, runs.Length);
         string path = Path();
         primaryReadable = true;
         if (!IO::FileExists(path) || ReadFile(path)) return;
@@ -193,11 +187,9 @@ class HistoryStore {
     }
 
     void Append(RunRecord@ run) {
-        if (run is null || (run.jumps.Length == 0 && run.status != RunStatus::Finished))
-            return;
+        if (run.jumps.Length == 0 && run.status != RunStatus::Finished) return;
         runs.InsertLast(run);
         while (runs.Length > HISTORY_LIMIT) runs.RemoveAt(0);
-        revision++;
         Save();
         DebugLog("History: " + StatusName(run.status) + " " + run.id +
             " jumps " + run.jumps.Length);
@@ -205,7 +197,6 @@ class HistoryStore {
 
     void Clear() {
         runs.RemoveRange(0, runs.Length);
-        revision++;
         string backup = BackupPath();
         if (IO::FileExists(backup)) IO::Delete(backup);
         Json::ToFile(Path(), ToJson(), true);

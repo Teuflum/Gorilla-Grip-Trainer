@@ -89,7 +89,7 @@ for var, (name, toks) in patterns.items():
 
 
 def as_python(expr):
-    """LocatePhysics' offset arithmetic and checks, run over the image."""
+    """Physics::Locate's offset arithmetic and checks, run over the image."""
     expr = re.sub(r"//[^\n]*", "", expr)
     return "(" + expr.replace("&&", " and ").replace("||", " or ").replace("l.", "L.") + ")"
 

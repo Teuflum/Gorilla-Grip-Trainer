@@ -6,6 +6,10 @@ namespace Hud {
     const vec4 Magenta = vec4(1.0f, 0.39f, 0.76f, 1.0f);
     const vec4 Orange = vec4(1.0f, 0.58f, 0.36f, 1.0f);
 
+    const int Left = nvg::Align::Left | nvg::Align::Middle;
+    const int Right = nvg::Align::Right | nvg::Align::Middle;
+    const int Center = nvg::Align::Center | nvg::Align::Middle;
+
     vec4 WithAlpha(const vec4 &in color, float alpha) {
         return vec4(color.x, color.y, color.z, alpha);
     }
@@ -26,8 +30,7 @@ namespace Hud {
         float column = width / float(items.Length);
         for (uint i = 0; i < items.Length; i++)
             Text(x + column*(float(i) + 0.5f), y, items[i], size,
-                colors[i < colors.Length ? i : colors.Length - 1],
-                nvg::Align::Center | nvg::Align::Middle);
+                colors[i < colors.Length ? i : colors.Length - 1], Center);
     }
 
     void Columns(float x, float y, float width, const array<string> &in items, float size,
@@ -46,9 +49,8 @@ namespace Hud {
         float labelW = nvg::TextBounds(label).x + size * 0.3f;
         nvg::FontSize(size);
         float start = alignRight ? x - labelW - nvg::TextBounds(value).x : x;
-        int align = nvg::Align::Left | nvg::Align::Middle;
-        Text(start, y, label, labelSize, Muted(), align);
-        Text(start + labelW, y, value, size, color, align);
+        Text(start, y, label, labelSize, Muted(), Left);
+        Text(start + labelW, y, value, size, color, Left);
     }
 
     void Outline(float x, float y, float w, float h, float radius, const vec4 &in color,

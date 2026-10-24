@@ -1,11 +1,10 @@
 class AudioDirector {
-    Audio::Voice@ cueVoice;
-    Audio::Voice@ resultVoice;
+    Audio::Voice@ takeoffVoice;
+    Audio::Voice@ landingVoice;
     Audio::Voice@ finishVoice;
     Audio::Voice@ previewVoice;
     Cue previewCue = Cue::Takeoff;
-    bool finishPlayed = false;
-    bool loopResults = false;
+    // When the current finish music file started, or -1 when it does not loop.
     int64 finishStartedAt = -1;
     string previewStatus = "";
 
@@ -30,17 +29,16 @@ class AudioDirector {
     }
 
     void StopTransient() {
-        Mute(cueVoice);
-        Mute(resultVoice);
-        @cueVoice = null;
-        @resultVoice = null;
+        Mute(takeoffVoice);
+        Mute(landingVoice);
+        @takeoffVoice = null;
+        @landingVoice = null;
     }
 
     // A new attempt; a settings preview keeps playing.
     void OnReset() {
         StopTransient();
-        StopResults();
-        finishPlayed = false;
+        StopFinish();
     }
 
     void StopPreview() {
@@ -57,26 +55,25 @@ class AudioDirector {
             previewStatus = "No sound files in LocalSounds/" + g_cueFolders[uint(cue)];
     }
 
-    void StopResults() {
+    void StopFinish() {
         Mute(finishVoice);
         @finishVoice = null;
-        loopResults = false;
         finishStartedAt = -1;
     }
 
     // Follows the volume settings and restarts the finish music when it ends.
     // The short takeoff and landing sounds keep the volume they started with.
-    void UpdateSettings() {
+    void Update() {
         if (previewVoice !is null) previewVoice.SetGain(Gain(previewCue));
         if (!S_EnableAudio) {
             StopTransient();
-            StopResults();
+            StopFinish();
             return;
         }
-        if (!S_SoundFinish) StopResults();
+        if (!CueEnabled(Cue::Finish)) StopFinish();
         if (finishVoice is null) return;
         finishVoice.SetGain(Gain(Cue::Finish));
-        if (!loopResults || finishStartedAt < 0) return;
+        if (finishStartedAt < 0) return;
         double length = finishVoice.GetLength();
         if (length <= 0.1 ||
             Time::MilliStamp - finishStartedAt < int64(length * 1000.0 - 20.0))
@@ -84,7 +81,7 @@ class AudioDirector {
         // Each loop picks a new file.
         Audio::Voice@ next = Play(Cue::Finish);
         if (next is null) {
-            loopResults = false;
+            finishStartedAt = -1;
             warn("Audio: the finish music could not restart");
             return;
         }
@@ -95,34 +92,30 @@ class AudioDirector {
     }
 
     void OnTakeoffCue() {
-        if (!S_EnableAudio || !S_SoundTakeoff) return;
-        Mute(cueVoice);
-        @cueVoice = Play(Cue::Takeoff);
+        if (!S_EnableAudio || !CueEnabled(Cue::Takeoff)) return;
+        Mute(takeoffVoice);
+        @takeoffVoice = Play(Cue::Takeoff);
         DebugLog("Audio: takeoff");
     }
 
     void OnVerdict(JumpVerdict@ verdict) {
-        if (verdict is null) return;
         StopTransient();
         Cue cue;
         if (!S_EnableAudio || !GradeCue(verdict.grade, cue) || !CueEnabled(cue)) return;
-        @resultVoice = Play(cue);
+        @landingVoice = Play(cue);
         DebugLog("Audio: landing " + GradeName(verdict.grade));
     }
 
     void OnFinish() {
-        if (finishPlayed) return;
-        finishPlayed = true;
         StopTransient();
         StopPreview();
-        StopResults();
-        if (!S_EnableAudio || !S_SoundFinish) return;
+        StopFinish();
+        if (!S_EnableAudio || !CueEnabled(Cue::Finish)) return;
         @finishVoice = Play(Cue::Finish);
         if (finishVoice is null) {
             DebugLog("Audio: no finish music in LocalSounds/" + g_cueFolders[uint(Cue::Finish)]);
             return;
         }
-        loopResults = true;
         finishStartedAt = Time::MilliStamp;
         DebugLog("Audio: finish music started, length " +
             Text::Format("%.2f", finishVoice.GetLength()) + "s");

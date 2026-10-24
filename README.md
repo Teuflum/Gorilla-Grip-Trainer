@@ -11,7 +11,7 @@ New to the mechanic? The [player guide](https://github.com/Teuflum/tm-ice-physic
 3. Copy its `plugin` folder into `%USERPROFILE%\OpenplanetNext\Plugins` and rename the copy to `GorillaGripTrainer`, so you end up with `%USERPROFILE%\OpenplanetNext\Plugins\GorillaGripTrainer\info.toml`.
 4. The plugin is not signed yet, so Openplanet only loads it in developer mode: open the Openplanet overlay (F3), choose **Developer → Signature Mode → Developer**, then load **Gorilla Grip Trainer** from the Developer menu. If it shows up disabled, enable it in the plugin list.
 
-To update, download the repository again and replace the `GorillaGripTrainer` folder with the new `plugin` folder the same way. Your settings, history, `LocalSounds` and `LocalImages` live in `PluginStorage` and are kept.
+To update, download the repository again and replace the `GorillaGripTrainer` folder with the new `plugin` folder the same way. Your settings stay in Openplanet's `Settings.ini`, and your history, `LocalSounds` and `LocalImages` in `PluginStorage`, so an update keeps them.
 
 Each time it loads, the plugin looks up the physics data in the game's code, so it keeps working after most Trackmania updates. If an update breaks this, Openplanet shows an amber warning and the plugin unloads until it's updated.
 

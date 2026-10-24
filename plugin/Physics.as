@@ -383,7 +383,6 @@ class PhysicsReadMonitor {
     // so once a read worked, later failures are loading or spectating.
     bool everExact = false;
     int failingSince = -1;
-    string failure = "";
     bool readWarned = false;
 
     PhysicsSnapshot@ previous;
@@ -403,12 +402,11 @@ class PhysicsReadMonitor {
             if (everExact || readWarned) return;
             if (failingSince < 0 || snap.raceTime < failingSince)
                 failingSince = snap.raceTime;
-            failure = snap.failure;
             if (snap.raceTime - failingSince < READ_FAILURE_WARN_MS) return;
             readWarned = true;
             warn("No exact physics read in " +
                 READ_FAILURE_WARN_MS + " ms of driving the Stadium car (failed check: " +
-                failure + "); jumps are not rated");
+                snap.failure + "); jumps are not rated");
             WarnPhysics("Can't read the car physics in this Trackmania build, so jumps aren't rated. The trainer needs an update.");
             return;
         }

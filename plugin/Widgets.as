@@ -26,30 +26,23 @@ void InitWidgets() {
     g_hudFont = nvg::LoadFont("DroidSans-Bold.ttf");
 }
 
-void ShowResult(JumpVerdict@ verdict) {
-    if (verdict is null) return;
+// A landing result, or a Popup-tab preview of one.
+void ShowResult(Grade grade, const string &in caption, bool preview = false) {
     @g_result = ShownResult();
-    g_result.grade = verdict.grade;
-    g_result.caption = verdict.caption.Length > 0 ? verdict.caption : GradeCaption(verdict.grade);
-}
-
-void ClearResult() {
-    @g_result = null;
+    g_result.grade = grade;
+    g_result.caption = caption;
+    g_result.preview = preview;
 }
 
 // Called after the session applied the verdict.
 void ShowStatChange(JumpVerdict@ verdict, int raceTime, int comboBefore, int bestBefore) {
-    if (verdict is null || !verdict.exact) return;
+    if (verdict.grade == Grade::Unrated) return;
     @g_statChange = StatChange();
     g_statChange.at = raceTime;
     g_statChange.earned = verdict.points > 0;
     g_statChange.comboGained = g_session.combo > comboBefore;
     g_statChange.comboBroken = comboBefore > 0 && g_session.combo == 0;
     g_statChange.newBest = g_session.bestCombo > bestBefore;
-}
-
-void ClearStatChange() {
-    @g_statChange = null;
 }
 
 string ModeName(SlideMode mode) {
@@ -71,10 +64,10 @@ void RenderWheelTile(float x, float y, float w, float h, float s,
     const string &in name, bool front, bool contact, float icing, bool exact) {
     vec4 color = !contact ? Hud::Muted() : (front ? Hud::Gold : Hud::Ice);
     Hud::Outline(x, y, w, h, 5*s, color, contact ? 2*s : 1*s);
-    Hud::Text(x + 8*s, y + 11*s, name, 10*s, color, nvg::Align::Left | nvg::Align::Middle);
+    Hud::Text(x + 8*s, y + 11*s, name, 10*s, color, Hud::Left);
     Hud::Text(x + w - 8*s, y + h - 12*s,
         exact ? Text::Format("%.0f%%", icing * 100.0f) : "--", 16*s,
-        color, nvg::Align::Right | nvg::Align::Middle);
+        color, Hud::Right);
 }
 
 string ForceText(PhysicsSnapshot@ snap, bool held, bool rearOnly, int modeAge) {
@@ -106,21 +99,18 @@ string ForceExplanation(PhysicsSnapshot@ snap, bool held, bool rearOnly,
 
 void RenderDiagnostics(const vec4 &in r, PhysicsSnapshot@ snap) {
     float s = Math::Min(r.z / 500.0f, r.w / 215.0f);
-    int left = nvg::Align::Left | nvg::Align::Middle;
-    int right = nvg::Align::Right | nvg::Align::Middle;
-    int center = nvg::Align::Center | nvg::Align::Middle;
     Hud::Panel(r);
     if (snap is null) {
-        Hud::Text(r.x + r.z*0.5f, r.y + r.w*0.5f, "NO CAR", 24*s, Hud::TextColor(), center);
+        Hud::Text(r.x + r.z*0.5f, r.y + r.w*0.5f, "NO CAR", 24*s, Hud::TextColor(), Hud::Center);
         return;
     }
-    Hud::Text(r.x + 20*s, r.y + 17*s, "STEERING", 10*s, Hud::Muted(), left);
+    Hud::Text(r.x + 20*s, r.y + 17*s, "STEERING", 10*s, Hud::Muted(), Hud::Left);
     Hud::Text(r.x + 20*s, r.y + 42*s,
         snap.exact ? Text::Format("%+.1f%%", snap.smoothedSteer * 100.0f) : "--",
-        28*s, Hud::TextColor(), left);
-    Hud::Text(r.x + r.z - 18*s, r.y + 17*s, "SLIDE DIRECTION", 10*s, Hud::Muted(), right);
+        28*s, Hud::TextColor(), Hud::Left);
+    Hud::Text(r.x + r.z - 18*s, r.y + 17*s, "SLIDE DIRECTION", 10*s, Hud::Muted(), Hud::Right);
     Hud::Text(r.x + r.z - 18*s, r.y + 44*s, snap.exact ? ModeName(snap.mode) : "--",
-        19*s, ModeColor(snap.mode), right);
+        19*s, ModeColor(snap.mode), Hud::Right);
     // Steering bar with the two direction gates.
     float bx = r.x + 21*s;
     float by = r.y + 67*s;
@@ -131,8 +121,8 @@ void RenderDiagnostics(const vec4 &in r, PhysicsSnapshot@ snap) {
     if (snap.exact)
         Hud::Box(bx + bw*Math::Clamp((snap.smoothedSteer + 1)*0.5f, 0.0f, 1.0f) - 3*s,
             by - 5*s, 6*s, 25*s, 3*s, Hud::TextColor());
-    Hud::Text(bx, by + 29*s, "SETS LEFT", 10*s, Hud::Magenta, left);
-    Hud::Text(bx + bw, by + 29*s, "SETS RIGHT", 10*s, Hud::Teal, right);
+    Hud::Text(bx, by + 29*s, "SETS LEFT", 10*s, Hud::Magenta, Hud::Left);
+    Hud::Text(bx + bw, by + 29*s, "SETS RIGHT", 10*s, Hud::Teal, Hud::Right);
 
     // Wheel grid in the car's layout; indices are the game's wheel order.
     array<string> names = {"FL", "FR", "RL", "RR"};
@@ -153,17 +143,17 @@ void RenderDiagnostics(const vec4 &in r, PhysicsSnapshot@ snap) {
     float cr = r.x + r.z - 18*s;
     string phase = g_tracker.inFlight ? "IN AIR " +
         Math::Max(0, snap.raceTime - g_tracker.flight.takeoffRace) + " ms" : "ON GROUND";
-    Hud::Text(cx, r.y + 124*s, phase, 14*s, Hud::TextColor(), left);
+    Hud::Text(cx, r.y + 124*s, phase, 14*s, Hud::TextColor(), Hud::Left);
     int modeAge = snap.ModeAgeMs();
     // The backwards-motion hold (gas released while moving backwards) pins
     // the force at 1.0 until gas returns, whatever the timer says.
     bool held = snap.exact && snap.forceGateState != 0;
     // Only a touching front wheel updates the force, so on the rear wheels
     // alone the stored value (often the pre-jump one) is stale.
-    bool rearOnly = (snap.contactMask & 3) == 0 && (snap.contactMask & 12) != 0;
-    Hud::Text(cr, r.y + 124*s, ForceText(snap, held, rearOnly, modeAge), 12*s, Hud::Gold, right);
+    bool rearOnly = (snap.contactMask & FRONT_WHEELS) == 0 && snap.contactMask != 0;
+    Hud::Text(cr, r.y + 124*s, ForceText(snap, held, rearOnly, modeAge), 12*s, Hud::Gold, Hud::Right);
     Hud::Text(cx, r.y + 150*s,
-        "ICY TIRES " + Text::Format("%.0f%%", snap.meanIcing*100.0f), 11*s, Hud::Ice, left);
+        "ICY TIRES " + Text::Format("%.0f%%", snap.meanIcing*100.0f), 11*s, Hud::Ice, Hud::Left);
     string detail;
     if (!snap.exact) detail = "NO PHYSICS READ";
     else if (modeAge < 0) detail = "NO DIRECTION SET";
@@ -177,10 +167,10 @@ void RenderDiagnostics(const vec4 &in r, PhysicsSnapshot@ snap) {
     bool readFailing = !snap.exact && g_readMonitor.ReadFailing();
     if (readFailing) detail = "PHYSICS READ FAILED";
     Hud::Text(cr, r.y + 150*s, detail, 11*s,
-        unverified || readFailing ? Hud::Orange : Hud::Muted(), right);
+        unverified || readFailing ? Hud::Orange : Hud::Muted(), Hud::Right);
     Hud::Box(cx, r.y + 168*s, cr - cx, 1*s, 0, Hud::Muted());
     Hud::Text(cx, r.y + 186*s, ForceExplanation(snap, held, rearOnly, modeAge, readFailing),
-        10*s, Hud::Muted(), left);
+        10*s, Hud::Muted(), Hud::Left);
 }
 
 void RenderGradePreview(const vec4 &in r, JumpPreview@ preview) {
@@ -190,10 +180,9 @@ void RenderGradePreview(const vec4 &in r, JumpPreview@ preview) {
     float w = 225*s;
     float h = 91*s;
     Hud::Panel(vec4(cx - w*0.5f, cy - h*0.5f, w, h));
-    int center = nvg::Align::Center | nvg::Align::Middle;
-    Hud::Text(cx, cy - 31*s, "TAKEOFF PREVIEW", 10*s, Hud::Muted(), center);
-    Hud::Text(cx, cy - 1*s, GradeName(preview.grade), 48.0f*s, GradeColor(preview.grade), center);
-    Hud::Text(cx, cy + 31*s, preview.leadMs + " ms BEFORE TAKEOFF", 10*s, Hud::TextColor(), center);
+    Hud::Text(cx, cy - 31*s, "TAKEOFF PREVIEW", 10*s, Hud::Muted(), Hud::Center);
+    Hud::Text(cx, cy - 1*s, GradeName(preview.grade), 48.0f*s, GradeColor(preview.grade), Hud::Center);
+    Hud::Text(cx, cy + 31*s, preview.leadMs + " ms BEFORE TAKEOFF", 10*s, Hud::TextColor(), Hud::Center);
 }
 
 // Score on the first line, combo and best combo on the second, each value in
@@ -205,9 +194,9 @@ void RenderStats(const vec4 &in r, StatChange@ change, int statAge) {
     float x0 = r.x + 18*s;
     float x1 = r.x + r.z - 18*s;
     bool cue = change !is null && statAge >= 0 && statAge < 500;
-    Hud::Text(x0, r.y + 40*s, "SCORE", 14*s, Hud::Muted(), nvg::Align::Left | nvg::Align::Middle);
+    Hud::Text(x0, r.y + 40*s, "SCORE", 14*s, Hud::Muted(), Hud::Left);
     Hud::Text(x1, r.y + 40*s, "" + g_session.score, 34*s,
-        cue && change.earned ? Hud::TextColor() : Hud::Gold, nvg::Align::Right | nvg::Align::Middle);
+        cue && change.earned ? Hud::TextColor() : Hud::Gold, Hud::Right);
     vec4 comboColor = Hud::Gold;
     if (cue && change.comboGained) comboColor = Hud::TextColor();
     if (cue && change.comboBroken) comboColor = GradeColor(Grade::Missed);
@@ -216,43 +205,26 @@ void RenderStats(const vec4 &in r, StatChange@ change, int statAge) {
         cue && change.newBest ? Hud::TextColor() : Hud::Ice, true);
 }
 
-RunRecord@ g_lastRatedRun = null;
-string g_lastRatedMap = "";
-int g_lastRatedRevision = -1;
-
-// This map's most recent attempt with at least one rated jump, from the history.
+// This map's most recent attempt with at least one rated jump.
 RunRecord@ LastRatedRun() {
-    if (g_history is null) return null;
     string mapUid = CurrentMapUid();
-    if (mapUid.Length == 0) return g_lastRatedRun;
-    if (mapUid == g_lastRatedMap && int(g_history.revision) == g_lastRatedRevision)
-        return g_lastRatedRun;
-    g_lastRatedMap = mapUid;
-    g_lastRatedRevision = int(g_history.revision);
-    @g_lastRatedRun = null;
     for (int i = int(g_history.runs.Length) - 1; i >= 0; i--) {
         RunRecord@ run = g_history.runs[uint(i)];
-        if (run.mapUid == mapUid && run.hits + run.misses > 0) {
-            @g_lastRatedRun = run;
-            break;
-        }
+        if (run.mapUid == mapUid && run.hits + run.misses > 0) return run;
     }
-    return g_lastRatedRun;
+    return null;
 }
 
 void RenderLast(const vec4 &in r, RunRecord@ last) {
     Hud::Panel(r);
     float s = Math::Min(r.z / 410.0f, r.w / 105.0f);
-    int left = nvg::Align::Left | nvg::Align::Middle;
-    int right = nvg::Align::Right | nvg::Align::Middle;
-    int center = nvg::Align::Center | nvg::Align::Middle;
-    Hud::Text(r.x + 20*s, r.y + 30*s, "LAST RUN", 15*s, Hud::Muted(), left);
+    Hud::Text(r.x + 20*s, r.y + 30*s, "LAST RUN", 15*s, Hud::Muted(), Hud::Left);
     if (last is null) {
-        Hud::Text(r.x + r.z*0.5f, r.y + 70*s, "NO RATED RUN YET", 18*s, Hud::TextColor(), center);
+        Hud::Text(r.x + r.z*0.5f, r.y + 70*s, "NO RATED RUN YET", 18*s, Hud::TextColor(), Hud::Center);
         return;
     }
     Hud::Text(r.x + r.z - 20*s, r.y + 30*s,
-        Time::FormatString("%Y-%m-%d %H:%M", last.startedAt / 1000), 12*s, Hud::Muted(), right);
+        Time::FormatString("%Y-%m-%d %H:%M", last.startedAt / 1000), 12*s, Hud::Muted(), Hud::Right);
     array<string> labels = {"SCORE", "HITS", "MISSES", "BEST"};
     array<string> values = {"" + last.score, "" + last.hits, "" + last.misses,
         "x" + last.bestCombo};
@@ -279,8 +251,7 @@ void RenderWidgets() {
 }
 
 void RenderWidgetCards(bool previewing) {
-    if (g_finish !is null && g_finish.visible &&
-        g_finish.summary !is null && ShouldRenderWidget(g_finishLayout))
+    if (g_finish.visible && g_finish.summary !is null && ShouldRenderWidget(g_finishLayout))
         RenderFinishSummary(g_finishLayout.Pixels(), g_finish.summary);
     if (g_snapshot is null) return;
     if (ShouldRenderWidget(g_physicsLayout))

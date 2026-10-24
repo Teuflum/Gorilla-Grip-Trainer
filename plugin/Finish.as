@@ -1,17 +1,12 @@
 class FinishController {
     RunRecord@ summary;
-    string lastFinishedId = "";
     bool visible = false;
 
-    // True once per run, when it first reaches the finish.
-    bool Update(int raceTime, RunRecord@ active) {
-        if (active is null || active.id == lastFinishedId) return false;
+    void Finish(int raceTime, RunRecord@ active) {
         active.status = RunStatus::Finished;
         active.finishMs = raceTime;
-        lastFinishedId = active.id;
         @summary = active;
         visible = S_AutoFinishSummary;
-        return true;
     }
 
     void NewAttempt() {
@@ -50,16 +45,14 @@ string FitText(const string &in text, float maxWidth) {
 }
 
 void RenderFinishSummary(const vec4 &in r, RunRecord@ run) {
-    if (run is null) return;
     float s = Math::Min(r.z / 650.0f, r.w / 365.0f);
     float cx = r.x + r.z*0.5f;
     float left = r.x + 25*s;
     float inner = r.z - 50*s;
-    int center = nvg::Align::Center | nvg::Align::Middle;
     Hud::Panel(r);
-    Hud::Text(cx, r.y + 40*s, "RUN COMPLETE", 27*s, Hud::TextColor(), center);
+    Hud::Text(cx, r.y + 40*s, "RUN COMPLETE", 27*s, Hud::TextColor(), Hud::Center);
     nvg::FontSize(17*s);
-    Hud::Text(cx, r.y + 75*s, FitText(run.mapName, inner - 20*s), 17*s, Hud::Muted(), center);
+    Hud::Text(cx, r.y + 75*s, FitText(run.mapName, inner - 20*s), 17*s, Hud::Muted(), Hud::Center);
     array<string> totals = {"FINISH " + Time::Format(uint64(run.finishMs)),
         "SCORE " + run.score, "BEST x" + run.bestCombo};
     Hud::Columns(left, r.y + 125*s, inner, totals, 18*s, Hud::TextColor());
@@ -78,8 +71,8 @@ void RenderFinishSummary(const vec4 &in r, RunRecord@ run) {
     for (int g = int(Grade::SPlus); g <= int(Grade::Missed); g++) {
         float x = left + column*(float(g) + 0.5f);
         string name = Grade(g) == Grade::Missed ? "MISS" : GradeName(Grade(g));
-        Hud::Text(x, r.y + 195*s, name, 34*s, GradeColor(Grade(g)), center);
-        Hud::Text(x, r.y + 235*s, "" + counts[uint(g)], 20*s, Hud::TextColor(), center);
+        Hud::Text(x, r.y + 195*s, name, 34*s, GradeColor(Grade(g)), Hud::Center);
+        Hud::Text(x, r.y + 235*s, "" + counts[uint(g)], 20*s, Hud::TextColor(), Hud::Center);
     }
 
     string bestLead = "--";

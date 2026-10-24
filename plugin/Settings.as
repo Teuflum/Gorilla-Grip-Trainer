@@ -86,27 +86,14 @@ void RenderSettingsDebug() {
     if (UI::Button("Reset to default")) ResetSettings(g_debugSettings);
     RenderSettings(g_debugSettings);
 }
-#endif
-
-bool DebugLoggingOn() {
-#if SIG_DEVELOPER
-    return S_DebugLogging;
 #else
-    return false;
+const bool S_DebugLogging = false;
+const bool S_DebugForceTrace = false;
 #endif
-}
-
-bool DebugForceTraceOn() {
-#if SIG_DEVELOPER
-    return S_DebugLogging && S_DebugForceTrace;
-#else
-    return false;
-#endif
-}
 
 // Routine events only; problems go to warn() so they are always visible.
 void DebugLog(const string &in message) {
-    if (DebugLoggingOn()) print(message);
+    if (S_DebugLogging) print(message);
 }
 
 // What the debug log last wrote, so it only logs changes.
@@ -118,8 +105,8 @@ class TraceLog {
 
     // Logged whenever the switch changes, so a log shows when tracing starts.
     void UpdateSwitches() {
-        if (DebugLoggingOn() == eventLoggingOn) return;
-        eventLoggingOn = DebugLoggingOn();
+        if (S_DebugLogging == eventLoggingOn) return;
+        eventLoggingOn = S_DebugLogging;
         print("Event logging " + (eventLoggingOn ? "on" : "off"));
     }
 
@@ -130,7 +117,7 @@ class TraceLog {
     // One line per wheel-contact change, or per tire-force change with the force trace on.
     void Snapshot(PhysicsSnapshot@ next, int t) {
         if (!next.exact) return;
-        if (contactMask != int(next.contactMask) || (DebugForceTraceOn() &&
+        if (contactMask != int(next.contactMask) || (S_DebugLogging && S_DebugForceTrace &&
             (force != next.force || forceGate != next.forceGateState))) {
             DebugLog("Snapshot at " + t + "ms: exact true, mode " +
                 next.mode + ", steer " + Text::Format("%.6f", next.smoothedSteer) +

@@ -11,7 +11,6 @@ class HistoryView {
 HistoryView g_historyView;
 
 bool HistoryMatches(RunRecord@ run) {
-    if (run is null) return false;
     if (run.status == RunStatus::Finished && !g_historyView.showFinished) return false;
     if (run.status == RunStatus::Reset && !g_historyView.showResets) return false;
     string query = g_historyView.mapFilter.Trim().ToLower();
@@ -22,16 +21,11 @@ bool HistoryMatches(RunRecord@ run) {
 }
 
 RunRecord@ SelectedHistoryRun() {
-    if (g_history is null) return null;
     for (uint i = 0; i < g_history.runs.Length; i++)
         if (g_history.runs[i].id == g_historyView.selectedId &&
             HistoryMatches(g_history.runs[i]))
             return g_history.runs[i];
     return null;
-}
-
-string HistoryLead(HistoryJump@ jump) {
-    return jump.leadMs < 0 ? "--" : jump.leadMs + " ms";
 }
 
 string Colored(const vec4 &in color, const string &in text) {
@@ -125,7 +119,7 @@ void RenderHistoryJumps(RunRecord@ selected) {
             UI::TableNextColumn();
             UI::Text(Time::Format(uint64(jump.landingMs)));
             UI::TableNextColumn();
-            UI::Text(HistoryLead(jump));
+            UI::Text(jump.leadMs < 0 ? "--" : jump.leadMs + " ms");
             UI::TableNextColumn();
             UI::Text("+" + jump.points);
             UI::TableNextColumn();
@@ -171,10 +165,7 @@ void RenderHistoryWindow() {
     if (!g_historyView.visible) return;
     bool open = true;
     UI::SetNextWindowSize(850, 640, UI::Cond::FirstUseEver);
-    if (UI::Begin("Gorilla Grip Trainer - Run History", open)) {
-        if (g_history is null) UI::Text("History is not ready.");
-        else RenderHistoryContents();
-    }
+    if (UI::Begin("Gorilla Grip Trainer - Run History", open)) RenderHistoryContents();
     UI::End();
     g_historyView.visible = open;
 }

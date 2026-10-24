@@ -65,7 +65,6 @@ array<Meta::PluginSetting@> g_cueSwitches;
 array<Meta::PluginSetting@> g_cueVolumes;
 
 void FindCueSettings() {
-    if (g_cueSwitches.Length > 0) return;
     auto plugin = Meta::ExecutingPlugin();
     for (uint i = 0; i < g_cueSettings.Length; i++) {
         g_cueSwitches.InsertLast(plugin.GetSetting("S_Sound" + g_cueSettings[i]));
@@ -74,12 +73,10 @@ void FindCueSettings() {
 }
 
 bool CueEnabled(Cue cue) {
-    FindCueSettings();
     return g_cueSwitches[uint(cue)].ReadBool();
 }
 
 float CueVolume(Cue cue) {
-    FindCueSettings();
     return g_cueVolumes[uint(cue)].ReadFloat();
 }
 
@@ -105,29 +102,20 @@ string CueFolder(Cue cue) {
     return SoundsRoot() + "/" + g_cueFolders[uint(cue)];
 }
 
+array<string> g_soundExtensions = {".wav", ".ogg", ".mp3"};
+
 class SoundCue {
-    array<string> files;
     array<Audio::Sample@> samples;
     int lastPick = -1;
 
     void Load(const string &in folder) {
-        if (!IO::FolderExists(folder)) return;
-        array<string>@ paths = IO::IndexFolder(folder, false);
-        array<string> names;
-        for (uint i = 0; i < paths.Length; i++) {
-            string name = Path::GetFileName(paths[i]);
-            string extension = Path::GetExtension(name).ToLower();
-            if (extension == ".wav" || extension == ".ogg" || extension == ".mp3")
-                names.InsertLast(name);
-        }
-        names.SortAsc();
+        array<string> names = FilesIn(folder, g_soundExtensions);
         for (uint i = 0; i < names.Length; i++) {
             Audio::Sample@ sample = Audio::LoadSampleFromAbsolutePath(folder + "/" + names[i], false);
             if (sample is null) {
                 warn("Could not load sound " + folder + "/" + names[i]);
                 continue;
             }
-            files.InsertLast(names[i]);
             samples.InsertLast(sample);
         }
     }
@@ -157,7 +145,6 @@ void LoadSoundCues() {
 
 [SettingsTab name="Sounds" icon="" order="3"]
 void RenderSettingsSounds() {
-    FindCueSettings();
     array<string> general = {"S_EnableAudio", "S_MasterVolume"};
     if (UI::Button("Reset to default")) {
         ResetSettings(general);
@@ -185,7 +172,6 @@ void RenderSoundFolders() {
         }
         OpenExplorerPath(SoundsRoot());
     }
-    if (g_audio is null) return;
     UI::SameLine();
     if (UI::Button("Reload files")) g_audio.Load();
     UI::SameLine();
@@ -197,7 +183,7 @@ void RenderSoundFolders() {
             UI::TableNextColumn();
             UI::Text(g_cueSwitches[i].Name);
             UI::TableNextColumn();
-            uint count = g_soundCues[i].files.Length;
+            uint count = g_soundCues[i].samples.Length;
             UI::TextDisabled(g_cueFolders[i] + "/  " + count + (count == 1 ? " file" : " files"));
             UI::TableNextColumn();
             if (UI::Button("Play")) g_audio.PreviewCue(Cue(int(i)));

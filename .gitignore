@@ -1,8 +1,7 @@
 # Local user media and runtime data
 LocalSounds/
 LocalImages/
-history.json
-history.json.bak
+history*.json
 
 # Game files
 *.Replay.Gbx

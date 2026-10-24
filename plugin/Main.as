@@ -31,6 +31,19 @@ string CurrentMapName() {
     return Text::StripFormatCodes(string(app.RootMap.MapName));
 }
 
+// Names of the files directly in folder with one of the extensions, sorted.
+array<string> FilesIn(const string &in folder, const array<string> &in extensions) {
+    array<string> names;
+    if (!IO::FolderExists(folder)) return names;
+    array<string>@ paths = IO::IndexFolder(folder, false);
+    for (uint i = 0; i < paths.Length; i++) {
+        string name = Path::GetFileName(paths[i]);
+        if (extensions.Find(Path::GetExtension(name).ToLower()) >= 0) names.InsertLast(name);
+    }
+    names.SortAsc();
+    return names;
+}
+
 void StartActiveRun() {
     if (g_finish.summary !is null) {
         // A race-time rewind already reset the session earlier in Update().
@@ -47,30 +60,26 @@ void StartActiveRun() {
         Text::Format("%u", g_runSequence);
 }
 
-void EndActiveRun(RunStatus status, int finishMs = -1) {
+// Saves the run, as a reset unless the finish already marked it finished.
+void EndActiveRun() {
     if (g_activeRun is null) return;
-    g_activeRun.status = status;
-    g_activeRun.finishMs = finishMs;
     g_history.Append(g_activeRun);
     @g_activeRun = null;
 }
 
 void ResetAttemptState() {
-    EndActiveRun(RunStatus::Reset);
+    EndActiveRun();
     @g_tracker = JumpTracker();
     @g_session = SessionState();
-    ClearResult();
-    ClearStatChange();
+    @g_result = null;
+    @g_statChange = null;
     g_audio.OnReset();
 }
 
 void Main() {
     g_supportedBuild = Physics::Locate();
     if (!g_supportedBuild) {
-        UI::ShowNotification("Gorilla Grip Trainer",
-            "Could not find the car physics in this Trackmania build. The trainer needs an update before it can work.",
-            vec4(0.72f, 0.36f, 0.07f, 1.0f),
-            12000);
+        WarnPhysics("Could not find the car physics in this Trackmania build. The trainer needs an update before it can work.");
         warn("Car physics not found in this game build; unloading");
         Meta::UnloadPlugin(Meta::ExecutingPlugin());
         return;
@@ -81,6 +90,7 @@ void Main() {
     @g_history = HistoryStore();
     g_history.Load();
     @g_finish = FinishController();
+    FindCueSettings();
     @g_audio = AudioDirector();
     g_audio.Load();
     InitLayout();
@@ -101,7 +111,7 @@ void OnDisabled() {
 void Update(float dt) {
     if (!g_supportedBuild) return;
     g_trace.UpdateSwitches();
-    g_audio.UpdateSettings();
+    g_audio.Update();
     auto vis = VehicleState::ViewingPlayerState();
     if (IsFinishSequence()) {
         UpdateFinish(vis);
@@ -129,9 +139,8 @@ void UpdateFinish(CSceneVehicleVisState@ vis) {
     if (finishTime < 0 || g_activeRun is null) return;
     string mapUid = CurrentMapUid();
     if (mapUid.Length > 0 && mapUid != g_activeRun.mapUid) return;
-    if (!g_finish.Update(finishTime, g_activeRun)) return;
-    g_history.Append(g_activeRun);
-    @g_activeRun = null;
+    g_finish.Finish(finishTime, g_activeRun);
+    EndActiveRun();
     g_audio.OnFinish();
     DebugLog("Finish summary: " + finishTime + "ms, score " + g_session.score);
 }
@@ -217,7 +226,7 @@ void ApplyVerdict(JumpVerdict@ v, PhysicsSnapshot@ next, int t) {
     g_session.Apply(v);
     ShowStatChange(v, t, comboBefore, bestBefore);
     g_activeRun.Record(v, g_session, g_tracker.flight.preview);
-    ShowResult(v);
+    ShowResult(v.grade, v.caption.Length > 0 ? v.caption : GradeCaption(v.grade));
     g_audio.OnVerdict(v);
     DebugLog("Verdict at " + t + "ms: " + GradeName(v.grade) +
         " | " + v.reason + " | force " + next.force +
@@ -232,8 +241,7 @@ void ApplyVerdict(JumpVerdict@ v, PhysicsSnapshot@ next, int t) {
 void RenderMenu() {
     if (!g_supportedBuild || !UI::BeginMenu(Icons::SnowflakeO + " Gorilla Grip Trainer"))
         return;
-    if (g_finish !is null && g_finish.summary !is null &&
-        UI::MenuItem("Finish summary", "", g_finish.visible))
+    if (g_finish.summary !is null && UI::MenuItem("Finish summary", "", g_finish.visible))
         g_finish.visible = !g_finish.visible;
     if (UI::MenuItem("Run history", "", g_historyView.visible))
         g_historyView.visible = !g_historyView.visible;

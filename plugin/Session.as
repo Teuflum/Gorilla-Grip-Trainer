@@ -7,7 +7,6 @@ class JumpVerdict {
     int takeoffTime = -1;
     int landingTime = -1;
     int points = 0;
-    bool exact = false;
 }
 
 // Multiplier for the next successful landing; the HUD shows the streak itself.
@@ -23,14 +22,13 @@ class SessionState {
     int misses = 0;
 
     void Apply(JumpVerdict@ verdict) {
-        if (verdict is null || !verdict.exact) return;
+        if (verdict.grade == Grade::Unrated) return;
         if (verdict.grade == Grade::Missed) {
             combo = 0;
             misses++;
             return;
         }
         int basePoints = GradePoints(verdict.grade);
-        if (basePoints == 0) return;
         int multiplier = ScoringMultiplier(combo);
         combo++;
         hits++;

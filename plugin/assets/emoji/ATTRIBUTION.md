@@ -1,10 +1,15 @@
 # Emoji pictures
 
-These pictures are from Twemoji by Twitter, Inc. and other contributors,
-https://github.com/jdecked/twemoji, release `v16.0.1`, licensed under
-CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/). They are rendered
-at 256×256 from the release's SVGs by `tools/render_emoji.py` and are
-otherwise unchanged.
+All pictures are rendered at 256×256 from their projects' SVGs by
+`tools/render_emoji.py` and are otherwise unchanged.
+
+- `gorilla.png` is from Noto Emoji by Google,
+  https://github.com/googlefonts/noto-emoji, commit
+  `e20cbc2bbec1926686be9f9bee7d1d2cfa1fea0e` (`2D/svg`), licensed under the
+  Apache License 2.0; see `LICENSE-Apache-2.0.txt`.
+- The others are from Twemoji by Twitter, Inc. and other contributors,
+  https://github.com/jdecked/twemoji, release `v16.0.1`, licensed under
+  CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/).
 
 | File | Emoji | Codepoint |
 | --- | --- | --- |

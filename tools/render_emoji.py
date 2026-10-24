@@ -1,7 +1,8 @@
-"""Download the shipped Twemoji pictures and render them as 256x256 PNGs.
+"""Download the shipped emoji pictures and render them as 256x256 PNGs.
 
-The SVGs come from a pinned Twemoji release. Headless Chrome (or Edge) does
-the rendering, so no imaging packages are needed.
+The SVGs come from a pinned Twemoji release, except the gorilla, which is
+Noto Emoji's. Headless Chrome (or Edge) does the rendering, so no imaging
+packages are needed.
 Run from the Trainer folder: py -3 tools/render_emoji.py
 """
 
@@ -15,6 +16,9 @@ from pathlib import Path
 
 
 TWEMOJI = "v16.0.1"
+NOTO = "e20cbc2bbec1926686be9f9bee7d1d2cfa1fea0e"
+# Pictures taken from Noto Emoji instead of Twemoji.
+FROM_NOTO = {"gorilla"}
 EMOJI = {
     "gorilla": "1f98d",
     "oncoming-fist": "1f44a",
@@ -71,12 +75,15 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
         for name, code in EMOJI.items():
-            url = f"https://cdn.jsdelivr.net/gh/jdecked/twemoji@{TWEMOJI}/assets/svg/{code}.svg"
+            if name in FROM_NOTO:
+                url = f"https://raw.githubusercontent.com/googlefonts/noto-emoji/{NOTO}/2D/svg/emoji_u{code}.svg"
+            else:
+                url = f"https://cdn.jsdelivr.net/gh/jdecked/twemoji@{TWEMOJI}/assets/svg/{code}.svg"
             source = Path(tmp) / f"{name}.svg"
             with urllib.request.urlopen(url, timeout=30) as response:
                 source.write_bytes(response.read())
             render(browser, source, OUT / f"{name}.png")
-            print(f"{name}.png <- {code}.svg")
+            print(f"{name}.png <- {url.rsplit('/', 1)[-1]}")
 
 
 if __name__ == "__main__":

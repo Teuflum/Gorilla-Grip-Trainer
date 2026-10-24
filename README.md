@@ -75,7 +75,7 @@ Open **Settings → Gorilla Grip Trainer → Layout** to drag and resize them.
 
 The landing grade appears on an ice panel that cracks and throws shards; better grades get bigger effects, S and S+ add snowflakes, and S+ adds light rays. A miss sinks and tips over.
 
-- **Pictures:** one per result, shown on both sides of the grade. Pick one of the shipped Twemoji pictures, or use your own PNG or JPG files from the `LocalImages` folder. Only S and S+ pictures bounce.
+- **Pictures:** one per result, shown on both sides of the grade. Pick one of the shipped emoji pictures, or use your own PNG or JPG files from the `LocalImages` folder. Only S and S+ pictures bounce.
 - **Preview** plays any result's popup with your current pictures.
 
 ## Sounds
@@ -100,9 +100,9 @@ Put WAV, OGG or MP3 files into them and click **Reload files**. When a folder ho
 
 - [docs/physics.md](docs/physics.md) lists the physics fields the plugin reads and the game code each offset comes from.
 - `python tests/test_physics_patterns.py` checks the physics code patterns against your Trackmania binary (set `TRACKMANIA_EXE` if the game is not in the default Ubisoft folder). It needs no running game.
-- `tools/render_emoji.py` rebuilds the shipped emoji pictures from the pinned Twemoji release.
+- `tools/render_emoji.py` rebuilds the shipped emoji pictures from their pinned sources.
 
 ## More
 
 - [Physics research and reverse engineering](https://github.com/Teuflum/tm-ice-physics-reverse-engineering)
-- Emoji pictures: [Twemoji](https://github.com/jdecked/twemoji) by Twitter, Inc. and other contributors (CC-BY 4.0); details in `plugin/assets/emoji/ATTRIBUTION.md`.
+- Emoji pictures: [Twemoji](https://github.com/jdecked/twemoji) by Twitter, Inc. and other contributors (CC-BY 4.0), and the gorilla from [Noto Emoji](https://github.com/googlefonts/noto-emoji) by Google (Apache 2.0); details in `plugin/assets/emoji/ATTRIBUTION.md`.

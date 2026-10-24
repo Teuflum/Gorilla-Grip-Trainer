@@ -75,14 +75,7 @@ void RenderFinishSummary(const vec4 &in r, RunRecord@ run) {
     array<string> statValues = {Time::Format(uint64(run.finishMs)),
         "" + run.score, "x" + run.bestCombo};
     array<vec4> statColors = {Hud::White, Hud::Gold, Hud::Cyan};
-    float gap = 9*s;
-    float statWidth = (inner - 2*gap) / 3.0f;
-    for (uint i = 0; i < statLabels.Length; i++) {
-        float x = left + float(i)*(statWidth + gap);
-        Hud::Box(x, r.y + 91*s, statWidth, 68*s, 10*s, Hud::Tile);
-        Hud::Text(x + statWidth*0.5f, r.y + 111*s, statLabels[i], 11*s, Hud::Label, center);
-        Hud::Text(x + statWidth*0.5f, r.y + 138*s, statValues[i], 24*s, statColors[i], center);
-    }
+    Hud::TileRow(left, r.y + 91*s, inner, 68*s, 9*s, statLabels, statValues, statColors, false);
 
     // One count per grade from S+ to MISSED; anything else counts as unrated.
     array<int> counts(8);

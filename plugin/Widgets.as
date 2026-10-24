@@ -309,15 +309,7 @@ void RenderLast(const vec4 &in r, RunRecord@ last) {
     array<string> values = {"" + last.score, "" + last.hits,
         "" + last.misses, "x" + last.bestCombo};
     array<vec4> colors = {Hud::Gold, Hud::Teal, Hud::Pink, Hud::Cyan};
-    float gap = 7*s;
-    float width = (r.z - 40*s - 3*gap) / 4.0f;
-    for (uint i = 0; i < labels.Length; i++) {
-        float x = r.x + 20*s + float(i)*(width + gap);
-        Hud::Box(x, r.y + 42*s, width, 52*s, 8*s, Hud::Tile);
-        Hud::Box(x + 8*s, r.y + 43*s, width - 16*s, 2*s, 1*s, Hud::WithAlpha(colors[i], 0.75f));
-        Hud::Text(x + width*0.5f, r.y + 60*s, labels[i], 10*s, Hud::Label, center);
-        Hud::Text(x + width*0.5f, r.y + 79*s, values[i], 20*s, colors[i], center);
-    }
+    Hud::TileRow(r.x + 20*s, r.y + 42*s, r.z - 40*s, 52*s, 7*s, labels, values, colors, true);
 }
 
 bool ShouldRenderWidget(WidgetLayout@ layout) {

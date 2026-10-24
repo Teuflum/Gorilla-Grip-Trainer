@@ -61,32 +61,27 @@ array<string> g_cueLabels = {"Takeoff", "S and S+", "A", "B", "C", "D", "Missed"
 // The cue's part of its S_Sound... and S_Volume... setting names.
 array<string> g_cueSettings = {"Takeoff", "S", "A", "B", "C", "D", "Missed", "Finish"};
 
-bool CueEnabled(Cue cue) {
-    switch (cue) {
-        case Cue::Takeoff: return S_SoundTakeoff;
-        case Cue::GradeS: return S_SoundS;
-        case Cue::GradeA: return S_SoundA;
-        case Cue::GradeB: return S_SoundB;
-        case Cue::GradeC: return S_SoundC;
-        case Cue::GradeD: return S_SoundD;
-        case Cue::Missed: return S_SoundMissed;
-        case Cue::Finish: return S_SoundFinish;
+// Each cue's switch and volume setting, in Cue order.
+array<Meta::PluginSetting@> g_cueSwitches;
+array<Meta::PluginSetting@> g_cueVolumes;
+
+void FindCueSettings() {
+    if (g_cueSwitches.Length > 0) return;
+    auto plugin = Meta::ExecutingPlugin();
+    for (uint i = 0; i < g_cueSettings.Length; i++) {
+        g_cueSwitches.InsertLast(plugin.GetSetting("S_Sound" + g_cueSettings[i]));
+        g_cueVolumes.InsertLast(plugin.GetSetting("S_Volume" + g_cueSettings[i]));
     }
-    return false;
+}
+
+bool CueEnabled(Cue cue) {
+    FindCueSettings();
+    return g_cueSwitches[uint(cue)].ReadBool();
 }
 
 float CueVolume(Cue cue) {
-    switch (cue) {
-        case Cue::Takeoff: return S_VolumeTakeoff;
-        case Cue::GradeS: return S_VolumeS;
-        case Cue::GradeA: return S_VolumeA;
-        case Cue::GradeB: return S_VolumeB;
-        case Cue::GradeC: return S_VolumeC;
-        case Cue::GradeD: return S_VolumeD;
-        case Cue::Missed: return S_VolumeMissed;
-        case Cue::Finish: return S_VolumeFinish;
-    }
-    return 0.0f;
+    FindCueSettings();
+    return g_cueVolumes[uint(cue)].ReadFloat();
 }
 
 // The landing cue for a grade; S+ shares the S sounds. Unrated has none.
@@ -163,23 +158,22 @@ void LoadSoundCues() {
 
 [SettingsTab name="Sounds" icon="" order="3"]
 void RenderSettingsSounds() {
-    auto plugin = Meta::ExecutingPlugin();
+    FindCueSettings();
     array<string> general = {"S_EnableAudio", "S_MasterVolume"};
     if (UI::Button("Reset to default")) {
-        array<string> names = general;
-        for (uint i = 0; i < g_cueSettings.Length; i++) {
-            names.InsertLast("S_Sound" + g_cueSettings[i]);
-            names.InsertLast("S_Volume" + g_cueSettings[i]);
+        ResetSettings(general);
+        for (uint i = 0; i < g_cueSwitches.Length; i++) {
+            g_cueSwitches[i].Reset();
+            g_cueVolumes[i].Reset();
         }
-        ResetSettings(names);
     }
     RenderSoundFolders();
     RenderSettings(general);
     UI::Separator();
     // A cue's volume shows only while the cue is on.
-    for (uint i = 0; i < g_cueSettings.Length; i++) {
-        plugin.GetSetting("S_Sound" + g_cueSettings[i]).Render();
-        if (CueEnabled(Cue(int(i)))) plugin.GetSetting("S_Volume" + g_cueSettings[i]).Render();
+    for (uint i = 0; i < g_cueSwitches.Length; i++) {
+        g_cueSwitches[i].Render();
+        if (g_cueSwitches[i].ReadBool()) g_cueVolumes[i].Render();
     }
 }
 

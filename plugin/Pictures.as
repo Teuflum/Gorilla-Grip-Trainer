@@ -1,4 +1,4 @@
-// Pictures beside the grade popup: shipped Twemoji art or the user's own PNG
+// Pictures beside the grade popup: shipped emoji art or the user's own PNG
 // and JPG files in LocalImages. Each result stores one choice string:
 // "emoji:<name>", "local:<file>", or "" for no picture.
 [Setting hidden] bool S_ShowPictures = true;
@@ -22,36 +22,32 @@ bool HasPicture(Grade grade) {
     return grade <= Grade::Missed;
 }
 
-string PictureSetting(Grade grade) {
-    switch (grade) {
-        case Grade::SPlus: return S_PictureSPlus;
-        case Grade::S: return S_PictureS;
-        case Grade::A: return S_PictureA;
-        case Grade::B: return S_PictureB;
-        case Grade::C: return S_PictureC;
-        case Grade::D: return S_PictureD;
-        case Grade::Missed: return S_PictureMissed;
+// The picture setting of each grade from S+ to MISSED, in Grade order.
+array<string> g_pictureSettingNames = {"S_PictureSPlus", "S_PictureS", "S_PictureA",
+    "S_PictureB", "S_PictureC", "S_PictureD", "S_PictureMissed"};
+array<Meta::PluginSetting@> g_pictureSettings;
+
+Meta::PluginSetting@ PictureSettingOf(Grade grade) {
+    if (g_pictureSettings.Length == 0) {
+        auto plugin = Meta::ExecutingPlugin();
+        for (uint i = 0; i < g_pictureSettingNames.Length; i++)
+            g_pictureSettings.InsertLast(plugin.GetSetting(g_pictureSettingNames[i]));
     }
-    return "";
+    return g_pictureSettings[uint(grade)];
+}
+
+string PictureSetting(Grade grade) {
+    return HasPicture(grade) ? PictureSettingOf(grade).ReadString() : "";
 }
 
 void SetPictureSetting(Grade grade, const string &in choice) {
-    switch (grade) {
-        case Grade::SPlus: S_PictureSPlus = choice; break;
-        case Grade::S: S_PictureS = choice; break;
-        case Grade::A: S_PictureA = choice; break;
-        case Grade::B: S_PictureB = choice; break;
-        case Grade::C: S_PictureC = choice; break;
-        case Grade::D: S_PictureD = choice; break;
-        case Grade::Missed: S_PictureMissed = choice; break;
-    }
+    if (HasPicture(grade)) PictureSettingOf(grade).WriteString(choice);
 }
 
 void ResetPictureSettings() {
-    auto plugin = Meta::ExecutingPlugin();
-    array<string> names = {"S_ShowPictures", "S_PictureSPlus", "S_PictureS", "S_PictureA",
-        "S_PictureB", "S_PictureC", "S_PictureD", "S_PictureMissed"};
-    for (uint i = 0; i < names.Length; i++) plugin.GetSetting(names[i]).Reset();
+    Meta::ExecutingPlugin().GetSetting("S_ShowPictures").Reset();
+    for (int g = int(Grade::SPlus); g <= int(Grade::Missed); g++)
+        PictureSettingOf(Grade(g)).Reset();
 }
 
 // One file directly inside LocalImages.

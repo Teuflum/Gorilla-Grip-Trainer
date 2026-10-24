@@ -1,0 +1,108 @@
+# Gorilla Grip Trainer
+
+An [Openplanet](https://openplanet.dev) plugin for Trackmania that trains the "gorilla grip": switching the ice-slide direction just before the car leaves the ground, so the tires grip again when it lands. The plugin reads the game's physics, grades how early you switched (S+ to D), and confirms on landing that the new direction held.
+
+New to the mechanic? The [player guide](https://github.com/Teuflum/tm-ice-physics-reverse-engineering/blob/main/outputs/gorilla_grip_player_guide.md) explains it, and the [interactive graphs](https://teuflum.github.io/tm-ice-physics-reverse-engineering/) let you try the numbers.
+
+## Install
+
+1. Install [Openplanet](https://openplanet.dev). The plugin also needs VehicleState, which ships with Openplanet.
+2. Download `GorillaGripTrainer-vX.Y.Z.zip` from the [latest release](https://github.com/Teuflum/Gorilla-Grip-Trainer/releases/latest) and extract it into `OpenplanetNext/Plugins/`, so you end up with `OpenplanetNext/Plugins/GorillaGripTrainer/info.toml`.
+3. Load or reload the plugin in Openplanet.
+
+To update, delete the old `GorillaGripTrainer` folder and extract the new release the same way. Your settings, history, `LocalSounds` and `LocalImages` live in `PluginStorage` and are kept. Earlier versions are on the [releases page](https://github.com/Teuflum/Gorilla-Grip-Trainer/releases).
+
+Each time it loads, the plugin finds the physics data in the game's own code, so it keeps working after most Trackmania updates. If an update changes that code, Openplanet shows an amber warning and the plugin unloads itself until it is updated.
+
+The plugin also checks what it reads. If an update changes a field in a way the code search doesn't catch, the plugin still loads, but after 3 seconds of driving the Stadium car without a single good physics read it shows the same amber warning, and the Physics widget says PHYSICS READ FAILED. No jumps are rated until the plugin is updated. If only the wheel contact times look wrong, it warns once and keeps rating, with landings timed to the frame instead of the physics tick.
+
+## How a jump is rated
+
+1. **Takeoff.** When the game stores the opposite slide direction while a wheel still touches the ground, a small preview grade appears in the air. A jump that keeps its slide direction shows nothing.
+2. **Landing.** Shortly after touchdown the plugin checks that the stored direction held and the tires still average at least 34% icing. If both hold, the preview becomes the final grade. Otherwise the result is `MISSED`. A jump without a switch before takeoff is also `MISSED` if the direction switches on landing, because the tire force then waits after touchdown.
+
+The grade depends only on how early the direction switched before the last wheel left the ground. Landing force and airtime are left out on purpose: countersteering early costs speed, so the best switch is the latest one that still counts.
+
+| Grade | Switch lead (default) | Base points |
+| --- | --- | --- |
+| S+ | exactly 0 ms | 180 |
+| S | up to 10 ms | 150 |
+| A | up to 30 ms | 120 |
+| B | up to 60 ms | 90 |
+| C | up to 110 ms | 60 |
+| D | up to 250 ms | 30 |
+
+- **Score:** base points × combo multiplier (up to ×8).
+- **`UNRATED`:** the plugin lost the physics read or the contact timing, or the tire force never became ready after landing, so it doesn't guess a grade.
+
+Timing comes from the game's own physics clock, so grades don't depend on frame rate or game speed. The physics runs in 10 ms ticks, so every lead is a multiple of 10 ms: S is one tick early, A two or three, B four to six.
+
+### Which jumps count
+
+A jump is rated only if it comes out of an ice slide. The takeoff icing, speed and flight limits can be changed on the Rating tab; these are the defaults:
+
+- **Icing:** the four tires average at least 65% icing as the last wheel leaves. The landing check only needs a fixed 34%, because tires lose icing in the air.
+- **Slide:** the car's slip angle reached 20° in the last 500 ms on the ground, so steering through a bobsleigh turn is never rated.
+- **Speed and flight:** at least 50 km/h at takeoff and 100 ms in the air.
+- **Car:** Only the Stadium car is rated. The Snow, Rally and Desert cars don't ice slide, so their jumps are ignored, and a jump in progress when a gate changes the car is dropped.
+
+With **Log trainer events** on (Debug tab, developer mode), a direction switch that these filters drop writes a line to `Openplanet.log` naming each failed filter and the value it saw.
+
+## HUD widgets
+
+| Widget | Shows |
+| --- | --- |
+| Physics | Steering, stored slide direction, each wheel's contact and icing, tire force, recovery timer |
+| Grade | The takeoff preview, then the animated landing result |
+| Stats | Score, combo and best combo |
+| Last run | Your latest rated attempt on this map |
+| Finish summary | After a finish: time, score, best combo, grade counts, misses, best and median switch lead |
+
+Open **Settings → Gorilla Grip Trainer → Layout** to drag and resize them.
+
+## Settings
+
+| Tab | Contents |
+| --- | --- |
+| Display | Turn widgets on or off, show them with the game HUD hidden, open the finish summary automatically |
+| Rating | Grade limits and which jumps count (icing, speed, flight time) |
+| Sounds | Sound folders, and an on/off switch and volume per cue |
+| Popup | Pictures beside the landing grade |
+| Layout | Widget positions and sizes |
+| Debug | Event logging; only in Openplanet's developer mode |
+
+## Landing popup
+
+The landing grade appears on an ice panel that cracks and throws shards; better grades get bigger effects, S and S+ add snowflakes, and S+ adds light rays. A miss sinks and tips over.
+
+- **Pictures:** one per result, shown on both sides of the grade. Pick one of the shipped Twemoji pictures, or use your own PNG or JPG files from the `LocalImages` folder. Only S and S+ pictures bounce.
+- **Preview** plays any result's popup with your current pictures.
+
+## Sounds
+
+The plugin ships no audio. **Open LocalSounds folder** on the Sounds tab creates one folder per cue inside `LocalSounds`:
+
+| Folder | Plays |
+| --- | --- |
+| `takeoff` | When a rated jump leaves the ground |
+| `S` | On an S or S+ landing |
+| `A`, `B`, `C`, `D` | On a landing with that grade |
+| `missed` | On a missed landing |
+| `finish` | At the finish; it loops until you restart or leave the map |
+
+Put WAV, OGG or MP3 files into them and click **Reload files**. When a folder holds several files, the plugin picks one at random and never the same one twice in a row. Each cue has its own switch and volume, and master volume starts at 0.50.
+
+## Run history
+
+**Plugins → Gorilla Grip Trainer → Run history** (or **VIEW HISTORY** on the finish summary) lists your attempts with their jumps, filtered by map and status. Selecting a jump shows its timing, preview, score and reason. The last 500 attempts are kept locally in `PluginStorage/GorillaGripTrainer/history.json`, with `history.backup.json` as a fallback.
+
+## Development
+
+- [docs/physics.md](docs/physics.md) lists the physics fields the plugin reads and the game code each offset comes from.
+- `python tests/test_physics_patterns.py` checks the physics code patterns against your Trackmania binary (set `TRACKMANIA_EXE` if the game is not in the default Ubisoft folder). It needs no running game.
+- `tools/render_emoji.py` rebuilds the shipped emoji pictures from the pinned Twemoji release.
+
+## More
+
+- [Physics research and reverse engineering](https://github.com/Teuflum/tm-ice-physics-reverse-engineering)
+- Emoji pictures: [Twemoji](https://github.com/jdecked/twemoji) by Twitter, Inc. and other contributors (CC-BY 4.0); details in `plugin/assets/emoji/ATTRIBUTION.md`.

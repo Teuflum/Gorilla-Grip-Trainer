@@ -1,0 +1,194 @@
+// Sounds come from the user's own files: one folder per cue inside
+// PluginStorage/GorillaGripTrainer/LocalSounds. Each play picks one file of
+// the cue's folder at random.
+[Setting category="Sounds" name="Enable sounds" beforerender="RenderSoundFolders"]
+bool S_EnableAudio = true;
+[Setting category="Sounds" name="Master volume" min=0 max=1]
+float S_MasterVolume = 0.5f;
+[Setting category="Sounds" name="Takeoff"]
+bool S_SoundTakeoff = true;
+[Setting category="Sounds" name="Takeoff volume" min=0 max=1 if="S_SoundTakeoff"]
+float S_VolumeTakeoff = 0.35f;
+[Setting category="Sounds" name="S and S+"]
+[SettingAlias key="S_GradeSEnabled"]
+bool S_SoundS = true;
+[Setting category="Sounds" name="S volume" min=0 max=1 if="S_SoundS"]
+float S_VolumeS = 0.4f;
+[Setting category="Sounds" name="A"]
+[SettingAlias key="S_GradeAEnabled"]
+bool S_SoundA = true;
+[Setting category="Sounds" name="A volume" min=0 max=1 if="S_SoundA"]
+float S_VolumeA = 0.4f;
+[Setting category="Sounds" name="B"]
+[SettingAlias key="S_GradeBEnabled"]
+bool S_SoundB = true;
+[Setting category="Sounds" name="B volume" min=0 max=1 if="S_SoundB"]
+float S_VolumeB = 0.4f;
+[Setting category="Sounds" name="C"]
+[SettingAlias key="S_GradeCEnabled"]
+bool S_SoundC = true;
+[Setting category="Sounds" name="C volume" min=0 max=1 if="S_SoundC"]
+float S_VolumeC = 0.4f;
+[Setting category="Sounds" name="D"]
+[SettingAlias key="S_GradeDEnabled"]
+bool S_SoundD = true;
+[Setting category="Sounds" name="D volume" min=0 max=1 if="S_SoundD"]
+float S_VolumeD = 0.4f;
+[Setting category="Sounds" name="Missed"]
+[SettingAlias key="S_SoundFailure"]
+bool S_SoundMissed = true;
+[Setting category="Sounds" name="Missed volume" min=0 max=1 if="S_SoundMissed"]
+float S_VolumeMissed = 0.35f;
+[Setting category="Sounds" name="Finish music"]
+[SettingAlias key="S_SoundResults"]
+bool S_SoundFinish = true;
+[Setting category="Sounds" name="Finish volume" min=0 max=1 if="S_SoundFinish"]
+float S_VolumeFinish = 0.25f;
+
+enum Cue {
+    Takeoff,
+    GradeS,
+    GradeA,
+    GradeB,
+    GradeC,
+    GradeD,
+    Missed,
+    Finish
+}
+
+array<string> g_cueFolders = {"takeoff", "S", "A", "B", "C", "D", "missed", "finish"};
+array<string> g_cueLabels = {"Takeoff", "S and S+", "A", "B", "C", "D", "Missed", "Finish"};
+
+bool CueEnabled(Cue cue) {
+    switch (cue) {
+        case Cue::Takeoff: return S_SoundTakeoff;
+        case Cue::GradeS: return S_SoundS;
+        case Cue::GradeA: return S_SoundA;
+        case Cue::GradeB: return S_SoundB;
+        case Cue::GradeC: return S_SoundC;
+        case Cue::GradeD: return S_SoundD;
+        case Cue::Missed: return S_SoundMissed;
+        case Cue::Finish: return S_SoundFinish;
+    }
+    return false;
+}
+
+float CueVolume(Cue cue) {
+    switch (cue) {
+        case Cue::Takeoff: return S_VolumeTakeoff;
+        case Cue::GradeS: return S_VolumeS;
+        case Cue::GradeA: return S_VolumeA;
+        case Cue::GradeB: return S_VolumeB;
+        case Cue::GradeC: return S_VolumeC;
+        case Cue::GradeD: return S_VolumeD;
+        case Cue::Missed: return S_VolumeMissed;
+        case Cue::Finish: return S_VolumeFinish;
+    }
+    return 0.0f;
+}
+
+// The landing cue for a grade; S+ shares the S sounds. Unrated has none.
+bool GradeCue(Grade grade, Cue &out cue) {
+    switch (grade) {
+        case Grade::SPlus:
+        case Grade::S: cue = Cue::GradeS; return true;
+        case Grade::A: cue = Cue::GradeA; return true;
+        case Grade::B: cue = Cue::GradeB; return true;
+        case Grade::C: cue = Cue::GradeC; return true;
+        case Grade::D: cue = Cue::GradeD; return true;
+        case Grade::Missed: cue = Cue::Missed; return true;
+    }
+    return false;
+}
+
+string SoundsRoot() {
+    return IO::FromStorageFolder("LocalSounds");
+}
+
+string CueFolder(Cue cue) {
+    return SoundsRoot() + "/" + g_cueFolders[uint(cue)];
+}
+
+class SoundCue {
+    array<string> files;
+    array<Audio::Sample@> samples;
+    int lastPick = -1;
+
+    void Load(const string &in folder) {
+        if (!IO::FolderExists(folder)) return;
+        array<string>@ paths = IO::IndexFolder(folder, false);
+        array<string> names;
+        for (uint i = 0; i < paths.Length; i++) {
+            string name = Path::GetFileName(paths[i]);
+            string extension = Path::GetExtension(name).ToLower();
+            if (extension == ".wav" || extension == ".ogg" || extension == ".mp3")
+                names.InsertLast(name);
+        }
+        names.SortAsc();
+        for (uint i = 0; i < names.Length; i++) {
+            Audio::Sample@ sample = Audio::LoadSampleFromAbsolutePath(folder + "/" + names[i], false);
+            if (sample is null) {
+                warn("Could not load sound " + folder + "/" + names[i]);
+                continue;
+            }
+            files.InsertLast(names[i]);
+            samples.InsertLast(sample);
+        }
+    }
+
+    // A random file, never the same one twice in a row when there is a choice.
+    Audio::Sample@ Pick() {
+        int count = int(samples.Length);
+        if (count == 0) return null;
+        int pick = Math::Rand(0, count);
+        if (count > 1 && pick == lastPick)
+            pick = (pick + 1 + Math::Rand(0, count - 1)) % count;
+        lastPick = pick;
+        return samples[uint(pick)];
+    }
+}
+
+array<SoundCue@> g_soundCues;
+
+void LoadSoundCues() {
+    g_soundCues.RemoveRange(0, g_soundCues.Length);
+    for (uint i = 0; i < g_cueFolders.Length; i++) {
+        SoundCue@ cue = SoundCue();
+        cue.Load(CueFolder(Cue(int(i))));
+        g_soundCues.InsertLast(cue);
+    }
+}
+
+// Drawn above the sound settings on the Sounds tab.
+void RenderSoundFolders() {
+    UI::TextWrapped("Put WAV, OGG or MP3 files into the folders inside LocalSounds, one folder per cue, then click Reload files.");
+    if (UI::Button("Open LocalSounds folder")) {
+        for (uint i = 0; i < g_cueFolders.Length; i++) {
+            string folder = CueFolder(Cue(int(i)));
+            if (!IO::FolderExists(folder)) IO::CreateFolder(folder, true);
+        }
+        OpenExplorerPath(SoundsRoot());
+    }
+    if (g_audio is null) return;
+    UI::SameLine();
+    if (UI::Button("Reload files")) g_audio.Load();
+    UI::SameLine();
+    if (UI::Button("Stop preview")) g_audio.StopPreview();
+    if (UI::BeginTable("cues", 3, UI::TableFlags::SizingStretchProp)) {
+        for (uint i = 0; i < g_soundCues.Length; i++) {
+            UI::PushID(int(i));
+            UI::TableNextRow();
+            UI::TableNextColumn();
+            UI::Text(g_cueLabels[i]);
+            UI::TableNextColumn();
+            uint count = g_soundCues[i].files.Length;
+            UI::TextDisabled(g_cueFolders[i] + "/  " + count + (count == 1 ? " file" : " files"));
+            UI::TableNextColumn();
+            if (UI::Button("Play")) g_audio.PreviewCue(Cue(int(i)));
+            UI::PopID();
+        }
+        UI::EndTable();
+    }
+    if (g_audio.previewStatus.Length > 0) UI::Text(g_audio.previewStatus);
+    UI::Separator();
+}

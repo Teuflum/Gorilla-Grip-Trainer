@@ -1,0 +1,17 @@
+# Local user media and runtime data
+LocalSounds/
+LocalImages/
+history.json
+history.json.bak
+
+# Game files
+*.Replay.Gbx
+*.Ghost.gbx
+*.Map.Gbx
+*.exe
+*.csv
+
+# Build output
+plugin/*.zip
+__pycache__/
+.pytest_cache/
